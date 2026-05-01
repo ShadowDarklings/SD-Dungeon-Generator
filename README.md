@@ -1,11 +1,14 @@
 # SD Dungeon Generator
 
-Team: ShadowDarklings. 
-Members: 
---Megan (server-side), 
---Charles (client-side), 
---Mario (database and security). 
-Project: SD Dungeon Generator is a web app for creating and exploring Shadowdark-inspired procedural dungeons. 
+**Team:** ShadowDarklings
+
+**Members:**
+
+  - **Megan** (server-side)
+  - **Charles** (client-side)
+  - **Mario** (database and security)
+
+Project: SD Dungeon Generator is a web app for creating and exploring Shadowdark-inspired procedural dungeons.
 
 A user selects a dungeon level, generates a gridded dungeon map, begins in an entrance room under fog of war, and reveals rooms, doors, monsters, treasure, and traps as they explore. The app is for Shadowdark RPG players who want a solo dungeon-delving tool or a quick dungeon generator when they do not have a Dungeon Master available.
 
