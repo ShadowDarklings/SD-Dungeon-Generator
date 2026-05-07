@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Home — SD Dungeon Generator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+
+        <div class="text-center my-4">
+            <h1 class="display-5 mb-3">SD Dungeon Generator</h1>
+            <p class="lead text-muted">
+                Flask + Postgres + SQLModel + Bootstrap, with the dungeon prototype served at <code>/site/</code>.
+            </p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Dungeon Prototype</h5>
+                        <p class="card-text">
+                            Explore the committed Shadowdark-inspired dungeon frontend through the skeleton's
+                            static-site route.
+                        </p>
+                        <a href="{{ url_for('site_home') }}" class="btn btn-primary btn-lg">
+                            Open Dungeon
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Project Design Spec</h5>
+                        <p class="card-text">
+                            Review the shared About page that describes our endpoints, data source, and schema.
+                        </p>
+                        <a href="{{ url_for('about') }}" class="btn btn-outline-primary">
+                            About page
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if user %}
+        <div class="alert alert-success mt-4 mb-0">
+            You're logged in as <strong>{{ user.username }}</strong>. The auth flow uses
+            real Flask sessions backed by a Postgres <code>users</code> table.
+        </div>
+        {% else %}
+        <div class="alert alert-light border mt-4 mb-0 text-muted">
+            Not logged in. Use the navbar to <a href="{{ url_for('login') }}">log in</a>
+            or <a href="{{ url_for('register') }}">register</a> — the auth flow uses real
+            Flask sessions backed by a Postgres <code>users</code> table.
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

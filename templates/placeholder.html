@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Set up your skeleton{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title h3 mb-3">Almost there.</h1>
+                    <p class="lead mb-3">
+                        This page should be showing your S3 site, but the
+                        <code>S3_content/</code> folder is empty.
+                    </p>
+                    <p>Run this from your repo root to populate it:</p>
+                    <pre class="bg-light p-3 rounded"><code>aws s3 sync s3://&lt;your-bucket&gt;/ S3_content/</code></pre>
+                    <p class="mb-0">
+                        Then refresh this page. Your <code>index.html</code> from S3 will load here.
+                    </p>
+                    <hr>
+                    <p class="small text-muted mb-0">
+                        Login, register, and about pages are Flask-rendered and work even without the sync.
+                        <a href="{{ url_for('home') }}">Back to home.</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

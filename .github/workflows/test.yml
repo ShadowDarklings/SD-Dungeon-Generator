@@ -1,0 +1,43 @@
+# GitHub Actions workflow — runs the pytest suite for the skeleton.
+#
+# WEEK 5 NOTE: This workflow is currently set to manual-trigger only
+# (workflow_dispatch). It will NOT fire automatically on PRs or pushes.
+# That's intentional — Week 5 focuses on getting the skeleton running
+# and understanding the architecture; CI gating is covered in Week 6.
+#
+# To run the tests yourself this week, run `pytest` locally:
+#     docker compose exec app pytest -v
+#
+# WEEK 6: We'll re-enable the automatic triggers and configure branch
+# protection so CI properly gates merges. The change is one line — swap
+# `workflow_dispatch:` below for the original triggers (commented out).
+
+name: Tests
+
+"on":
+  workflow_dispatch:    # manual trigger only — Week 5
+  # Week 6 will switch to:
+  # pull_request:
+  #   branches: [main, master]
+  # push:
+  #   branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -v

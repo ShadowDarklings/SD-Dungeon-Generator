@@ -42,19 +42,26 @@ The prototype now includes:
 
 ## Run Locally
 
-Run any simple static server from the `SD-Dungeon-Generator` directory. A server
-is recommended because browser module loading and JSON fetches are more reliable
-over `http://` than direct `file://` URLs.
+Run the Week 5 walking skeleton with Docker Compose from the repo root:
 
-Example (Python):
-
-```bash
-python -m http.server 8000
+```shell
+docker compose up -d
 ```
 
-Then browse to `http://localhost:8000`.
+Then browse to `http://localhost:5000`.
+
+The Flask app provides the home page, auth flow, About page, and `/site/` route.
+The dungeon frontend is committed in `S3_content/` and is served at
+`http://localhost:5000/site/`.
+
+Run the local tests with:
+
+```shell
+docker compose exec app pytest -v
+```
 
 ## Additional Docs
 
 - State schema: `docs/STATE_SCHEMA.md`
 - AWS deployment notes: `DEPLOY_AWS.md`
+- Week 5 group setup: `WEEK5_GROUP_SETUP.md`

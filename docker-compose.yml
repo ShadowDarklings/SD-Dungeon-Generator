@@ -1,0 +1,49 @@
+# Course 506 Week 5 Skeleton — two-container app.
+#
+# Run with: docker compose up
+# The Flask app will be available at http://localhost:5000
+#
+# The two services:
+#   app — Flask, talks to the database via the hostname "db"
+#   db  — Postgres, holds the users table
+#
+# In production you'd run Postgres on a managed service (RDS, etc.) instead of
+# in a container, but Compose mirrors that architecture closely.
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://app:app@db:5432/app
+      SECRET_KEY: dev-secret-not-for-production
+    env_file:
+      # Optional override file; gitignored. The defaults above work
+      # for development. See .env.example for the template.
+      - path: .env
+        required: false
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Mount the source so changes are picked up without rebuilding.
+      # Flask's debug mode auto-reloads on file changes.
+      - .:/app
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+volumes:
+  pgdata:

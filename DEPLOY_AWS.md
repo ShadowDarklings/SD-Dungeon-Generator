@@ -1,47 +1,63 @@
-# AWS Deployment (Static MVP)
+# AWS Deployment (Week 5 EC2 Skeleton)
 
-This project is static HTML/CSS/JS and can be deployed with either:
+This project now runs as a Week 5 Flask + Postgres walking skeleton. The
+recommended class deployment path is Docker Compose on each teammate's EC2
+instance.
 
-- AWS Amplify Hosting (simplest CI/CD), or
-- S3 + CloudFront (manual but very transparent).
+The dungeon frontend is committed in `S3_content/` and Flask serves it at
+`/site/`.
 
-## Option 1: Amplify Hosting
+## EC2 Docker Compose Path
 
-1. Push repository to GitHub.
-2. In AWS Console, open Amplify -> Host web app.
-3. Connect GitHub repo and choose branch.
-4. Build settings are minimal for static hosting:
+1. SSH into EC2.
+2. Install Docker and Docker Compose:
 
-```yaml
-version: 1
-frontend:
-  phases:
-    build:
-      commands:
-        - echo "Static site, no build step required"
-  artifacts:
-    baseDirectory: SD-Dungeon-Generator
-    files:
-      - '**/*'
-  cache:
-    paths: []
+```shell
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker $USER
 ```
 
-5. Deploy and verify that `index.html` loads and map interaction works.
+3. Log out and SSH back in.
+4. Clone the repo:
 
-## Option 2: S3 + CloudFront
+```shell
+git clone https://github.com/ShadowDarklings/SD-Dungeon-Generator.git
+cd SD-Dungeon-Generator
+```
 
-1. Create S3 bucket for website content.
-2. Upload entire `SD-Dungeon-Generator` directory contents.
-3. Enable static website hosting or use CloudFront origin access.
-4. Create CloudFront distribution targeting the bucket.
-5. Set default root object to `index.html`.
-6. Invalidate cache after updates.
+5. Start the stack:
 
-## Recommended MVP Path
+```shell
+docker compose up -d
+docker compose ps
+```
 
-- Start client-only (generator, fog, and loot in browser memory).
-- Add optional persistence later with API Gateway + Lambda + DynamoDB:
-  - POST save game state
-  - GET saved run by id/user
-  - Store serialized dungeon state with set-array conversion
+6. From your laptop, open a tunnel:
+
+```shell
+ssh -i ~/.ssh/your-key.pem -L 5000:localhost:5000 ubuntu@<EC2-IP>
+```
+
+7. Visit `http://localhost:5000`.
+
+## Verification
+
+Run the test suite:
+
+```shell
+docker compose exec app pytest -v
+```
+
+Verify auth:
+
+```shell
+docker compose exec db psql -U app -d app -c "SELECT id, username, created_at FROM users;"
+```
+
+## Static AWS Option
+
+The standalone dungeon frontend can still be hosted on S3 or CloudFront by
+uploading the contents of `S3_content/`. The Week 5 grading skeleton, however,
+should be run through Flask on EC2 so login, Postgres, `/about`, and `/site/`
+are all available in one app.

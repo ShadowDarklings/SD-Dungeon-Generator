@@ -1,0 +1,21 @@
+/* Course 506 Week 5 Skeleton — minimal custom styles.
+   Bootstrap handles the bulk of layout and components. Add team-specific
+   styling here as your project grows. */
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(circle at top left, rgba(13, 110, 253, 0.12), transparent 32rem),
+        #f8f9fa;
+}
+
+main {
+    flex: 1;
+}
+
+.card {
+    border: 0;
+    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08);
+}

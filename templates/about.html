@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="p-4 p-md-5 mb-4 rounded-3 bg-light border">
+            <h1 class="display-6">SD Dungeon Generator</h1>
+            <p class="lead mb-0">
+                SD Dungeon Generator creates and reveals Shadowdark-inspired procedural dungeons for solo players
+                and DM-less tabletop sessions. It matters because it gives players a fast, browser-based way to
+                explore rooms, doors, monsters, traps, and treasure without needing a prepared dungeon master.
+            </p>
+        </div>
+
+        <section class="mb-4">
+            <h2 class="h4">1. Project name and pitch</h2>
+            <p>
+                <strong>SD Dungeon Generator</strong> is a web app for generating square-grid fantasy dungeons,
+                placing the player in an entrance room, and revealing threats and rewards through fog-of-war play.
+                The app serves Shadowdark RPG players who want a solo dungeon-delving tool or a quick generator
+                for DM-less play.
+            </p>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">2. Team members and roles</h2>
+            <ul>
+                <li><strong>Megan</strong> - Server-side</li>
+                <li><strong>Charles</strong> - Client-side</li>
+                <li><strong>Mario</strong> - Db-and-security</li>
+            </ul>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">3. Project type</h2>
+            <p>
+                Custom variant: procedural game/tool web app. The project combines an interactive browser game
+                interface with generated map data, user authentication, saved dungeon runs, and AWS-hosted static
+                content.
+            </p>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">4. Endpoints planned</h2>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <tbody>
+                        <tr><td><code>GET /</code></td><td>Show the Flask home page and navigation.</td></tr>
+                        <tr><td><code>GET /site/</code></td><td>Serve the dungeon frontend from committed S3-style content.</td></tr>
+                        <tr><td><code>GET /about</code></td><td>Show this shared project design spec.</td></tr>
+                        <tr><td><code>GET /register</code></td><td>Show the account registration form.</td></tr>
+                        <tr><td><code>POST /register</code></td><td>Create a user with a hashed password and start a session.</td></tr>
+                        <tr><td><code>GET /login</code></td><td>Show the login form.</td></tr>
+                        <tr><td><code>POST /login</code></td><td>Verify credentials and start a Flask session.</td></tr>
+                        <tr><td><code>POST /logout</code></td><td>Clear the current session and return home.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">5. Web-based data source</h2>
+            <p>
+                <strong>API/platform:</strong> AWS S3 static website hosting and CloudFront, with future API Gateway
+                and Lambda endpoints for saved dungeon runs.
+            </p>
+            <p>
+                <strong>Docs:</strong>
+                <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html">
+                    Amazon S3 static website hosting
+                </a>
+                and
+                <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html">
+                    Amazon API Gateway
+                </a>.
+            </p>
+            <p>
+                <strong>Specific endpoint:</strong>
+                <code>http://shadowdarklings-dungeon-generator.s3-website-us-west-2.amazonaws.com/index.html</code>
+                for the team static site once the shared bucket is confirmed.
+            </p>
+            <p>
+                <strong>Free-tier notes:</strong> AWS free tier commonly includes limited S3 storage/requests and
+                API Gateway/Lambda monthly request allowances for new accounts; the team will verify current limits
+                in the AWS console before relying on them for production traffic.
+            </p>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">6. Schema sketch</h2>
+            <pre class="bg-dark text-light p-3 rounded"><code>Users         (id, username, password_hash, created_at)
+SavedDungeons (id, user_id, seed, level, state_json, created_at, updated_at)
+Rooms         (id, saved_dungeon_id, room_key, x, y, width, height, discovered, explored)
+Entities      (id, saved_dungeon_id, kind, name, x, y, status, value)
+LootEntries   (id, saved_dungeon_id, entity_id, name, value, collected_at)</code></pre>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">7. Link to your team's S3 bucket</h2>
+            <p>
+                <a href="http://shadowdarklings-dungeon-generator.s3-website-us-west-2.amazonaws.com/">
+                    ShadowDarklings S3 static site
+                </a>
+                - inferred team bucket URL; replace with the exact class bucket URL if the AWS region or bucket
+                name differs.
+            </p>
+        </section>
+
+        <section class="mb-4">
+            <h2 class="h4">8. Link to your team's GitHub org</h2>
+            <p>
+                <a href="https://github.com/ShadowDarklings">https://github.com/ShadowDarklings</a>
+            </p>
+        </section>
+    </div>
+</div>
+{% endblock %}
