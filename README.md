@@ -24,3 +24,37 @@ Our backup is a static client-only version that uses local JSON data and browser
 Why this project? 
 We are excited because it combines game design, procedural generation, data modeling, frontend interaction, backend deployment, and security decisions in one project. 
 It also has real audience potential: tabletop RPG players don't currently have a website that can act as an automated DM. This fills that niche and could grow beyond the class into a larger public-funded dungeon generator for solo or DM-less TTRPG play.
+
+## Current MVP Prototype
+
+The prototype now includes:
+- Deterministic procedural room/hall generation on a 46x31 tile grid (52px tiles).
+- Layered canvas renderer for topology, tokens, and fog-of-war.
+- Line-of-sight fog model with `visibleNow` and `exploredEver` memory.
+- Walls and closed/locked doors block light.
+- Interactive map tokens: defeat monsters, collect treasure, reveal traps.
+- Door states affect play: open doors pass movement/light, closed and locked doors block them.
+- Monster names and basic stats load from the existing level JSON tables.
+- Hidden traps load from `traps.json`, can be triggered by tile movement, doors, or treasure, and reveal their stats when found or triggered.
+- Search rolls support a one-digit modifier and show the total with a hover tooltip for the roll breakdown.
+- Loot log with running total and drop-back-to-map behavior.
+- Debug overlay for room ids, hall ids, door states, and torch radius.
+
+## Run Locally
+
+Run any simple static server from the `SD-Dungeon-Generator` directory. A server
+is recommended because browser module loading and JSON fetches are more reliable
+over `http://` than direct `file://` URLs.
+
+Example (Python):
+
+```bash
+python -m http.server 8000
+```
+
+Then browse to `http://localhost:8000`.
+
+## Additional Docs
+
+- State schema: `docs/STATE_SCHEMA.md`
+- AWS deployment notes: `DEPLOY_AWS.md`
