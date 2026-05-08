@@ -54,17 +54,34 @@ body {
 }
 
 .map-panel {
-  overflow: auto;
+  /* Explicit height so the view box is smaller than the map in BOTH axes when zoomed to fit
+     (width-limited minScale often leaves vertical slack; without a fixed view height the panel
+     can size oddly and collapse Y pan range). */
+  align-self: start;
+  width: 100%;
+  height: clamp(260px, 58vh, calc(100vh - 32px));
+  max-height: calc(100vh - 32px);
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
   border: 1px solid #3f4450;
   border-radius: 8px;
   background: #111;
   padding: 8px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.map-panel.is-dragging {
+  cursor: grabbing;
 }
 
 .map-host {
   position: relative;
   width: 2392px;
   height: 1612px;
+  transform-origin: 0 0;
 }
 
 .layer {
@@ -80,16 +97,21 @@ body {
 }
 
 #loot-list {
-  padding-left: 18px;
+  list-style: none;
+  padding-left: 0;
 }
 
 .loot-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
   margin: 6px 0;
 }
 
 .loot-item button {
-  width: auto;
-  margin-left: 8px;
+  width: 72px;
+  margin: 0;
   padding: 3px 8px;
 }
 
@@ -106,15 +128,21 @@ body {
 
 .search-controls {
   display: grid;
-  grid-template-columns: 36px 1fr 36px 1fr;
+  grid-template-columns: 4.5rem 72px;
   gap: 6px;
   align-items: center;
+  justify-content: end;
 }
 
 .search-controls input {
-  min-width: 0;
+  width: 4.5rem;
   padding: 6px;
   text-align: center;
+}
+
+.search-controls button {
+  width: 72px;
+  margin: 0;
 }
 
 .monster-panel {
@@ -175,6 +203,22 @@ body {
 .hint {
   color: #b4bac8;
   font-size: 0.9rem;
+}
+
+.site-links {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.site-links a {
+  color: #8fb8ff;
+  text-decoration: none;
+}
+
+.site-links a:hover,
+.site-links a:focus {
+  text-decoration: underline;
 }
 
 @media (max-width: 1200px) {

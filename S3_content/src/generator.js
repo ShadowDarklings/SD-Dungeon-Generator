@@ -1,4 +1,4 @@
-import { ENTITY_TYPES, LOOT_NAMES, TILE_TYPES } from "./constants.js";
+import { ENTITY_TYPES, FEATURE_NAMES, LOOT_NAMES, TILE_TYPES } from "./constants.js";
 import { SeededRng } from "./rng.js";
 import {
   createDoorEntity,
@@ -262,12 +262,51 @@ function validateTileConnectivity(state) {
   });
 }
 
-function pickRandomFloorTileInRoom(state, rng, room) {
+function isActiveOccupant(entity) {
+  if (entity.type === ENTITY_TYPES.MONSTER && entity.defeated) {
+    return false;
+  }
+  if (entity.type === ENTITY_TYPES.TREASURE && entity.collected) {
+    return false;
+  }
+  if (entity.type === ENTITY_TYPES.TRAP && (entity.disarmed || entity.triggered)) {
+    return false;
+  }
+  return true;
+}
+
+function occupiesFloor(entity) {
+  if (!isActiveOccupant(entity)) {
+    return false;
+  }
+  if (entity.subtype === "door") {
+    return true;
+  }
+  if (entity.type === ENTITY_TYPES.TRAP && entity.targetType !== "tile") {
+    return false;
+  }
+  return [
+    ENTITY_TYPES.MONSTER,
+    ENTITY_TYPES.TREASURE,
+    ENTITY_TYPES.FEATURE,
+    ENTITY_TYPES.TRAP
+  ].includes(entity.type);
+}
+
+function isFloorOccupied(state, x, y) {
+  return state.entities.some((entity) => entity.x === x && entity.y === y && occupiesFloor(entity));
+}
+
+function pickRandomFloorTileInRoom(state, rng, room, options = {}) {
   const candidates = [];
   for (let y = room.y; y < room.y + room.height; y += 1) {
     for (let x = room.x; x < room.x + room.width; x += 1) {
       const tile = getTile(state, x, y);
-      if (tile?.type === TILE_TYPES.FLOOR && tile.roomId === room.id) {
+      if (
+        tile?.type === TILE_TYPES.FLOOR &&
+        tile.roomId === room.id &&
+        (options.allowOccupied || !isFloorOccupied(state, x, y))
+      ) {
         candidates.push(tile);
       }
     }
@@ -276,12 +315,12 @@ function pickRandomFloorTileInRoom(state, rng, room) {
 }
 
 function spawnEntity(state, rng, room, idPrefix, type, subtype, visible = true, extra = {}) {
-  const spawnTile = pickRandomFloorTileInRoom(state, rng, room);
+  const spawnTile = pickRandomFloorTileInRoom(state, rng, room, extra.placement || {});
   if (!spawnTile) {
     return null;
   }
-  state.entities.push({
-    id: `${idPrefix}-${state.entities.length}`,
+  const entity = {
+    id: extra.id || `${idPrefix}-${state.entities.length}`,
     type,
     subtype,
     x: spawnTile.x,
@@ -289,16 +328,25 @@ function spawnEntity(state, rng, room, idPrefix, type, subtype, visible = true, 
     roomId: room.id,
     visible,
     ...extra
-  });
+  };
+  delete entity.placement;
+  state.entities.push(entity);
+  return entity;
 }
 
 function createTrapDetails(rng, level, trapTable = []) {
-  const trap = rng.pick(trapTable) || {};
+  const validTraps = trapTable.filter((trap) => trap?.name && trap?.trigger && trap?.effect);
+  const trap = rng.pick(validTraps);
+  if (!trap) {
+    return null;
+  }
+  const dc = rng.nextInt(8, 12) + Math.max(0, level - 1);
   return {
-    name: trap.name || "Hidden trap",
-    trigger: trap.trigger || "Unknown trigger",
-    effect: trap.effect || "Unknown effect",
-    dc: rng.nextInt(8, 12) + Math.max(0, level - 1),
+    name: trap.name,
+    trigger: trap.trigger,
+    effect: trap.effect,
+    dc,
+    searchDc: dc,
     revealed: false,
     disarmed: false,
     triggered: false
@@ -306,12 +354,33 @@ function createTrapDetails(rng, level, trapTable = []) {
 }
 
 function spawnTrap(state, rng, room, trapTable, targetType, targetEntityId = null) {
+  const details = createTrapDetails(rng, state.level, trapTable);
+  if (!details) {
+    return null;
+  }
   const target = targetEntityId
     ? state.entities.find((entity) => entity.id === targetEntityId)
     : null;
-  spawnEntity(state, rng, room, "trap", ENTITY_TYPES.TRAP, "hidden-trap", false, {
-    ...createTrapDetails(rng, state.level, trapTable),
-    ...(target ? { x: target.x, y: target.y } : {}),
+  if (targetEntityId && !target) {
+    return null;
+  }
+  if (target) {
+    state.entities.push({
+      id: `trap-${state.entities.length}`,
+      type: ENTITY_TYPES.TRAP,
+      subtype: "target-trap",
+      x: target.x,
+      y: target.y,
+      roomId: room.id,
+      visible: false,
+      ...details,
+      targetType,
+      targetEntityId
+    });
+    return state.entities[state.entities.length - 1];
+  }
+  return spawnEntity(state, rng, room, "trap", ENTITY_TYPES.TRAP, "hidden-trap", false, {
+    ...details,
     targetType,
     targetEntityId
   });
@@ -320,7 +389,24 @@ function spawnTrap(state, rng, room, trapTable, targetType, targetEntityId = nul
 function createLootDetails(rng) {
   return {
     name: rng.pick(LOOT_NAMES),
-    value: rng.nextInt(5, 100)
+    value: rng.nextInt(5, 100),
+    searchDc: rng.nextInt(8, 14)
+  };
+}
+
+function createMonsterDetails(rng, monsterTable = []) {
+  const validMonsters = monsterTable.filter((monster) => monster?.["Monster Name"]);
+  const monster = rng.pick(validMonsters);
+  if (!monster) {
+    return null;
+  }
+  return {
+    name: monster["Monster Name"],
+    ac: monster["**AC**"] || null,
+    hp: monster["**HP**"] || null,
+    attack: monster["**ATK**"] || null,
+    abilities: monster.abilities || {},
+    defeated: false
   };
 }
 
@@ -330,26 +416,23 @@ function populateRoomEntities(state, rng, monsterTable = [], trapTable = []) {
       continue;
     }
     if (rng.nextFloat() < 0.45) {
-      const monster = rng.pick(monsterTable) || {};
-      spawnEntity(state, rng, room, "monster", ENTITY_TYPES.MONSTER, "foe", true, {
-        name: monster["Monster Name"] || "Wandering Foe",
-        ac: monster["**AC**"] || null,
-        hp: monster["**HP**"] || null,
-        attack: monster["**ATK**"] || null,
-        abilities: monster.abilities || {},
-        defeated: false
-      });
+      const monster = createMonsterDetails(rng, monsterTable);
+      if (monster) {
+        spawnEntity(state, rng, room, "monster", ENTITY_TYPES.MONSTER, "foe", true, monster);
+      }
     }
     if (rng.nextFloat() < 0.4) {
       const loot = createLootDetails(rng);
       const treasureId = `treasure-${state.entities.length}`;
-      spawnEntity(state, rng, room, "treasure", ENTITY_TYPES.TREASURE, "coin-cache", true, {
+      const treasure = spawnEntity(state, rng, room, "treasure", ENTITY_TYPES.TREASURE, "coin-cache", false, {
         id: treasureId,
         name: loot.name,
         value: loot.value,
+        searchDc: loot.searchDc,
+        revealed: false,
         collected: false
       });
-      if (rng.nextFloat() < 0.25) {
+      if (treasure && rng.nextFloat() < 0.25) {
         spawnTrap(state, rng, room, trapTable, "treasure", treasureId);
       }
     }
@@ -357,7 +440,9 @@ function populateRoomEntities(state, rng, monsterTable = [], trapTable = []) {
       spawnTrap(state, rng, room, trapTable, "tile");
     }
     if (rng.nextFloat() < 0.25) {
-      spawnEntity(state, rng, room, "feature", ENTITY_TYPES.FEATURE, "table", true, {});
+      spawnEntity(state, rng, room, "feature", ENTITY_TYPES.FEATURE, "room-feature", true, {
+        name: rng.pick(FEATURE_NAMES)
+      });
     }
   }
 

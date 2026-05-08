@@ -52,8 +52,21 @@ function revealAndTriggerTrap(trap) {
   trap.triggered = true;
   return {
     trap,
-    message: `trapped ${describeTrapSource(trap)}! ${trap.name}. Effect: ${trap.effect}.`
+    message: `trapped ${describeTrapSource(trap)}! ${trap.name}. Trigger: ${trap.trigger}. Effect: ${trap.effect}.`
   };
+}
+
+function addFeature(state, x, y, roomId, name) {
+  state.entities.push({
+    id: `feature-${state.entities.length}-${Date.now()}`,
+    type: ENTITY_TYPES.FEATURE,
+    subtype: "room-feature",
+    name,
+    x,
+    y,
+    roomId,
+    visible: true
+  });
 }
 
 function isWalkable(state, tile) {
@@ -158,7 +171,8 @@ export function clickEntity(state, x, y) {
 
   if (entity.type === ENTITY_TYPES.MONSTER) {
     entity.defeated = true;
-    return { message: "Monster defeated and removed from map." };
+    addFeature(state, entity.x, entity.y, entity.roomId, `dead ${entity.name}`);
+    return { message: `Monster defeated: dead ${entity.name}.` };
   }
 
   if (entity.type === ENTITY_TYPES.TREASURE) {
@@ -171,7 +185,7 @@ export function clickEntity(state, x, y) {
     return { message: "Trap manually revealed." };
   }
 
-  return { message: "Feature inspected." };
+  return { message: `Feature: ${entity.name || "unknown feature"}.` };
 }
 
 export function getRoomLoot(state) {
@@ -214,7 +228,7 @@ export function collectLoot(state, lootId) {
   state.lootLog.totalValue += entity.value;
   return {
     collected: 1,
-    message: `Looted: ${entity.name || "loot"} (${entity.value} gp).`
+    message: `Got: ${entity.name || "treasure"} (${entity.value} gp).`
   };
 }
 
@@ -235,11 +249,11 @@ export function collectRoomLoot(state) {
   }
 
   if (!collected) {
-    return { collected: 0, message: "No loot in this room." };
+    return { collected: 0, message: "No revealed treasure in this room." };
   }
   return {
     collected,
-    message: `Looted ${collected} item${collected === 1 ? "" : "s"} (${totalValue} gp total).`
+    message: `Got ${collected} item${collected === 1 ? "" : "s"} (${totalValue} gp total).`
   };
 }
 
@@ -263,7 +277,7 @@ export function dropLootAtPlayer(state, lootId) {
     value: entry.value,
     collected: false
   });
-  return { message: `Dropped ${entry.name} (${entry.value} gp).` };
+  return { message: `Left ${entry.name} (${entry.value} gp).` };
 }
 
 export function toggleTorch(state) {
@@ -283,7 +297,7 @@ export function getRoomTraps(state) {
 
 function rollCheck(modifier) {
   const roll = Math.floor(Math.random() * 20) + 1;
-  const normalizedModifier = Math.max(-9, Math.min(9, Number(modifier) || 0));
+  const normalizedModifier = Math.max(-99, Math.min(99, Number(modifier) || 0));
   return {
     roll,
     modifier: normalizedModifier,
@@ -291,30 +305,40 @@ function rollCheck(modifier) {
   };
 }
 
+function isSearchCandidate(entity, roomId) {
+  if (entity.roomId !== roomId) {
+    return false;
+  }
+  if (entity.type === ENTITY_TYPES.TRAP) {
+    return !entity.revealed && !entity.triggered && !entity.disarmed;
+  }
+  if (entity.type === ENTITY_TYPES.TREASURE) {
+    return entity.visible === false && !entity.collected;
+  }
+  return false;
+}
+
 export function searchForTraps(state, modifier) {
   const check = rollCheck(modifier);
-  const candidates = state.entities.filter((entity) => {
-    return (
-      entity.type === ENTITY_TYPES.TRAP &&
-      entity.roomId === state.player.roomId &&
-      !entity.revealed &&
-      !entity.triggered &&
-      !entity.disarmed
-    );
-  });
+  const candidates = state.entities.filter((entity) => isSearchCandidate(entity, state.player.roomId));
 
-  const found = candidates.filter((trap) => check.total >= trap.dc);
-  for (const trap of found) {
-    trap.revealed = true;
-    trap.visible = true;
+  const found = candidates.filter((entity) => check.total >= (entity.searchDc ?? entity.dc));
+  for (const entity of found) {
+    entity.revealed = true;
+    entity.visible = true;
   }
 
   return {
     ...check,
     found,
     message: found.length
-      ? `revealed: ${found.map((trap) => `${trap.name}. Effect: ${trap.effect}`).join("; ")}`
-      : `Search ${check.total}: no traps found.`
+      ? `Search ${check.total} revealed: ${found.map((entity) => {
+          if (entity.type === ENTITY_TYPES.TRAP) {
+            return `${entity.name} (trigger: ${entity.trigger}; effect: ${entity.effect})`;
+          }
+          return `${entity.name} (${entity.value} gp)`;
+        }).join("; ")}`
+      : `Search ${check.total}: no hidden traps or treasure found.`
   };
 }
 
@@ -331,13 +355,16 @@ export function disarmTrap(state, trapId, modifier) {
 
   const check = rollCheck(modifier);
   if (check.total >= trap.dc) {
-    trap.disarmed = true;
-    trap.visible = true;
+    const trapIndex = state.entities.findIndex((entity) => entity.id === trap.id);
+    if (trapIndex !== -1) {
+      state.entities.splice(trapIndex, 1);
+    }
+    addFeature(state, trap.x, trap.y, trap.roomId, `broken ${trap.name}`);
     return {
       ...check,
       disarmed: true,
       triggered: false,
-      message: `disarmed: ${trap.name}.`
+      message: `disarmed: ${trap.name}. A broken ${trap.name} remains.`
     };
   }
 
@@ -355,6 +382,6 @@ export function disarmTrap(state, trapId, modifier) {
     ...check,
     disarmed: false,
     triggered: true,
-    message: `trap is triggered. you take ${trap.effect} damage!`
+    message: result.message
   };
 }

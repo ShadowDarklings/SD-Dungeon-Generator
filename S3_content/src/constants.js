@@ -24,6 +24,9 @@ export const DOOR_STATES = Object.freeze({
 
 export const DEFAULT_LIGHT_RADIUS = 6;
 
+export const MIN_SEARCH_MODIFIER = -99;
+export const MAX_SEARCH_MODIFIER = 99;
+
 export const LOOT_NAMES = Object.freeze([
   "crown",
   "fiddle",
@@ -37,4 +40,24 @@ export const LOOT_NAMES = Object.freeze([
   "robes",
   "fabric",
   "fancy boots"
+]);
+
+export const FEATURE_NAMES = Object.freeze([
+  "garbage",
+  "stained mattress",
+  "moldy food",
+  "ripped blanket",
+  "broken chair",
+  "empty barrel",
+  "wood scraps",
+  "metal filing",
+  "boulder",
+  "gravel",
+  "mucous",
+  "blood",
+  "hair pile",
+  "rotten meat",
+  "stale bread",
+  "dead bird",
+  "bones"
 ]);

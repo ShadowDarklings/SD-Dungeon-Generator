@@ -74,13 +74,13 @@ function drawEntity(entity, ctx) {
 
 function drawObjects(state, ctx) {
   for (const entity of state.entities) {
+    if (entity.visible === false) {
+      continue;
+    }
     if (entity.type === ENTITY_TYPES.MONSTER && entity.defeated) {
       continue;
     }
     if (entity.type === ENTITY_TYPES.TREASURE && entity.collected) {
-      continue;
-    }
-    if (entity.type === ENTITY_TYPES.TRAP && !entity.visible) {
       continue;
     }
     drawEntity(entity, ctx);
