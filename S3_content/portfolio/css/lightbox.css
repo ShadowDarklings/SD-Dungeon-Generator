@@ -1,0 +1,50 @@
+/* CS 506 · Week 3 Starter · Lightbox styling
+ * Backdrop, centered image, fade-in transition.
+ * Students may restyle or replace to match their own page.
+ */
+
+.gallery__thumb {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.gallery__thumb:hover {
+  transform: scale(1.03);
+}
+
+/* ── Lightbox overlay ──────────────────────────────────────────────── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 2rem;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.lightbox.open {
+  display: flex;
+  opacity: 1;
+}
+
+.lightbox__img {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox__caption {
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.95rem;
+  margin-top: 1rem;
+  text-align: center;
+  max-width: 80vw;
+}

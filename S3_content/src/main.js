@@ -43,14 +43,8 @@ let viewport = {
   minScale: 1,
   maxScale: 1.5,
   width: 0,
-  height: 0,
-  panX: 0,
-  panY: 0
+  height: 0
 };
-const DRAG_THRESHOLD_PX = 8;
-/** Slightly smaller than "fit entire map" so neither axis binds flush; otherwise the limiting axis often gets zero slack (only X or only Y would pan). */
-const MIN_ZOOM_INSET = 0.92;
-
 let dragState = null;
 
 async function loadMonsterTable(level) {
@@ -96,8 +90,6 @@ function setupCanvasLayers(currentState) {
   ui.mapHost.style.height = `${height}px`;
   viewport.width = width;
   viewport.height = height;
-  viewport.panX = 0;
-  viewport.panY = 0;
 
   const background = createLayerCanvas("layer layer-background", width, height);
   const topology = createLayerCanvas("layer layer-topology", width, height);
@@ -117,90 +109,36 @@ function setupCanvasLayers(currentState) {
   applyViewportScale(1);
 }
 
-function getMapViewSize(panel) {
-  const style = getComputedStyle(panel);
-  const pl = parseFloat(style.paddingLeft) || 0;
-  const pr = parseFloat(style.paddingRight) || 0;
-  const pt = parseFloat(style.paddingTop) || 0;
-  const pb = parseFloat(style.paddingBottom) || 0;
-  return {
-    width: Math.max(1, panel.clientWidth - pl - pr),
-    height: Math.max(1, panel.clientHeight - pt - pb)
-  };
-}
-
-function pointerInMapView(panel, clientX, clientY) {
-  const rect = panel.getBoundingClientRect();
-  const style = getComputedStyle(panel);
-  const pl = parseFloat(style.paddingLeft) || 0;
-  const pt = parseFloat(style.paddingTop) || 0;
-  return {
-    x: clientX - rect.left - pl,
-    y: clientY - rect.top - pt
-  };
-}
-
 function updateViewportBounds() {
   const panel = ui.mapHost.parentElement;
-  const { width: availableWidth, height: availableHeight } = getMapViewSize(panel);
-  const fit = Math.min(1, availableWidth / viewport.width, availableHeight / viewport.height);
-  viewport.minScale = fit * MIN_ZOOM_INSET;
+  const availableWidth = Math.max(1, panel.clientWidth - 16);
+  const availableHeight = Math.max(1, panel.clientHeight - 16);
+  viewport.minScale = Math.min(1, availableWidth / viewport.width, availableHeight / viewport.height);
   viewport.scale = Math.max(viewport.minScale, Math.min(viewport.maxScale, viewport.scale));
-}
-
-function centerMapInView() {
-  const panel = ui.mapHost.parentElement;
-  const { width: viewW, height: viewH } = getMapViewSize(panel);
-  const mw = viewport.width * viewport.scale;
-  const mh = viewport.height * viewport.scale;
-  viewport.panX = mw > viewW ? 0 : (viewW - mw) / 2;
-  viewport.panY = mh > viewH ? 0 : (viewH - mh) / 2;
-}
-
-function clampPan() {
-  const panel = ui.mapHost.parentElement;
-  const { width: viewW, height: viewH } = getMapViewSize(panel);
-  const mw = viewport.width * viewport.scale;
-  const mh = viewport.height * viewport.scale;
-
-  if (mw > viewW) {
-    viewport.panX = Math.max(viewW - mw, Math.min(0, viewport.panX));
-  } else {
-    const maxSlackX = viewW - mw;
-    viewport.panX = Math.max(0, Math.min(maxSlackX, viewport.panX));
-  }
-  if (mh > viewH) {
-    viewport.panY = Math.max(viewH - mh, Math.min(0, viewport.panY));
-  } else {
-    const maxSlackY = viewH - mh;
-    viewport.panY = Math.max(0, Math.min(maxSlackY, viewport.panY));
-  }
-}
-
-function commitViewportTransform() {
-  clampPan();
-  ui.mapHost.style.transform = `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.scale})`;
 }
 
 function applyViewportScale(nextScale, anchor = null) {
   updateViewportBounds();
+  const panel = ui.mapHost.parentElement;
   const previousScale = viewport.scale;
   const scale = Math.max(viewport.minScale, Math.min(viewport.maxScale, nextScale));
 
   if (anchor) {
-    const localX = (anchor.x - viewport.panX) / previousScale;
-    const localY = (anchor.y - viewport.panY) / previousScale;
+    const worldX = (panel.scrollLeft + anchor.x) / previousScale;
+    const worldY = (panel.scrollTop + anchor.y) / previousScale;
     viewport.scale = scale;
-    viewport.panX = anchor.x - localX * scale;
-    viewport.panY = anchor.y - localY * scale;
+    ui.mapHost.style.transform = `scale(${scale})`;
+    panel.scrollLeft = worldX * scale - anchor.x;
+    panel.scrollTop = worldY * scale - anchor.y;
   } else {
     viewport.scale = scale;
-    centerMapInView();
+    ui.mapHost.style.transform = `scale(${scale})`;
   }
 
   ui.mapHost.style.width = `${viewport.width}px`;
   ui.mapHost.style.height = `${viewport.height}px`;
-  commitViewportTransform();
+  ui.mapHost.style.marginRight = `${Math.max(0, viewport.width * scale - viewport.width)}px`;
+  ui.mapHost.style.marginBottom = `${Math.max(0, viewport.height * scale - viewport.height)}px`;
 }
 
 function updateLootUi() {
@@ -372,18 +310,12 @@ function render() {
 }
 
 function getTileFromPointer(event) {
-  const canvas = layers.objectsCanvas;
-  const rect = canvas.getBoundingClientRect();
-  const rw = rect.width;
-  const rh = rect.height;
-  if (rw <= 0 || rh <= 0) {
-    return { x: 0, y: 0 };
-  }
-  const px = ((event.clientX - rect.left) / rw) * canvas.width;
-  const py = ((event.clientY - rect.top) / rh) * canvas.height;
+  const rect = layers.objectsCanvas.getBoundingClientRect();
+  const localX = event.clientX - rect.left;
+  const localY = event.clientY - rect.top;
   return {
-    x: Math.floor(px / TILE_SIZE_PX),
-    y: Math.floor(py / TILE_SIZE_PX)
+    x: Math.floor(localX / (TILE_SIZE_PX * viewport.scale)),
+    y: Math.floor(localY / (TILE_SIZE_PX * viewport.scale))
   };
 }
 
@@ -535,54 +467,32 @@ function hookInputEvents() {
   });
 }
 
-function hookMapViewportInteractions() {
-  const panel = ui.mapHost.parentElement;
-
-  const onDocumentMove = (event) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) {
+function hookCanvasInteractions() {
+  layers.objectsCanvas.addEventListener("click", (event) => {
+    if (dragState?.moved) {
       return;
     }
-    event.preventDefault();
-    const dx = event.clientX - dragState.startX;
-    const dy = event.clientY - dragState.startY;
-    if (Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
-      dragState.moved = true;
-    }
-    viewport.panX = dragState.panStartX + dx;
-    viewport.panY = dragState.panStartY + dy;
-    commitViewportTransform();
-  };
-
-  const finishPointerSequence = (event) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return;
-    }
-    const wasDrag = dragState.moved;
-    const clickX = dragState.clickX;
-    const clickY = dragState.clickY;
-    dragState = null;
-    panel.classList.remove("is-dragging");
-    document.removeEventListener("pointermove", onDocumentMove);
-    document.removeEventListener("pointerup", finishPointerSequence);
-    document.removeEventListener("pointercancel", finishPointerSequence);
-
-    if (event.type !== "pointerup" || wasDrag || !state || !layers) {
-      return;
-    }
-    const { x, y } = getTileFromPointer({ clientX: clickX, clientY: clickY });
+    const { x, y } = getTileFromPointer(event);
     const result = clickEntity(state, x, y);
     ui.statusText.textContent = result.message;
     render();
     updatePanels();
-  };
+  });
+}
 
+function hookMapViewportInteractions() {
+  const panel = ui.mapHost.parentElement;
   panel.addEventListener("wheel", (event) => {
     if (!state) {
       return;
     }
     event.preventDefault();
+    const rect = panel.getBoundingClientRect();
     const zoomStep = event.deltaY < 0 ? 1.1 : 1 / 1.1;
-    applyViewportScale(viewport.scale * zoomStep, pointerInMapView(panel, event.clientX, event.clientY));
+    applyViewportScale(viewport.scale * zoomStep, {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    });
   }, { passive: false });
 
   panel.addEventListener("pointerdown", (event) => {
@@ -593,16 +503,34 @@ function hookMapViewportInteractions() {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      clickX: event.clientX,
-      clickY: event.clientY,
-      panStartX: viewport.panX,
-      panStartY: viewport.panY,
+      scrollLeft: panel.scrollLeft,
+      scrollTop: panel.scrollTop,
       moved: false
     };
     panel.classList.add("is-dragging");
-    document.addEventListener("pointermove", onDocumentMove, { passive: false });
-    document.addEventListener("pointerup", finishPointerSequence);
-    document.addEventListener("pointercancel", finishPointerSequence);
+    panel.setPointerCapture(event.pointerId);
+  });
+
+  panel.addEventListener("pointermove", (event) => {
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      dragState.moved = true;
+    }
+    panel.scrollLeft = dragState.scrollLeft - dx;
+    panel.scrollTop = dragState.scrollTop - dy;
+  });
+
+  panel.addEventListener("pointerup", (event) => {
+    if (dragState?.pointerId === event.pointerId) {
+      panel.classList.remove("is-dragging");
+      setTimeout(() => {
+        dragState = null;
+      }, 0);
+    }
   });
 
   window.addEventListener("resize", () => {
@@ -622,6 +550,7 @@ async function generateAndRender() {
   ui.searchResult.title = "";
   recomputeVisibility(state);
   setupCanvasLayers(state);
+  hookCanvasInteractions();
   updatePanels();
   render();
   ui.statusText.textContent = `Generated level ${level} map with seed ${seed}. Move with arrow keys.`;
