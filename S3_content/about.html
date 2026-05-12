@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About - SD Dungeon Generator</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
+        color: #1f2937;
+        background: #f8f9fa;
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .hero,
+      section {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+      }
+
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+
+      pre {
+        overflow-x: auto;
+        padding: 1rem;
+        color: #f8fafc;
+        background: #111827;
+        border-radius: 0.5rem;
+      }
+
+      a {
+        color: #0d6efd;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p><a href="./">Back to Dungeon Generator</a></p>
+
+      <div class="hero">
+        <h1>Procedural Shadowdark Dungeon Generator</h1>
+        <p>
+          SD Dungeon Generator is a web app for creating and exploring Shadowdark-inspired procedural
+          dungeons. A user selects a dungeon level, generates a gridded dungeon map, begins in an entrance
+          room under fog of war, and reveals rooms, doors, monsters, treasure, and traps as they explore.
+        </p>
+      </div>
+
+      <section>
+        <h2>Contributors</h2>
+        <ul>
+          <li><strong>Megan</strong> - Server-side</li>
+          <li><strong><a href="portfolio/">Charles</a></strong> - Client-side</li>
+          <li><strong>Mario</strong> - Db-and-security</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Project type</h2>
+        <p>
+          Custom variant: procedural game/tool web app. The project combines game design, procedural
+          generation, data modeling, frontend interaction, backend deployment, and security decisions in one
+          Flask + Postgres walking skeleton.
+        </p>
+      </section>
+
+      <section>
+        <h2>Endpoints planned</h2>
+        <ul>
+          <li><code>GET /</code> - Show the Flask home page with navigation to login, register, About, and My Site.</li>
+          <li><code>GET /site/</code> - Serve the dungeon frontend where users generate and explore the map.</li>
+          <li><code>GET /site/&lt;path&gt;</code> - Serve dungeon assets such as CSS, JavaScript modules, images, and JSON tables.</li>
+          <li><code>GET /about</code> - Show the shared project design spec for the team.</li>
+          <li><code>GET /register</code> - Show the registration form for player accounts.</li>
+          <li><code>POST /register</code> - Create a user with a hashed password and start a session.</li>
+          <li><code>GET /login</code> - Show the login form for returning users.</li>
+          <li><code>POST /login</code> - Verify credentials and restore the user's session.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Web-based data source</h2>
+        <p>
+          <strong>API/platform:</strong> AWS S3 static website hosting for the team's dungeon site, with AWS
+          API Gateway and Lambda as the planned backend path for saved dungeon runs.
+        </p>
+        <p>
+          <strong>Docs:</strong>
+          <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html">Amazon S3 static website hosting</a>
+          and
+          <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html">Amazon API Gateway</a>.
+        </p>
+        <p><strong>Specific endpoint:</strong> <code>/site/</code> for the working dungeon generator served inside the Flask walking skeleton.</p>
+        <p>
+          <strong>Free-tier notes:</strong> AWS offers limited free-tier S3 storage/requests and monthly
+          request allowances for API Gateway and Lambda on eligible accounts. The team will confirm current
+          limits in the AWS console before depending on them for production traffic.
+        </p>
+      </section>
+
+      <section>
+        <h2>Schema sketch</h2>
+        <pre><code>Users         (id, username, password_hash, created_at)
+SavedRuns     (id, user_id, seed, level, state_json, created_at, updated_at)
+Tiles         (id, saved_run_id, x, y, type, room_id, hall_id)
+Rooms         (id, saved_run_id, x, y, width, height, discovered, explored)
+Halls         (id, saved_run_id, from_room_id, to_room_id)
+Entities      (id, saved_run_id, kind, name, x, y, defeated, collected, revealed, triggered, value)
+LootEntries   (id, saved_run_id, name, value, origin_tile)</code></pre>
+      </section>
+
+      <section>
+        <h2>Link to our team's S3 bucket</h2>
+        <p>
+          <a href="http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com">
+            http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com
+          </a>
+        </p>
+      </section>
+
+      <section>
+        <h2>Link to our team's GitHub org</h2>
+        <p><a href="https://github.com/ShadowDarklings">https://github.com/ShadowDarklings</a></p>
+      </section>
+    </main>
+  </body>
+</html>

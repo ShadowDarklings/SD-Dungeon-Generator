@@ -54,23 +54,13 @@ body {
 }
 
 .map-panel {
-  /* Explicit height so the view box is smaller than the map in BOTH axes when zoomed to fit
-     (width-limited minScale often leaves vertical slack; without a fixed view height the panel
-     can size oddly and collapse Y pan range). */
-  align-self: start;
-  width: 100%;
-  height: clamp(260px, 58vh, calc(100vh - 32px));
-  max-height: calc(100vh - 32px);
-  min-height: 0;
-  overflow: hidden;
-  overscroll-behavior: contain;
+  overflow: auto;
   border: 1px solid #3f4450;
   border-radius: 8px;
   background: #111;
   padding: 8px;
   cursor: grab;
   touch-action: none;
-  user-select: none;
 }
 
 .map-panel.is-dragging {
