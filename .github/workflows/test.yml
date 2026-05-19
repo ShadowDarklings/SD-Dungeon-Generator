@@ -15,12 +15,10 @@
 name: Tests
 
 "on":
-  workflow_dispatch:    # manual trigger only — Week 5
-  # Week 6 will switch to:
-  # pull_request:
-  #   branches: [main, master]
-  # push:
-  #   branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
 
 jobs:
   test:
