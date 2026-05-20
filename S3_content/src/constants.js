@@ -1,6 +1,6 @@
 export const MAP_WIDTH_TILES = 46;
 export const MAP_HEIGHT_TILES = 31;
-export const TILE_SIZE_PX = 52;
+export const TILE_SIZE_PX = 54;
 
 export const TILE_TYPES = Object.freeze({
   VOID: "void",
@@ -23,6 +23,9 @@ export const DOOR_STATES = Object.freeze({
 });
 
 export const DEFAULT_LIGHT_RADIUS = 6;
+
+/** Per-room treasure spawn chance (excluding entrance). Expected count uses ceil(rooms * chance). */
+export const TREASURE_SPAWN_CHANCE = 0.25;
 
 export const MIN_SEARCH_MODIFIER = -99;
 export const MAX_SEARCH_MODIFIER = 99;

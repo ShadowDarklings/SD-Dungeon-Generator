@@ -1,4 +1,10 @@
-import { ENTITY_TYPES, FEATURE_NAMES, LOOT_NAMES, TILE_TYPES } from "./constants.js";
+import {
+  ENTITY_TYPES,
+  FEATURE_NAMES,
+  LOOT_NAMES,
+  TILE_TYPES,
+  TREASURE_SPAWN_CHANCE
+} from "./constants.js";
 import { SeededRng } from "./rng.js";
 import {
   createDoorEntity,
@@ -64,8 +70,135 @@ function getRoomCenter(room) {
   };
 }
 
+function getDoorSwingMetadata(room, endpoint) {
+  const roomCenter = getRoomCenter(room);
+  const isVerticalWall = endpoint.orientation === "vertical";
+  const isFirstHalf = isVerticalWall
+    ? endpoint.door.y <= roomCenter.y
+    : endpoint.door.x <= roomCenter.x;
+
+  if (isVerticalWall) {
+    return {
+      hingeSide: isFirstHalf ? "north" : "south",
+      swingTarget: endpoint.wallSide === "west"
+        ? (isFirstHalf ? "hall" : "room")
+        : (isFirstHalf ? "room" : "hall")
+    };
+  }
+
+  return {
+    hingeSide: isFirstHalf ? "west" : "east",
+    swingTarget: endpoint.wallSide === "north"
+      ? (isFirstHalf ? "hall" : "room")
+      : (isFirstHalf ? "room" : "hall")
+  };
+}
+
+function resolveTurnDirection(wallSide, hingeSide, swingTarget) {
+  const swingIntoRoom = swingTarget === "room";
+  if (wallSide === "east") {
+    return hingeSide === "north"
+      ? (swingIntoRoom ? -1 : 1)
+      : (swingIntoRoom ? 1 : -1);
+  }
+  if (wallSide === "west") {
+    return hingeSide === "north"
+      ? (swingIntoRoom ? 1 : -1)
+      : (swingIntoRoom ? -1 : 1);
+  }
+  if (wallSide === "south") {
+    return hingeSide === "west"
+      ? (swingIntoRoom ? -1 : 1)
+      : (swingIntoRoom ? 1 : -1);
+  }
+  return hingeSide === "west"
+    ? (swingIntoRoom ? 1 : -1)
+    : (swingIntoRoom ? -1 : 1);
+}
+
+function getStraightStep(point, direction, steps = 1) {
+  return {
+    x: point.x + direction.x * steps,
+    y: point.y + direction.y * steps
+  };
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function isCornerTouchingRoom(state, x, y) {
+  return state.rooms.some((room) => {
+    const roomMinX = room.x;
+    const roomMaxX = room.x + room.width - 1;
+    const roomMinY = room.y;
+    const roomMaxY = room.y + room.height - 1;
+    const dx = Math.min(Math.abs(x - roomMinX), Math.abs(x - roomMaxX));
+    const dy = Math.min(Math.abs(y - roomMinY), Math.abs(y - roomMaxY));
+    return dx === 1 && dy === 1;
+  });
+}
+
+function collectOrthogonalPathTiles(start, end) {
+  const tiles = [];
+  let x = start.x;
+  let y = start.y;
+  tiles.push({ x, y });
+  const xStep = Math.sign(end.x - start.x);
+  const yStep = Math.sign(end.y - start.y);
+  while (x !== end.x || y !== end.y) {
+    if (x !== end.x) x += xStep;
+    if (y !== end.y) y += yStep;
+    tiles.push({ x, y });
+  }
+  return tiles;
+}
+
+function scoreHallRoute(state, points) {
+  let score = 0;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const segmentTiles = collectOrthogonalPathTiles(points[i], points[i + 1]);
+    for (const tile of segmentTiles) {
+      if (isCornerTouchingRoom(state, tile.x, tile.y)) {
+        score += 1;
+      }
+    }
+  }
+  return score;
+}
+
+function pickHallRoute(state, start, end, rng) {
+  const horizontalFirst = [
+    start,
+    { x: end.x, y: start.y },
+    end
+  ];
+  const verticalFirst = [
+    start,
+    { x: start.x, y: end.y },
+    end
+  ];
+  const horizontalScore = scoreHallRoute(state, horizontalFirst);
+  const verticalScore = scoreHallRoute(state, verticalFirst);
+  if (horizontalScore < verticalScore) {
+    return horizontalFirst;
+  }
+  if (verticalScore < horizontalScore) {
+    return verticalFirst;
+  }
+  return rng.nextFloat() < 0.5 ? horizontalFirst : verticalFirst;
+}
+
+function carveOrthogonalRoute(state, points, hallId) {
+  if (!points || points.length < 2) {
+    return;
+  }
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const segment = collectOrthogonalPathTiles(points[i], points[i + 1]);
+    for (const tile of segment) {
+      carveHallTile(state, tile.x, tile.y, hallId);
+    }
+  }
 }
 
 function getDoorEndpoint(room, target) {
@@ -78,10 +211,17 @@ function getDoorEndpoint(room, target) {
     const yMin = room.height > 2 ? room.y + 1 : room.y;
     const yMax = room.height > 2 ? room.y + room.height - 2 : room.y + room.height - 1;
     const y = clamp(target.y, yMin, yMax);
-    const doorX = east ? room.x + room.width - 1 : room.x;
+    const direction = east ? { x: 1, y: 0 } : { x: -1, y: 0 };
+    const doorX = east ? room.x + room.width : room.x - 1;
+    const hallEntry = { x: doorX, y };
+    const hallTurn = getStraightStep(hallEntry, direction);
     return {
-      door: { x: doorX, y },
-      hallStart: { x: doorX + (east ? 1 : -1), y }
+      door: { x: hallEntry.x, y },
+      hallEntry,
+      hallTurn,
+      wallSide: east ? "east" : "west",
+      hallDirection: east ? "east" : "west",
+      orientation: "vertical"
     };
   }
 
@@ -89,10 +229,17 @@ function getDoorEndpoint(room, target) {
   const xMin = room.width > 2 ? room.x + 1 : room.x;
   const xMax = room.width > 2 ? room.x + room.width - 2 : room.x + room.width - 1;
   const x = clamp(target.x, xMin, xMax);
-  const doorY = south ? room.y + room.height - 1 : room.y;
+  const direction = south ? { x: 0, y: 1 } : { x: 0, y: -1 };
+  const doorY = south ? room.y + room.height : room.y - 1;
+  const hallEntry = { x, y: doorY };
+  const hallTurn = getStraightStep(hallEntry, direction);
   return {
-    door: { x, y: doorY },
-    hallStart: { x, y: doorY + (south ? 1 : -1) }
+    door: { x, y: hallEntry.y },
+    hallEntry,
+    hallTurn,
+    wallSide: south ? "south" : "north",
+    hallDirection: south ? "south" : "north",
+    orientation: "horizontal"
   };
 }
 
@@ -174,12 +321,55 @@ function connectRoomsWithMstAndLoops(state, rooms, rng) {
     const fromEndpoint = getDoorEndpoint(edge.from, toCenter);
     const toEndpoint = getDoorEndpoint(edge.to, fromCenter);
 
-    carveLShapedHall(state, fromEndpoint.hallStart, toEndpoint.hallStart, hallId, rng);
-    setTileType(state, fromEndpoint.door.x, fromEndpoint.door.y, TILE_TYPES.DOOR, { hallId });
-    setTileType(state, toEndpoint.door.x, toEndpoint.door.y, TILE_TYPES.DOOR, { hallId });
+    carveHallTile(state, fromEndpoint.hallEntry.x, fromEndpoint.hallEntry.y, hallId);
+    carveHallTile(state, fromEndpoint.hallTurn.x, fromEndpoint.hallTurn.y, hallId);
+    carveHallTile(state, toEndpoint.hallEntry.x, toEndpoint.hallEntry.y, hallId);
+    carveHallTile(state, toEndpoint.hallTurn.x, toEndpoint.hallTurn.y, hallId);
 
-    const fromDoor = addDoorEntity(state, fromEndpoint.door.x, fromEndpoint.door.y, edge.from.id, hallId, rng);
-    const toDoor = addDoorEntity(state, toEndpoint.door.x, toEndpoint.door.y, edge.to.id, hallId, rng);
+    const route = pickHallRoute(state, fromEndpoint.hallTurn, toEndpoint.hallTurn, rng);
+    carveOrthogonalRoute(state, route, hallId);
+
+    const fromDoorMeta = getDoorSwingMetadata(edge.from, fromEndpoint);
+    const toDoorMeta = getDoorSwingMetadata(edge.to, toEndpoint);
+    fromDoorMeta.turnDirection = resolveTurnDirection(
+      fromEndpoint.wallSide,
+      fromDoorMeta.hingeSide,
+      fromDoorMeta.swingTarget
+    );
+    toDoorMeta.turnDirection = resolveTurnDirection(
+      toEndpoint.wallSide,
+      toDoorMeta.hingeSide,
+      toDoorMeta.swingTarget
+    );
+
+    const fromDoor = addDoorEntity(
+      state,
+      fromEndpoint.door.x,
+      fromEndpoint.door.y,
+      edge.from.id,
+      hallId,
+      rng,
+      fromEndpoint.orientation,
+      fromEndpoint.wallSide,
+      fromEndpoint.hallDirection,
+      fromDoorMeta.hingeSide,
+      fromDoorMeta.swingTarget,
+      fromDoorMeta.turnDirection
+    );
+    const toDoor = addDoorEntity(
+      state,
+      toEndpoint.door.x,
+      toEndpoint.door.y,
+      edge.to.id,
+      hallId,
+      rng,
+      toEndpoint.orientation,
+      toEndpoint.wallSide,
+      toEndpoint.hallDirection,
+      toDoorMeta.hingeSide,
+      toDoorMeta.swingTarget,
+      toDoorMeta.turnDirection
+    );
 
     state.halls.push({
       id: hallId,
@@ -190,14 +380,65 @@ function connectRoomsWithMstAndLoops(state, rooms, rng) {
   }
 }
 
-function addDoorEntity(state, x, y, roomId, hallId, rng) {
+function addDoorEntity(
+  state,
+  x,
+  y,
+  roomId,
+  hallId,
+  rng,
+  orientation = "vertical",
+  wallSide = null,
+  hallDirection = null,
+  hingeSide = null,
+  swingTarget = "hall",
+  turnDirection = 1
+) {
   const existing = state.entities.find((entity) => entity.subtype === "door" && entity.x === x && entity.y === y);
   if (existing) {
     existing.connectedHallIds = Array.from(new Set([...(existing.connectedHallIds || [existing.hallId]), hallId]));
+    if (!existing.orientation) {
+      existing.orientation = orientation;
+    }
+    if (!existing.wallSide) {
+      existing.wallSide = wallSide;
+    }
+    if (!existing.hallDirection) {
+      existing.hallDirection = hallDirection;
+    }
+    if (!existing.hingeSide) {
+      existing.hingeSide = hingeSide;
+    }
+    if (!existing.swingTarget) {
+      existing.swingTarget = swingTarget;
+    }
+    if (!existing.turnDirection) {
+      existing.turnDirection = turnDirection;
+    }
+    if (!existing.doorSpriteId) {
+      existing.doorSpriteId = `door${rng.nextInt(1, 4)}`;
+    }
+    if (existing.doorRotationAngle === undefined) {
+      existing.doorRotationAngle = orientation === "horizontal"
+        ? (rng.nextFloat() < 0.5 ? 0 : Math.PI)
+        : (rng.nextFloat() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+    }
     return existing;
   }
 
-  const door = createDoorEntity(x, y, roomId, hallId, rng);
+  const door = createDoorEntity(
+    x,
+    y,
+    roomId,
+    hallId,
+    rng,
+    orientation,
+    wallSide,
+    hallDirection,
+    hingeSide,
+    swingTarget,
+    turnDirection
+  );
   door.connectedHallIds = [hallId];
   state.entities.push(door);
   return door;
@@ -225,7 +466,7 @@ function floodFillReachableRooms(state, startRoomId) {
 }
 
 function isWalkableForValidation(tile) {
-  return tile?.type === TILE_TYPES.FLOOR || tile?.type === TILE_TYPES.DOOR;
+  return tile?.type === TILE_TYPES.FLOOR;
 }
 
 function validateTileConnectivity(state) {
@@ -394,6 +635,174 @@ function createLootDetails(rng) {
   };
 }
 
+function tileDistanceFromStart(state, x, y) {
+  return Math.max(Math.abs(x - state.player.x), Math.abs(y - state.player.y));
+}
+
+function getFloorTilesInRoom(state, room, options = {}) {
+  const tiles = [];
+  for (let y = room.y; y < room.y + room.height; y += 1) {
+    for (let x = room.x; x < room.x + room.width; x += 1) {
+      const tile = getTile(state, x, y);
+      if (
+        tile?.type === TILE_TYPES.FLOOR &&
+        tile.roomId === room.id &&
+        (options.allowOccupied || !isFloorOccupied(state, x, y))
+      ) {
+        tiles.push(tile);
+      }
+    }
+  }
+  return tiles;
+}
+
+function findFurthestRoomFromStart(state, excludedRoomIds = []) {
+  let bestRoom = null;
+  let bestDistance = -1;
+  for (const room of state.rooms) {
+    if (excludedRoomIds.includes(room.id)) {
+      continue;
+    }
+    const tiles = getFloorTilesInRoom(state, room, { allowOccupied: true });
+    for (const tile of tiles) {
+      const distance = tileDistanceFromStart(state, tile.x, tile.y);
+      if (distance > bestDistance) {
+        bestDistance = distance;
+        bestRoom = room;
+      }
+    }
+  }
+  return bestRoom;
+}
+
+function findFurthestFloorTileInRoomFromStart(state, room, options = {}) {
+  let bestTile = null;
+  let bestDistance = -1;
+  for (const tile of getFloorTilesInRoom(state, room, options)) {
+    const distance = tileDistanceFromStart(state, tile.x, tile.y);
+    if (distance > bestDistance) {
+      bestDistance = distance;
+      bestTile = tile;
+    }
+  }
+  return bestTile;
+}
+
+function countTreasureRooms(state) {
+  const roomIds = new Set();
+  for (const entity of state.entities) {
+    if (entity.type === ENTITY_TYPES.TREASURE) {
+      roomIds.add(entity.roomId);
+    }
+  }
+  return roomIds.size;
+}
+
+function getExpectedTreasureRoomCount(totalRooms, spawnChance = TREASURE_SPAWN_CHANCE) {
+  return Math.ceil(totalRooms * spawnChance);
+}
+
+function getGhostTreasureMultiplier(expectedCount, actualTreasureRoomCount) {
+  if (actualTreasureRoomCount <= 0) {
+    return expectedCount;
+  }
+  return expectedCount - actualTreasureRoomCount + 1;
+}
+
+function findFurthestTreasureFromStart(state) {
+  let bestTreasure = null;
+  let bestDistance = -1;
+  for (const entity of state.entities) {
+    if (entity.type !== ENTITY_TYPES.TREASURE) {
+      continue;
+    }
+    const distance = tileDistanceFromStart(state, entity.x, entity.y);
+    if (distance > bestDistance) {
+      bestDistance = distance;
+      bestTreasure = entity;
+    }
+  }
+  return bestTreasure;
+}
+
+function spawnTreasureAtTile(state, rng, room, tile, extra = {}) {
+  const loot = createLootDetails(rng);
+  const treasureId = extra.id || `treasure-${state.entities.length}`;
+  const entity = {
+    id: treasureId,
+    type: ENTITY_TYPES.TREASURE,
+    subtype: "coin-cache",
+    x: tile.x,
+    y: tile.y,
+    roomId: room.id,
+    visible: false,
+    name: loot.name,
+    value: loot.value,
+    searchDc: loot.searchDc,
+    revealed: false,
+    collected: false,
+    ...extra
+  };
+  state.entities.push(entity);
+  return entity;
+}
+
+function trySpawnRoomTreasure(state, rng, room, trapTable) {
+  if (rng.nextFloat() >= TREASURE_SPAWN_CHANCE) {
+    return null;
+  }
+  const loot = createLootDetails(rng);
+  const treasureId = `treasure-${state.entities.length}`;
+  const treasure = spawnEntity(state, rng, room, "treasure", ENTITY_TYPES.TREASURE, "coin-cache", false, {
+    id: treasureId,
+    name: loot.name,
+    value: loot.value,
+    searchDc: loot.searchDc,
+    revealed: false,
+    collected: false
+  });
+  if (treasure && rng.nextFloat() < 0.25) {
+    spawnTrap(state, rng, room, trapTable, "treasure", treasureId);
+  }
+  return treasure;
+}
+
+function balanceTreasureSpawns(state, rng, trapTable = []) {
+  const totalRooms = state.rooms.length;
+  const expectedCount = getExpectedTreasureRoomCount(totalRooms);
+  let treasureRoomCount = countTreasureRooms(state);
+
+  if (treasureRoomCount === 0) {
+    const furthestRoom = findFurthestRoomFromStart(state, [state.generation.entranceRoomId]);
+    const tile = furthestRoom
+      ? findFurthestFloorTileInRoomFromStart(state, furthestRoom)
+      : null;
+    if (tile) {
+      const treasure = spawnTreasureAtTile(state, rng, furthestRoom, tile);
+      if (treasure && rng.nextFloat() < 0.25) {
+        spawnTrap(state, rng, furthestRoom, trapTable, "treasure", treasure.id);
+      }
+      treasureRoomCount = countTreasureRooms(state);
+    }
+  }
+
+  if (treasureRoomCount >= expectedCount) {
+    return;
+  }
+
+  const multiplier = getGhostTreasureMultiplier(expectedCount, treasureRoomCount);
+  if (multiplier <= 1) {
+    return;
+  }
+
+  const target = findFurthestTreasureFromStart(state);
+  if (!target) {
+    return;
+  }
+  target.value = Math.ceil(target.value * multiplier);
+  target.ghostTreasure = true;
+}
+
 function createMonsterDetails(rng, monsterTable = []) {
   const validMonsters = monsterTable.filter((monster) => monster?.["Monster Name"]);
   const monster = rng.pick(validMonsters);
@@ -421,21 +830,7 @@ function populateRoomEntities(state, rng, monsterTable = [], trapTable = []) {
         spawnEntity(state, rng, room, "monster", ENTITY_TYPES.MONSTER, "foe", true, monster);
       }
     }
-    if (rng.nextFloat() < 0.4) {
-      const loot = createLootDetails(rng);
-      const treasureId = `treasure-${state.entities.length}`;
-      const treasure = spawnEntity(state, rng, room, "treasure", ENTITY_TYPES.TREASURE, "coin-cache", false, {
-        id: treasureId,
-        name: loot.name,
-        value: loot.value,
-        searchDc: loot.searchDc,
-        revealed: false,
-        collected: false
-      });
-      if (treasure && rng.nextFloat() < 0.25) {
-        spawnTrap(state, rng, room, trapTable, "treasure", treasureId);
-      }
-    }
+    trySpawnRoomTreasure(state, rng, room, trapTable);
     if (rng.nextFloat() < 0.35) {
       spawnTrap(state, rng, room, trapTable, "tile");
     }
@@ -462,8 +857,8 @@ export function generateDungeon(seed = Date.now(), level = 1, options = {}) {
   for (let attempt = 0; attempt < 250 && state.rooms.length < maxRooms; attempt += 1) {
     const width = rng.nextInt(3, 8);
     const height = rng.nextInt(3, 8);
-    const x = rng.nextInt(1, state.map.width - width - 2);
-    const y = rng.nextInt(1, state.map.height - height - 2);
+    const x = rng.nextInt(2, state.map.width - width - 3);
+    const y = rng.nextInt(2, state.map.height - height - 3);
     const candidate = {
       id: `room-${state.rooms.length}`,
       x,
@@ -473,7 +868,7 @@ export function generateDungeon(seed = Date.now(), level = 1, options = {}) {
       discovered: false,
       explored: false
     };
-    if (state.rooms.some((room) => intersects(room, candidate, 1))) {
+    if (state.rooms.some((room) => intersects(room, candidate, 2))) {
       continue;
     }
     state.rooms.push(candidate);
@@ -498,5 +893,6 @@ export function generateDungeon(seed = Date.now(), level = 1, options = {}) {
     reachableRooms.size === state.rooms.length && validateTileConnectivity(state);
 
   populateRoomEntities(state, rng, options.monsterTable || [], options.trapTable || []);
+  balanceTreasureSpawns(state, rng, options.trapTable || []);
   return state;
 }

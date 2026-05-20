@@ -30,9 +30,17 @@ export function getTileIndex(x, y, width) {
 }
 
 export function createEmptyDungeonState(seed = Date.now(), level = 1) {
+  const now = Date.now();
   return {
     seed,
     level,
+    run: {
+      id: null,
+      name: "",
+      dirty: false,
+      lastSavedAt: null,
+      hasUserActivity: false
+    },
     map: {
       width: MAP_WIDTH_TILES,
       height: MAP_HEIGHT_TILES,
@@ -49,13 +57,30 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
       lightRadius: DEFAULT_LIGHT_RADIUS,
       torchLit: true
     },
+    timers: {
+      actualElapsedMs: 0,
+      torchElapsedMs: 0,
+      torchDurationMs: 60 * 60 * 1000,
+      nextWanderingCheckMs: 10 * 60 * 1000,
+      lastTickAt: now
+    },
+    wanderingMonsters: {
+      numerator: 1,
+      denominator: 6,
+      spawnedCount: 0
+    },
+    darkness: {
+      pendingDoorKey: null
+    },
+    lockedDoorAction: null,
     visibility: {
       visibleNow: new Set(),
       exploredEver: new Set()
     },
     lootLog: {
       entries: [],
-      totalValue: 0
+      totalValue: 0,
+      fullyLootedShown: false
     },
     generation: {
       entranceRoomId: null,
@@ -80,14 +105,31 @@ export function setTileType(state, x, y, type, extra = {}) {
   Object.assign(tile, extra);
 }
 
-export function createDoorEntity(x, y, roomId, hallId, rng) {
+export function createDoorEntity(
+  x,
+  y,
+  roomId,
+  hallId,
+  rng,
+  orientation = "vertical",
+  wallSide = null,
+  hallDirection = null,
+  hingeSide = null,
+  swingTarget = "hall",
+  turnDirection = 1
+) {
   const roll = rng.nextFloat();
   let state = DOOR_STATES.CLOSED;
-  if (roll > 0.85) {
-    state = DOOR_STATES.LOCKED;
-  } else if (roll > 0.6) {
+  if (roll < 0.25) {
     state = DOOR_STATES.OPEN;
+  } else if (roll < 0.35) {
+    state = DOOR_STATES.LOCKED;
   }
+
+  const isEastWestOpening = orientation !== "horizontal";
+  const rotationAngle = isEastWestOpening
+    ? (rng.nextFloat() < 0.5 ? Math.PI / 2 : -Math.PI / 2)
+    : (rng.nextFloat() < 0.5 ? 0 : Math.PI);
 
   return {
     id: `door-${x}-${y}`,
@@ -97,6 +139,15 @@ export function createDoorEntity(x, y, roomId, hallId, rng) {
     y,
     roomId,
     hallId,
+    orientation,
+    wallSide,
+    hallDirection,
+    hingeSide,
+    swingTarget,
+    turnDirection,
+    facing: hallDirection,
+    doorSpriteId: `door${rng.nextInt(1, 4)}`,
+    doorRotationAngle: rotationAngle,
     doorState: state,
     visible: true
   };

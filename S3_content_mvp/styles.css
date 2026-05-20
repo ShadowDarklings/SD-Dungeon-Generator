@@ -1,0 +1,242 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #17191d;
+  color: #e8eaed;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.controls-panel {
+  background: #24272f;
+  border: 1px solid #3f4450;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.controls-panel label,
+.controls-panel button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.controls-panel input[type="number"] {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px;
+}
+
+.controls-panel button {
+  padding: 8px;
+  border: 1px solid #61697c;
+  background: #3f78db;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#status-text.trap-sprung-status {
+  display: inline-block;
+  color: #ffcf66;
+  font-size: 1.2em;
+  font-weight: 700;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.map-panel {
+  /* Explicit height so the view box is smaller than the map in BOTH axes when zoomed to fit
+     (width-limited minScale often leaves vertical slack; without a fixed view height the panel
+     can size oddly and collapse Y pan range). */
+  align-self: start;
+  width: 100%;
+  height: clamp(260px, 58vh, calc(100vh - 32px));
+  max-height: calc(100vh - 32px);
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  border: 1px solid #3f4450;
+  border-radius: 8px;
+  background: #111;
+  padding: 8px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.map-panel.is-dragging {
+  cursor: grabbing;
+}
+
+.map-host {
+  position: relative;
+  width: 2392px;
+  height: 1612px;
+  transform-origin: 0 0;
+}
+
+.layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.layer-background,
+.layer-topology,
+.layer-fog {
+  pointer-events: none;
+}
+
+#loot-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.loot-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+}
+
+.loot-item button {
+  width: 72px;
+  margin: 0;
+  padding: 3px 8px;
+}
+
+.room-loot-panel {
+  background: #1b1e24;
+  border: 1px solid #3f4450;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.room-loot-panel button {
+  margin: 6px 0;
+}
+
+.search-controls {
+  display: grid;
+  grid-template-columns: 4.5rem 72px;
+  gap: 6px;
+  align-items: center;
+  justify-content: end;
+}
+
+.search-controls input {
+  width: 4.5rem;
+  padding: 6px;
+  text-align: center;
+}
+
+.search-controls button {
+  width: 72px;
+  margin: 0;
+}
+
+.monster-panel {
+  background: #1b1e24;
+  border: 1px solid #3f4450;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.trap-panel {
+  background: #1b1e24;
+  border: 1px solid #3f4450;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.monster-card,
+.trap-card {
+  border-bottom: 1px solid #3f4450;
+  padding: 8px 0;
+}
+
+.trap-sprung-banner {
+  margin: 0 0 6px;
+  color: #ffcf66;
+  font-size: 1.2em;
+  font-weight: 700;
+}
+
+.monster-card:last-child,
+.trap-card:last-child {
+  border-bottom: 0;
+}
+
+.monster-card h3,
+.trap-card h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.monster-card dl,
+.trap-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  margin: 0;
+}
+
+.monster-card dt,
+.trap-card dt {
+  color: #b4bac8;
+  font-weight: bold;
+}
+
+.monster-card dd,
+.trap-card dd {
+  margin: 0;
+}
+
+.monster-card ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.hint {
+  color: #b4bac8;
+  font-size: 0.9rem;
+}
+
+.site-links {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.site-links a {
+  color: #8fb8ff;
+  text-decoration: none;
+}
+
+.site-links a:hover,
+.site-links a:focus {
+  text-decoration: underline;
+}
+
+@media (max-width: 1200px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
