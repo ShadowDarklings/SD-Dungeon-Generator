@@ -15,6 +15,7 @@ no advanced Flask patterns. Just enough to teach the architecture.
 """
 
 import os
+import requests
 from datetime import datetime, timezone
 from pathlib import Path
 from flask import (
@@ -206,6 +207,44 @@ def about():
 # For Week 5, this is enough — it creates tables if they don't exist.
 SQLModel.metadata.create_all(engine)
 
+# ==========================================
+# BACKEND ROLE WORKSPACE (Megan)
+# FEATURE: External S3 Random Table Proxy
+# ==========================================
+
+@app.route("/api/random-tables", methods=["GET"])
+def get_random_tables():
+    """
+    Proxies requests to the team's external S3 bucket to fetch random dungeon tables.
+    Includes strict timeout handling and malformed JSON protection.
+    """
+    import flask
+    from flask import request, jsonify
+
+    level = request.args.get("level", default="1")
+    table_type = request.args.get("type", default="monsters")
+    
+    S3_BUCKET_URL = f"https://maximumminiatures-oss.s3.amazonaws.com/tables/level_{level}_{table_type}.json"
+    
+    try:
+        response = requests.get(S3_BUCKET_URL, timeout=3.0)
+        response.raise_for_status()
+        data = response.json()
+        return jsonify({"results": data, "error": None, "message": "Success"}), 200
+        
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "results": [],
+            "error": "timeout",
+            "message": "The upstream database server took too long to respond."
+        }), 503
+        
+    except (requests.exceptions.RequestException, ValueError):
+        return jsonify({
+            "results": [],
+            "error": "upstream_invalid",
+            "message": "The upstream content provider returned an unparseable or faulty response."
+        }), 503
 
 # ---------------------------------------------------------------------------
 # Entry point
