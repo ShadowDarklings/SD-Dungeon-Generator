@@ -38,13 +38,21 @@ End-to-end for the client slice means a real browser hitting the deployed Flask 
 
 | Step | Result | Notes |
 |------|--------|-------|
-| 1 | NOT RUN | |
-| 2 | NOT RUN | |
-| 3 | NOT RUN | |
-| 4 | NOT RUN | |
-| 5 | NOT RUN | |
+| 1 | PASS | `/site/` loaded successfully. |
+| 2 | PASS | Dungeon rendered after Generate. |
+| 3 | FAIL | Save modal still shows "Server returned a non-JSON response." after login. |
+| 4 | BLOCKED | Save cannot proceed because `/api/runs` does not return JSON. |
+| 5 | BLOCKED | Load cannot proceed because saved runs never load. |
 | 6 | NOT RUN | |
 
 ## 5. Findings
 
-None recorded yet. Update after running the walk.
+### Finding 1 — Save modal error instead of empty state
+
+**Symptom**: Opening Save shows "Server returned a non-JSON response." and no empty-state message.
+
+**Root cause**: `/api/runs` returns HTML or a redirect instead of JSON, even after login.
+
+**Fix**: Server-side `/api/runs` must return JSON (200 with `{ results: [...] }`) for authenticated users.
+
+**Lesson**: Client UI depends on the API returning JSON per contract; without it, Save/Load flows fail even when logged in.
