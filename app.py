@@ -448,11 +448,21 @@ def create_run():
     level = data.get("level")
     state_json = data.get("state_json")
     
-    if seed is None or not isinstance(seed, int):
-        return {"error": "invalid_json", "message": "Seed is required and must be an integer."}, 400
+    if seed is None:
+        return {"error": "invalid_json", "message": "Seed is required."}, 400
+    try:
+        seed = int(seed)
+    except (TypeError, ValueError):
+        return {"error": "invalid_json", "message": "Seed must be an integer."}, 400
         
-    if level is None or not isinstance(level, int) or not (1 <= level <= 10):
-        return {"error": "invalid_level", "message": "Level is required and must be between 1 and 10."}, 400
+    if level is None:
+        return {"error": "invalid_level", "message": "Level is required."}, 400
+    try:
+        level = int(level)
+    except (TypeError, ValueError):
+        return {"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}, 400
+    if not (1 <= level <= 10):
+        return {"error": "invalid_level", "message": "Level must be between 1 and 10."}, 400
         
     if not isinstance(state_json, dict):
         return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
@@ -551,14 +561,17 @@ def update_run(run_id):
         return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
         
     if "seed" in data:
-        seed = data["seed"]
-        if not isinstance(seed, int):
+        try:
+            run.seed = int(data["seed"])
+        except (TypeError, ValueError):
             return {"error": "invalid_json", "message": "Seed must be an integer."}, 400
-        run.seed = seed
         
     if "level" in data:
-        level = data["level"]
-        if not isinstance(level, int) or not (1 <= level <= 10):
+        try:
+            level = int(data["level"])
+        except (TypeError, ValueError):
+            return {"error": "invalid_level", "message": "Level must be between 1 and 10."}, 400
+        if not (1 <= level <= 10):
             return {"error": "invalid_level", "message": "Level must be between 1 and 10."}, 400
         run.level = level
         
