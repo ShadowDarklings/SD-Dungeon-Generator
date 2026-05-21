@@ -1,9 +1,11 @@
 """
 Owner: Backend Role (Megan)
-Contract: Test 3 — Create saved run endpoint contract.
+Contract: Test 3 — Create saved run endpoint contract (Context-Aware).
 """
 import pytest
-from app import app as flask_app
+from app import app as flask_app, get_db_session, User
+from sqlmodel import select
+from werkzeug.security import generate_password_hash
 
 @pytest.fixture
 def client():
@@ -13,9 +15,24 @@ def client():
 
 def test_create_saved_run_endpoint_contract(client):
     """Logged-in POST /api/runs returns 201 with saved metadata."""
-    # We fake an active session for the test
+    
+    # Wrap database initialization in the application context so Flask doesn't panic
+    with flask_app.app_context():
+        db = get_db_session()
+        test_user = db.exec(select(User).where(User.username == "testuser")).first()
+        if not test_user:
+            test_user = User(username="testuser", password_hash=generate_password_hash("password"))
+            db.add(test_user)
+            db.commit()
+            db.refresh(test_user)
+        
+        # Grab the ID before exiting the context block
+        user_id_str = str(test_user.id)
+
+    # Fake an active session using Flask-Login's internal format
     with client.session_transaction() as sess:
-        sess["user_id"] = 1
+        sess["_user_id"] = user_id_str
+        sess["_fresh"] = True
 
     payload = {
         "seed": "123456",

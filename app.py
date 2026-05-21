@@ -675,7 +675,7 @@ def get_random_tables():
     level = request.args.get("level", default="1")
     table_type = request.args.get("type", default="monsters")
     
-    S3_BUCKET_URL = f"https://maximumminiatures-oss.s3.amazonaws.com/tables/level_{level}_{table_type}.json"
+    S3_BUCKET_URL = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/{table_type}-{level}.json"
     
     try:
         response = requests.get(S3_BUCKET_URL, timeout=3.0)
