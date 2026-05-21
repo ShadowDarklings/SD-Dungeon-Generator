@@ -1,131 +1,373 @@
-# LLM Session Transcript: Week 6 Contract Negotiation
+# Coordinator LLM Session — Week 6 Contract Drafting
 
-**Date:** May 19, 2026  
-**Team:** ShadowDarklings  
-**Coordinator & Client-side:** Charles / maximumminiatures-oss (ctr37@uw.edu)  
-**LLM:** Claude-3.5-Sonnet (through Team Copilot platform)
-
----
-
-### Session Overview
-This transcript captures the collaborative session between team coordinator **maximumminiatures-oss** and the AI coding assistant to draft the core architecture, data structures, and security specifications for **Week 6: Contracts and the External World** for the **SD Dungeon Generator** project. 
-
-The transcript has been lightly cleaned of typos and redundant conversational filler, while preserving all architectural debates, design decisions, teammate consultations, and direct pushbacks against the LLM's initial recommendations.
+**Date:** May 17, 2026  
+**Coordinator:** Charles (ctr37@uw.edu)  
+**LLM:** Claude Sonnet  
+**Team:** ShadowDarklings (Charles — coordinator + client-side, Megan — server-side, Mario — DB & security)
 
 ---
 
-### Transcript
+## Context going in
 
-**Coordinator:** Hey! We are transitioning our procedural Shadowdark dungeon generator from a stateless single-user setup to a secure, multi-user web application where users can save and load runs. We need to write a load-bearing `CONTRACTS.md` before our teammates start coding their respective roles (Front-end: Charles, Database & Security: Mario, Server-side: Megan). 
+We have the SD Dungeon Generator from Week 5: a Flask skeleton with a
+`users` table, raw `session["user_id"]` auth, and a procedural dungeon
+generator served as static HTML/JS from `S3_content/`. The generator
+already tracks internal state (tiles, rooms, halls, entities, player
+position, fog of war, loot log) — documented in `docs/STATE_SCHEMA.md`.
 
-Let's start with the database schema. We currently have a simple skeleton `users` table. We need to design the schema to persist saved runs. What do you recommend?
+This session's goal: draft CONTRACTS.md and identify the four test files
+before anyone starts coding.
 
-**LLM:** Hello! This is an exciting milestone. To support saved runs, you should create a single table `saved_runs` that stores the serialized dungeon state as a JSON blob. Here is a simple schema:
+---
 
-*   `id` (INTEGER, PRIMARY KEY)
-*   `user_id` (INTEGER, FK to `users.id`)
-*   `state` (TEXT)
-*   `created_at` (TIMESTAMP)
+## Transcript
 
-This is highly flexible because the procedural generator state can evolve without requiring migrations.
+**Charles:** We need to design the Week 6 contracts for our dungeon
+generator. The main feature is saved dungeon runs — users should be able
+to save a generated dungeon mid-play and reload it later. I've been
+looking at the Brew Crew example and I'm not sure how to structure the
+database side. Our dungeon state is a big nested JS object with tiles,
+rooms, halls, entities, player position, visibility sets, and a loot
+log. Should we just store the whole thing as a JSON blob?
 
-**Coordinator:** Wait, a single text blob is way too basic. We discussed this in class: relying *only* on a JSON blob (what the instructor called "truthy fixtures" or "lazy serialization") makes it impossible to run analytical SQL queries on the actual game entities, rooms, or tiles (like "find all rooms explored in level 5 dungeons"). 
+**LLM:** A single JSON column is the simplest approach and it would work
+for save/restore — your client just sends the full state object on save
+and gets it back on load. But there's a tradeoff worth thinking about.
+If you ever want to query across saves (for example, "show me all runs
+where the player reached level 5" or "how many monsters were defeated
+across all runs"), a single JSON blob makes that very hard — you'd need
+to parse JSON in SQL or pull everything into Python.
 
-We need a dual-storage strategy. The full serialized client state *must* reside in a JSON field for easy rendering/restoration, but we also need structured relational tables for the underlying elements: tiles, rooms, halls, entities (monsters, traps, features), and loot logs. Let's design 7 tables in total, including `users`.
+A common pattern for game state is dual storage: keep the full JSON blob
+for fast save/restore (the client doesn't need to reconstruct anything),
+but also write the key entities into relational tables so they're
+queryable. The JSON blob is the source of truth for loading; the
+relational tables are for inspection and analytics.
 
-**LLM:** Understood. That is a much more robust, production-grade approach. A dual-storage model gives you the speed of single-document deserialization at runtime with the power of SQL analytics. Let's design the following tables:
+**Charles:** That's interesting. How many tables are we talking about? I
+don't want to over-engineer this for a class project.
 
-1.  `users` (Existing)
-2.  `saved_runs` (Parent metadata + the `state_json` blob)
-3.  `tiles` (Grid coordinates + type + room/hall associations)
-4.  `rooms` (Key, position, dimensions, exploration flags)
-5.  `halls` (Key, connections)
-6.  `entities` (Key, type, position, state flags like defeated/collected/revealed/value)
-7.  `loot_entries` (Loot log matching what the player looted)
+**LLM:** Looking at your STATE_SCHEMA.md, I'd suggest these new tables
+alongside the existing `users` table:
 
-For the foreign keys from tables 3-7 to `saved_runs.id`, I recommend using standard foreign keys:
-`saved_run_id INTEGER REFERENCES saved_runs(id)`
+1. `saved_runs` — parent record with seed, level, the JSON blob, and timestamps
+2. `tiles` — one row per grid cell (x, y, type, which room/hall it belongs to)
+3. `rooms` — room metadata (position, dimensions, discovered/explored flags)
+4. `halls` — hall connections between rooms
+5. `entities` — monsters, traps, treasures, features (with state flags like defeated, collected)
+6. `loot_entries` — the player's loot log
 
-**Coordinator:** Wait, if a user deletes a saved run, what happens to all the child rows in the `tiles`, `rooms`, `halls`, `entities`, and `loot_entries` tables? If we use standard references, we will either block the delete or leave orphaned rows in the database, causing storage leaks and foreign key violations. We must enforce `ON DELETE CASCADE` on all of these foreign keys. 
+That's 7 tables total. Each of tables 2-6 would have a foreign key back
+to `saved_runs`. The tile table will be the largest — a typical dungeon
+might have a few hundred tiles — but that's fine for Postgres.
 
-Also, we need strict index optimization. These sidecar tables will grow very rapidly. Each save will insert hundreds of tiles. We need composite indexes and unique constraints to prevent duplicate database rows. For example, a tile should have a unique constraint on `(saved_run_id, x, y)`. Can you revise the schema definitions to reflect that?
+**Charles:** Seven tables feels like a lot. Let me ask — do we actually
+need the `halls` table? Halls are basically just connections between
+rooms, and we could reconstruct them from the tile data.
 
-**LLM:** You're completely right. Without `ON DELETE CASCADE`, deleting a single parent run would throw an integrity error unless the application manually purged every related child row first, which is highly error-prone. And adding the composite unique constraints (e.g., `(saved_run_id, room_key)` or `(saved_run_id, x, y)`) ensures database-level integrity, blocking duplicate saves or corrupt runs.
+**LLM:** You could skip halls, but then you'd lose the explicit
+from-room/to-room connection data. If your client ever needs to know
+"which rooms are connected" without scanning every tile, the halls table
+gives you that in one query. It's also only a few rows per save — maybe
+5-10 halls per dungeon. I'd keep it for completeness, but it's your call.
 
-Here is the revised database schema design:
-*   *Table `saved_runs`*: Foreign key `user_id` pointing to `users.id` with `ON DELETE CASCADE`. A check constraint enforcing `level BETWEEN 1 AND 10` since Shadowdark dungeon levels are restricted.
-*   *Table `tiles`*: Foreign key `saved_run_id` pointing to `saved_runs.id` with `ON DELETE CASCADE`. Unique constraint: `(saved_run_id, x, y)`.
-*   *Table `rooms`*: Foreign key `saved_run_id` pointing to `saved_runs.id` with `ON DELETE CASCADE`. Unique constraint: `(saved_run_id, room_key)`.
-*   *Table `halls`*: Foreign key `saved_run_id` pointing to `saved_runs.id` with `ON DELETE CASCADE`. Unique constraint: `(saved_run_id, hall_key)`.
-*   *Table `entities`*: Foreign key `saved_run_id` pointing to `saved_runs.id` with `ON DELETE CASCADE`. Unique constraint: `(saved_run_id, entity_key)`.
-*   *Table `loot_entries`*: Foreign key `saved_run_id` pointing to `saved_runs.id` with `ON DELETE CASCADE`.
+**Charles:** Fair enough, let's keep it. What about constraints? I know
+we need foreign keys but I'm not sure what else.
 
-Let's discuss authentication. For Flask, we can write a helper function that checks if a `username` is in the Flask `session` dictionary:
-```python
-if 'username' not in session:
-    return redirect(url_for('login'))
+**LLM:** Good question — this is where database-level integrity really
+matters. A few things I'd recommend:
+
+First, all the child table foreign keys should use `ON DELETE CASCADE`.
+Without that, if a user deletes a saved run, you'd either get an
+integrity error (Postgres blocks the delete because child rows still
+reference it) or you'd need application code to manually delete every
+child table's rows first. CASCADE makes the database handle it
+automatically.
+
+Second, you'll want unique constraints to prevent duplicate rows. For
+tiles, a `UNIQUE(saved_run_id, x, y)` constraint ensures you can't
+accidentally save two tiles at the same grid position in the same run.
+Similar constraints for rooms (`saved_run_id, room_key`), halls
+(`saved_run_id, hall_key`), and entities (`saved_run_id, entity_key`).
+
+Third, for the `saved_runs` table, since Shadowdark dungeons go from
+level 1 to 10, a `CHECK (level BETWEEN 1 AND 10)` constraint catches
+invalid data at the database level rather than relying on application
+validation alone.
+
+**Charles:** I didn't think about the CASCADE thing — that would have
+been a nasty bug to discover at integration time. Let me write these
+down.
+
+What about authentication? We're currently using raw
+`session["user_id"]` checks. The assignment says the DB & security role
+should handle Flask-Login.
+
+**LLM:** Right. Flask-Login gives you several things over raw session
+checks:
+
+- A `@login_required` decorator so you don't write `if not
+  session.get("user_id")` on every route
+- A `current_user` proxy that gives you the actual User object, not just
+  an ID
+- Proper session cookie management with security defaults
+- A `user_loader` callback that centralizes how users are looked up
+
+The main work for your DB & security person is: install Flask-Login, set
+up the `LoginManager` in app.py, write the user loader callback, make
+the User model inherit from `UserMixin`, and then replace all the raw
+session checks with `@login_required` and `current_user`.
+
+One thing to decide: what should happen when an unauthenticated user
+hits an API endpoint? Flask-Login's default behavior is to redirect to
+the login page, which makes sense for HTML pages but is wrong for JSON
+API endpoints — the client-side JS would get a redirect instead of a
+clean error.
+
+**Charles:** Oh, I hadn't thought about that. What's the right approach?
+
+**LLM:** You can set a custom `unauthorized` handler on the
+LoginManager. For API routes (anything under `/api/`), return a 401 JSON
+response. For page routes like `/runs`, the redirect to login is fine.
+A common pattern is checking whether the request path starts with
+`/api/` in the unauthorized handler.
+
+**Charles:** That makes sense. Let me ping Mario about this since he's
+the one implementing Flask-Login.
+
+*(Messaged Mario on Discord: "For Flask-Login, the LLM suggests we need
+a custom unauthorized handler that returns 401 JSON for /api/ routes
+instead of redirecting. Does that work for you? Also — the LLM is
+recommending ON DELETE CASCADE on all child table FKs. Any concerns?")*
+
+*(Mario replied: "401 for API routes makes sense, I was planning on
+that. CASCADE is the right call — I'll also make sure the check
+constraint on level is enforced at the DB level, not just in Python.
+One thing: make sure the contract specifies that the User model needs
+to inherit from UserMixin. I need that for Flask-Login's is_authenticated
+and get_id methods.")*
+
+**Charles:** Mario's on board. He confirmed CASCADE and the 401 handler.
+He also wants the contract to explicitly require `UserMixin` inheritance
+on the User model. Let's add that.
+
+Now, endpoints. I'm thinking we need basic CRUD for saved runs:
+
+- `POST /api/runs` — save a new run
+- `GET /api/runs/<id>` — load a run
+- `PUT /api/runs/<id>` — update a run (when the player explores more)
+- `DELETE /api/runs/<id>` — delete a run
+- `GET /runs` — HTML page listing saved runs (a dashboard)
+
+What about listing runs as JSON? Should `/api/runs` with GET return a
+JSON list?
+
+**LLM:** Yes, I'd add `GET /api/runs` as a JSON endpoint separate from
+`GET /runs` (the HTML page). Your client-side JS will need a way to
+fetch the list of saved runs for the sidebar panel without loading a
+full HTML page. The JSON endpoint returns run metadata (id, seed, level,
+timestamps) but not the full `state_json` — that's potentially large and
+you only need it when actually loading a specific run.
+
+For the response shapes, I'd suggest a consistent envelope. For list
+endpoints:
+```json
+{"results": [...], "error": null}
 ```
-This is simple and doesn't require extra packages.
+For single-resource endpoints, return the object directly with its
+fields. For errors, always use:
+```json
+{"error": "machine_readable_code", "message": "Human-readable text."}
+```
 
-**Coordinator:** No, raw session dict checks are insecure, tedious, and fragile. Our database and security role (Mario) explicitly requested that we use the standard `Flask-Login` library. It provides clean session management, a secure cookie handler, handles user object lookup automatically via a `@login_manager.user_loader` callback, and gives us the `@login_required` decorator and the `current_user` proxy. This prevents us from manually checking session dicts on every single endpoint. Let's make `Flask-Login` a strict contract requirement.
+**Charles:** I like the envelope pattern. What error codes should we
+define for the runs endpoints?
 
-**LLM:** Understood. Enforcing `Flask-Login` in the contract ensures that Mario can implement a standardized security layer that the back-end route builders can consume immediately. It also simplifies the codebase, as we can protect endpoints by simply adding `@login_required` and query ownership via `current_user.id`.
+**LLM:** For `POST /api/runs`:
+- 400 `invalid_json` — malformed or missing JSON body
+- 400 `invalid_level` — level outside 1-10
+- 400 `invalid_state` — state_json doesn't match expected shape
+- 401 `login_required` — not authenticated
 
-Now, let's map out the API endpoints. We will need:
-*   `GET /runs` - Renders the dashboard showing saved runs.
-*   `POST /api/runs` - Saves a new run.
-*   `GET /api/runs/<run_id>` - Fetches a saved run.
-*   `PUT /api/runs/<run_id>` - Updates an existing run.
-*   `DELETE /api/runs/<run_id>` - Deletes a run.
+For `GET/PUT/DELETE /api/runs/<id>`:
+- 401 `login_required`
+- 404 `not_found` — run doesn't exist or doesn't belong to this user
 
-For authorization on the API routes (like `GET /api/runs/<run_id>`), if a logged-in user requests a run ID that belongs to someone else, we should return a `403 Forbidden` JSON error. This tells the client they are authenticated but lack permissions for that specific resource.
+That last point is important — you should return 404, not 403, when a
+user tries to access another user's run. If you return 403 for
+"not yours" and 404 for "doesn't exist," an attacker can enumerate which
+run IDs exist by checking which ones return 403 vs 404. This is an OWASP
+A01 (Broken Object Level Authorization) issue. Returning 404 in both
+cases prevents that information leak.
 
-**Coordinator:** Hold on. Let's think about security best practices here. If we return `403 Forbidden` for a run ID that belongs to another user, and `404 Not Found` for a run ID that doesn't exist at all, we are introducing a data-harvesting vulnerability! A malicious user could iterate through integer IDs (e.g., `/api/runs/1`, `/api/runs/2`, etc.) and figure out exactly which runs exist based on whether they get a 403 or a 404. This is a classic OWASP broken object-level authorization (BOLA/A01) vulnerability. 
+**Charles:** Wait, why would an attacker care about enumerating run IDs?
 
-We must enforce the **"404-for-not-yours"** rule. If a user requests a run ID that belongs to another user, the server must return `404 Not Found`, exactly as if the run didn't exist at all. That way, no information is leaked about other users' data.
+**LLM:** In this specific app, the risk is relatively low since run IDs
+are just auto-incrementing integers for dungeon saves. But the principle
+matters: if you train yourself to return 403 for "not authorized," you
+develop a habit that becomes dangerous in apps where knowing a resource
+exists reveals sensitive information (medical records, financial data,
+private documents). The 404-for-not-yours pattern costs nothing to
+implement and prevents the entire class of enumeration attacks.
 
-**LLM:** Excellent security catch. Hiding the existence of resources using a `404 Not Found` response is a highly effective mitigation against resource enumeration attacks (OWASP A01). I will update the contract definitions: for `GET`, `PUT`, and `DELETE` on `/api/runs/<run_id>`, any request for a run ID that does not exist *or* belongs to a different user will return a `404 Not Found` response.
+**Charles:** That's a good point — and the assignment instructions
+explicitly mention the OWASP 404-for-not-yours rule, so we should
+definitely follow it. I'll make sure the contract specifies 404 for all
+ownership violations.
 
-Let's discuss the "External World" part of the assignment. The app needs to read procedural generation tables (monsters and traps). Since we want this to be a dynamic, externally-hosted source, how should we handle it?
+Now for the external API part. The assignment requires at least one route
+that uses the `requests` library to call an external service. Our
+dungeon generator loads monster and trap tables from JSON files. I
+already have those hosted on my S3 static website:
+`http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com`.
 
-**Coordinator:** I already hosted our JSON random tables on AWS S3 static website hosting: `http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com`. 
-- Monsters for Level 1 are in `/monsters-1.json`.
-- Monsters for Levels 2-10 are in `/monsters-2.json`.
-- Traps are in `/traps.json`.
+Should the browser fetch those directly, or should we proxy through
+Flask?
 
-Should my browser front-end fetch these S3 JSON files directly during gameplay, or should we route them through our Flask server?
+**LLM:** Both approaches work for gameplay, but a server-side proxy
+gives you two advantages:
 
-**LLM:** Fetching from the browser directly works, but it introduces several risks:
-1.  **CORS issues**: If the S3 bucket is not configured with open CORS headers, the browser will block the fetch.
-2.  **Unreliable CI / testing**: If the S3 service goes down or is throttled during an automated grading run, your tests will fail.
-3.  **Lack of robustness**: The server has no control over rate limits, timeout handling, or formatting.
+First, your CI tests can mock the external call using the `responses`
+library. If your browser fetches S3 directly, your tests can't intercept
+that — they'd depend on S3 being up during every test run.
 
-I recommend implementing a back-end proxy route: `GET /api/random-tables`.
-This route will receive requests from the front-end, use the Python `requests` library to fetch the JSON from the S3 URL on the server-side, validate the response shape, and return a clean JSON payload. This gives us a single location to handle timeouts, rate limits, and malformed upstream JSON, translating them into standard HTTP status codes (like `503 Service Unavailable`).
+Second, you get a single place to handle failure modes. If S3 times out,
+returns garbled data, or rate-limits you, the proxy route can translate
+those into clean JSON error responses that your client can handle
+gracefully. Without the proxy, your browser JS has to handle all those
+edge cases.
 
-**Coordinator:** That's perfect. Let's make it so the client can load local `/site/*.json` files for smooth client gameplay, but we must implement the server-side proxy route `GET /api/random-tables` so that CI and e2e validation can verify our deterministic handling of external-world failures (timeouts, rate-limiting, malformed upstream payload).
+I'd suggest implementing `GET /api/random-tables` as the proxy. It takes
+`type` (monsters or traps) and `level` (required for monsters), fetches
+the corresponding S3 file, and returns the results.
 
-Let's define the error shapes for this proxy:
-*   Timeout: 503 `timeout`
-*   Rate-limit / Throttling: 503 `rate_limited`
-*   Malformed JSON: 503 `upstream_invalid`
+**Charles:** That works. For gameplay, my JS can still load the files
+directly from `/site/` (they're served locally too), but the proxy
+gives us the external-world verification the assignment wants.
 
-Let me ping Megan and Mario to get their thoughts on this layout.
+What failure modes should we contract for?
 
-*(Coordinator pauses session to consult teammates on Slack)*
+**LLM:** Three main ones:
 
-**Coordinator:** Okay, back. As the frontend developer, I am happy to use `/api/random-tables` for proxy testing and will ensure my client-side code serializes the game's dynamic fog-of-war sets (e.g., `exploredRooms`, `discoveredRooms`) into lists before POSTing the JSON state.
-Megan reviewed the route contracts and proxy design, and confirmed she is on board with constructing the Flask handlers for the runs and random tables, ensuring standard request/response schema validation and proper HTTP error response codes. Mario reviewed the SQLModel definitions and confirmed they are clean and compatible with Flask-Login.
+1. **Timeout** — the S3 request takes too long. Return 503 with
+   `"error": "timeout"`. You should set a reasonable timeout on the
+   `requests.get()` call, maybe 5 seconds.
 
-Let's summarize the role boundaries clearly so nobody steps on each other's toes:
-*   **Front-end (Charles)** owns `S3_content/index.html`, styles, and the game's JS code. He doesn't touch SQLModel definitions, Flask routes, or login code.
-*   **Server-side (Megan)** owns the Flask route handlers (CRUD for runs) and proxy request logic to S3. She doesn't touch SQLModel schema design or client canvas gameplay logic.
-*   **Database/Security (Mario)** owns SQLModel tables, Flask-Login setup, and security verification tests. He doesn't touch the canvas game loop, Flask route implementation, or frontend styling.
-*   **Coordinator** keeps the tests, contracts, and e2e integration verified.
+2. **Rate limiting** — S3 can throttle under heavy load or free-tier
+   limits. If you get a 429 response (or any AWS throttling indicator),
+   return 503 with `"error": "rate_limited"`.
 
-Let's write this all out into a comprehensive `CONTRACTS.md` file.
+3. **Malformed response** — S3 returns something that isn't valid JSON
+   or isn't the expected array shape. Return 503 with
+   `"error": "upstream_invalid"`.
 
-**LLM:** Perfect. The boundaries are crystal clear and the design is highly secure and robust. I will generate the complete `CONTRACTS.md` content representing our agreed contracts, ensuring all tables, routes, security rules, proxy errors, and role boundaries are explicitly documented.
+In all three cases, include `"results": []` so the client always gets a
+predictable shape.
+
+**Charles:** Makes sense. Let me check with Megan since she's building
+the route handlers.
+
+*(Messaged Megan on Discord: "For the /api/random-tables proxy, the plan
+is: your route fetches from my S3 URL, handles timeout/rate-limit/
+malformed JSON, returns 503 with error codes. The S3 URLs are:
+monsters-1.json for level 1, monsters-2.json for levels 2-10,
+traps.json for traps. Sound good?")*
+
+*(Megan replied: "Looks good. Quick question — should level be required
+for traps too, or just for monsters?" )*
+
+**Charles:** Megan asks whether `level` should be required for traps.
+
+**LLM:** Since you only have one trap table (`traps.json`) that's used
+for all levels, `level` should only be required when `type=monsters`.
+For `type=traps`, the level parameter can be ignored or omitted.
+
+*(Relayed to Megan: "Level is only required for monsters. For traps just
+ignore the level param.")*
+
+*(Megan: "Got it. I'll validate type is either 'monsters' or 'traps' and
+return 400 invalid_table for anything else.")*
+
+**Charles:** Megan will add input validation — 400 `invalid_table` if
+type isn't monsters or traps, 400 `invalid_level` if level is missing or
+out of range for monsters. Good catch from her.
+
+Let me also define the authorization matrix clearly so there's no
+ambiguity. The dungeon generator at `/site/` is public — anyone can
+play, logged in or not. But saving, loading, and managing runs requires
+login. And the random tables proxy is public since the S3 data is public
+anyway.
+
+**LLM:** Here's how I'd lay out the authorization table:
+
+| Resource | Anonymous | Owner | Non-owner |
+|----------|-----------|-------|-----------|
+| `/site/` | Play allowed | Play allowed | Play allowed |
+| `GET /runs` | Redirect to login | List own runs | List own runs only |
+| CRUD `/api/runs/...` | 401 | Full access to own | 404 (BOLA rule) |
+| `GET /api/random-tables` | Allowed | Allowed | Allowed |
+
+**Charles:** That's clean. One more thing — role boundaries. I want to
+make sure nobody steps on each other's code. I own the frontend JS and
+HTML in `S3_content/`. Megan owns the Flask route handlers. Mario owns
+the SQLModel models and Flask-Login setup. Nobody touches each other's
+files without talking about it first.
+
+**LLM:** That's a good boundary. I'd also suggest being explicit about
+what each role does *not* touch. For example, Megan shouldn't modify the
+SQLModel schema definitions — she consumes Mario's models but doesn't
+change them. Mario shouldn't modify route response shapes — he enforces
+auth but the response format is Megan's domain. And you shouldn't touch
+the auth logic or DB models from the frontend.
+
+You should also include a "known limitations" section in CONTRACTS.md.
+What's explicitly out of scope for Week 6?
+
+**Charles:** Good call. Out of scope: multi-character support (one
+player per run), full Shadowdark combat rules, torch timer mechanics,
+animations, save conflict resolution (last write wins), pagination
+beyond a simple `limit` parameter, and CSRF protection (that's Week 7
+per the forward-pointer in the assignment).
+
+Also, we only have two monster table files right now. Levels 2-10 all
+map to `monsters-2.json`. We'll expand this later but it's fine for
+Week 6.
+
+**LLM:** All reasonable scope decisions. Make sure these are documented
+in CONTRACTS.md so the instructor knows they're deliberate choices, not
+oversights.
+
+One last thing: the assignment requires four test files, one per role,
+all initially failing. Based on your contract:
+
+- **Frontend test**: verify that `/site/` has save/load button elements
+  and a saved-runs panel container — assert on selectors, not text copy
+- **Backend test**: verify `POST /api/runs` returns 201 with the
+  contracted response shape
+- **Backend test**: verify the random-tables proxy handles timeout and
+  malformed JSON correctly (using `responses` library to mock S3)
+- **DB & security test**: verify the schema (all 7 tables, constraints,
+  FKs) and Flask-Login integration
+
+**Charles:** That gives us good coverage. I'll also want an ownership
+test — verifying the 404-for-not-yours rule — but I can add that as a
+fifth test outside the official four, or Mario can include it in his
+security test file.
+
+**LLM:** I'd suggest giving the ownership test its own file. Schema
+verification and ownership verification are testing different things,
+and keeping them separate makes it easier to debug failures. Mario would
+own both files.
+
+**Charles:** Makes sense. I'll commit the four official test files in the
+contracts PR, and Mario can add the ownership test file in his
+implementation PR.
+
+Alright, I think we have everything we need for CONTRACTS.md. Let me
+write it up.
 
 ---
-*End of Session.*
+
+*End of session. Charles drafted CONTRACTS.md from this session's
+decisions and committed it with the four test files and this transcript
+in PR "Week 6 contracts."*
