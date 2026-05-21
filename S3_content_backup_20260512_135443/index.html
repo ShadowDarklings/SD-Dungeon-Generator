@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SD Dungeon Generator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="controls-panel">
+        <h1>SD Dungeon Generator</h1>
+        <label>
+          Level (1-10)
+          <input id="level-input" type="number" min="1" max="10" value="1" />
+        </label>
+        <label>
+          Seed
+          <input id="seed-input" type="number" value="50631" />
+        </label>
+        <button id="generate-btn" type="button">Generate Dungeon</button>
+        <button id="torch-btn" type="button">Toggle Torch</button>
+        <label class="toggle">
+          <input id="blackout-toggle" type="checkbox" checked />
+          Full blackout when torch is out
+        </label>
+        <label class="toggle">
+          <input id="debug-toggle" type="checkbox" />
+          Show generation debug overlay
+        </label>
+        <label class="toggle">
+          <input id="door-debug-toggle" type="checkbox" />
+          Door placement debug mode
+        </label>
+        <section class="door-debug-panel" id="door-debug-panel" aria-live="polite">
+          <h2>Door placement debug</h2>
+          <p>Status: <strong id="door-debug-status">off</strong></p>
+          <p>Selected door: <span id="door-debug-door">none</span></p>
+          <p>Selected tile: <span id="door-debug-tile">none</span></p>
+          <p class="door-debug-summary" id="door-debug-summary">Click a door tile to cycle door, floor, and unselected states. Selected doors show cyan, selected tiles show yellow.</p>
+          <pre id="door-debug-log" class="door-debug-log">No debug actions yet.</pre>
+          <h3>Controls</h3>
+          <ul class="door-debug-controls">
+            <li><span>1</span> opposite pivot</li>
+            <li><span>2</span> swap 90 / 180</li>
+            <li><span>3</span> flip CW / CCW</li>
+            <li><span>4</span> output all changes</li>
+            <li><span>5</span> mark animation impossible</li>
+            <li><span>6</span> mark animation valid</li>
+            <li><span>7</span> tile should be blocked by LoS</li>
+            <li><span>8</span> tile should not be blocked by LoS</li>
+            <li><span>Numpad 8/2/4/6</span> move selected door by 1 px</li>
+          </ul>
+        </section>
+        <p>Status: <span id="status-text">Ready.</span></p>
+        <p>Connectivity check: <strong id="connectivity-text">unknown</strong></p>
+
+        <h2>Search</h2>
+        <div class="search-controls">
+          <input id="search-modifier-input" type="number" min="-99" max="99" value="0" />
+          <button id="search-btn" type="button">Search</button>
+        </div>
+        <p>Search result: <span id="search-result" title="">none</span></p>
+
+        <h2>Carried treasure</h2>
+        <ul id="loot-list"></ul>
+        <p>Total Value: <span id="total-value">0</span> gp</p>
+
+        <h2>Room Loot</h2>
+        <div id="room-loot-panel" class="room-loot-panel">
+          No loot in this room.
+        </div>
+
+        <h2>Room Monsters</h2>
+        <div id="monster-panel" class="monster-panel">
+          No monsters in this room.
+        </div>
+
+        <h2>Revealed Traps</h2>
+        <div id="trap-panel" class="trap-panel">
+          No revealed traps in this room.
+        </div>
+
+        <p class="hint">
+          Controls: arrow keys move player, S searches, G gets treasure, L leaves carried treasure,
+          and D disarms a revealed trap. Click map tokens to interact with monsters, doors, features,
+          and traps. Left-click and drag the map to pan; use the mouse wheel to zoom.
+        </p>
+        <nav class="site-links" aria-label="Project links">
+          <a href="/about">Back to About</a>
+          <a href="https://github.com/ShadowDarklings">ShadowDarklings GitHub</a>
+        </nav>
+        <section class="door-debug-actions" aria-label="Door placement debug actions">
+          <button id="door-debug-report" type="button">Output all changes</button>
+          <div class="door-debug-modes">
+            <button id="door-debug-mode-1" type="button">1 Opposite pivot</button>
+            <button id="door-debug-mode-2" type="button">2 Swap 90 / 180</button>
+            <button id="door-debug-mode-3" type="button">3 Flip CW / CCW</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="map-panel">
+        <div id="map-host" class="map-host" aria-label="Dungeon Map"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

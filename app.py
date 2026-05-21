@@ -63,7 +63,11 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://app:app@db:5432/app"
 engine = create_engine(DATABASE_URL, echo=False)
 
 # Path to the synced S3 content. Students populate this with `aws s3 sync`.
-S3_CONTENT_DIR = Path(__file__).parent / "S3_content"
+# Override for local MVP debugging: S3_CONTENT_DIR=S3_content_mvp
+_s3_content = os.environ.get("S3_CONTENT_DIR", "S3_content")
+S3_CONTENT_DIR = Path(_s3_content)
+if not S3_CONTENT_DIR.is_absolute():
+    S3_CONTENT_DIR = Path(__file__).parent / S3_CONTENT_DIR
 
 
 # ---------------------------------------------------------------------------

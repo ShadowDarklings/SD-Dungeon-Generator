@@ -12,28 +12,42 @@
         <h1>SD Dungeon Generator</h1>
         <label>
           Level (1-10)
-          <input id="level-input" type="number" min="1" max="10" value="1" />
+          <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
         </label>
         <label>
           Seed
           <input id="seed-input" type="number" value="50631" />
         </label>
         <button id="generate-btn" type="button">Generate Dungeon</button>
+        <div class="save-load-controls" aria-label="Saved runs">
+          <button id="save-btn" type="button">Save</button>
+          <button id="load-btn" type="button">Load</button>
+        </div>
+        <button id="light-torch-btn" type="button">Light New Torch</button>
+        <button id="torch-out-btn" type="button">Torch went out!</button>
+        <section id="wandering-section" class="wandering-section">
+          <h2>Wandering Monsters</h2>
+          <div class="wandering-controls">
+            <input id="wandering-numerator" type="number" min="0" max="99" value="1" aria-label="Wandering monster chance numerator" data-autosize-field data-size-chars="2" />
+            <span>in</span>
+            <input id="wandering-denominator" type="number" min="0" max="99" value="6" aria-label="Wandering monster chance denominator" data-autosize-field data-size-chars="2" />
+          </div>
+        </section>
         <button id="torch-btn" type="button">Toggle Torch</button>
         <label class="toggle">
           <input id="blackout-toggle" type="checkbox" checked />
           Full blackout when torch is out
         </label>
-        <label class="toggle">
-          <input id="debug-toggle" type="checkbox" />
-          Show generation debug overlay
-        </label>
         <p>Status: <span id="status-text">Ready.</span></p>
+        <div id="locked-door-actions" class="locked-door-actions" hidden>
+          <button id="pick-lock-btn" type="button">Pick Lock DC 8</button>
+          <button id="break-door-btn" type="button">Break DC 8</button>
+        </div>
         <p>Connectivity check: <strong id="connectivity-text">unknown</strong></p>
 
         <h2>Search</h2>
         <div class="search-controls">
-          <input id="search-modifier-input" type="number" min="-99" max="99" value="0" />
+          <input id="search-modifier-input" type="number" min="-99" max="99" value="0" data-autosize-field data-size-chars="3" />
           <button id="search-btn" type="button">Search</button>
         </div>
         <p>Search result: <span id="search-result" title="">none</span></p>
@@ -69,9 +83,44 @@
       </section>
 
       <section class="map-panel">
+        <div id="darkness-message" class="darkness-message" aria-live="polite"></div>
         <div id="map-host" class="map-host" aria-label="Dungeon Map"></div>
       </section>
     </main>
+
+    <div id="save-load-modal" class="modal-backdrop" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="save-load-title">
+        <h2 id="save-load-title">Saved Runs</h2>
+        <p id="save-load-status" class="modal-status"></p>
+        <label id="save-name-row">
+          Save name
+          <input id="save-name-input" type="text" maxlength="15" />
+        </label>
+        <div id="saved-runs-list" class="saved-runs-list" data-testid="saved-runs-list"></div>
+        <div id="overwrite-confirmation" class="overwrite-confirmation" hidden>
+          <p>Overwrite existing save?</p>
+          <button id="overwrite-confirm-btn" type="button">yep</button>
+          <button id="overwrite-cancel-btn" type="button">cancel</button>
+        </div>
+        <div id="replace-confirmation" class="overwrite-confirmation" hidden>
+          <p>Replace the current dungeon with this save?</p>
+          <button id="replace-confirm-btn" type="button">yep</button>
+          <button id="replace-cancel-btn" type="button">cancel</button>
+        </div>
+        <div class="modal-actions">
+          <button id="save-modal-submit" type="button">Save</button>
+          <button id="save-load-close" type="button">Close</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="loot-complete-modal" class="modal-backdrop" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="loot-complete-title">
+        <h2 id="loot-complete-title">Dungeon fully Looted!</h2>
+        <p>Every treasure currently in this dungeon has been collected.</p>
+        <button id="loot-complete-close" type="button">Close</button>
+      </section>
+    </div>
 
     <script type="module" src="./src/main.js"></script>
   </body>

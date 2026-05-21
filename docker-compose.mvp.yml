@@ -1,0 +1,6 @@
+# MVP debugging overlay. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.mvp.yml up
+services:
+  app:
+    environment:
+      S3_CONTENT_DIR: S3_content_mvp

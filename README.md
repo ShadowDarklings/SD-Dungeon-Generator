@@ -38,7 +38,6 @@ The prototype now includes:
 - Hidden traps load from `traps.json`, can be triggered by tile movement, doors, or treasure, and reveal their stats when found or triggered.
 - Search rolls support a one-digit modifier and show the total with a hover tooltip for the roll breakdown.
 - Loot log with running total and drop-back-to-map behavior.
-- Debug overlay for room ids, hall ids, door states, and torch radius.
 
 ## Run Locally
 
