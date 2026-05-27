@@ -40,19 +40,19 @@ End-to-end for the client slice means a real browser hitting the deployed Flask 
 |------|--------|-------|
 | 1 | PASS | `/site/` loaded successfully. |
 | 2 | PASS | Dungeon rendered after Generate. |
-| 3 | PASS | Save modal now returns the expected auth-required JSON response instead of the old non-JSON parse failure. |
-| 4 | BLOCKED | Save remains blocked in an anonymous session because `/api/runs` requires login. |
-| 5 | BLOCKED | Load remains blocked until a saved run exists for the logged-in user. |
+| 3 | PASS | Save modal loaded saved runs instead of showing the old non-JSON parse failure. |
+| 4 | PASS | Saved `e2e-save-1` appeared in the list. |
+| 5 | PASS | Loaded `e2e-save-1` and the status updated to `Loaded e2e-save-1.` |
 | 6 | NOT RUN | |
 
 ## 5. Findings
 
 ### Finding 1 — Save modal error instead of empty state
 
-**Symptom**: Opening Save no longer shows "Server returned a non-JSON response."; the API now replies with JSON and a login-required message when anonymous.
+**Symptom**: Opening Save previously showed "Server returned a non-JSON response."; the current deployed backend now loads saved runs and completes save/load interactions.
 
-**Root cause**: The previously observed non-JSON backend response was fixed in the merged backend update.
+**Root cause**: The earlier non-JSON response was fixed in the merged backend update, and the front-end can now reach the contract-compliant JSON path.
 
-**Fix**: The server-side `/api/runs` contract now returns JSON; authenticated users should receive `{ results: [...] }`, and anonymous users receive a JSON 401.
+**Fix**: The merged backend now supports the saved-runs flow end to end in the browser, including saving and loading `e2e-save-1`.
 
-**Lesson**: Client UI depends on the API returning JSON per contract; that contract is now restored, so the old parse failure should not be used in the final submission notes.
+**Lesson**: The client UI depends on the backend contract and the browser session working together; once both lined up, the save/load flow passed.
