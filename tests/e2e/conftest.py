@@ -11,13 +11,15 @@ import os
 import sys
 import threading
 import time
+import tempfile
 import pytest
 
 # Ensure repo root is on sys.path so `from app import ...` works.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Override DATABASE_URL BEFORE importing app — SQLite for test isolation.
-os.environ["DATABASE_URL"] = "sqlite:///tmp/test_e2e.db"
+_test_db = os.path.join(tempfile.gettempdir(), "test_e2e.db")
+os.environ["DATABASE_URL"] = f"sqlite:///{_test_db}"
 
 
 @pytest.fixture(scope="session")
