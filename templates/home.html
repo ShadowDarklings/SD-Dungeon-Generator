@@ -43,7 +43,7 @@
             </div>
         </div>
 
-        {% if user %}
+        {% if user.is_authenticated %}
         <div class="alert alert-success mt-4 mb-0">
             You're logged in as <strong>{{ user.username }}</strong>. The auth flow uses
             real Flask sessions backed by a Postgres <code>users</code> table.
