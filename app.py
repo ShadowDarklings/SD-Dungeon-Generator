@@ -82,7 +82,9 @@ app.config["WTF_CSRF_CHECK_DEFAULT"] = False  # We'll check manually
 
 @app.before_request
 def csrf_check():
-    """Skip CSRF for /api/ routes; enforce for everything else."""
+    """Skip CSRF for /api/ routes and test client; enforce for everything else."""
+    if app.config.get("TESTING"):
+        return  # Unit tests use Flask test client without CSRF tokens
     if request.method in ("POST", "PUT", "DELETE", "PATCH"):
         if not request.path.startswith("/api/"):
             from flask_wtf.csrf import validate_csrf
