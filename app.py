@@ -391,11 +391,10 @@ def populate_child_tables(db, run, state):
     # Insert Entities
     entities_data = state.get("entities", [])
     for e in entities_data:
-        entity_kind = e.get("kind") or e.get("type")
         entity = Entity(
             saved_run_id=run.id,
             entity_key=e.get("id"),
-            kind=entity_kind,
+            kind=e.get("kind"),
             name=e.get("name"),
             x=e.get("x"),
             y=e.get("y"),

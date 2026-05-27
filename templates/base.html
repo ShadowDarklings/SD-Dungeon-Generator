@@ -18,15 +18,12 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('about') }}">About</a>
                 </li>
-                {% if user.is_authenticated %}
+                {% if user %}
                 <li class="nav-item">
-                    <span class="nav-link">Logged in as {{ user.username }}</span>
+                    <span class="nav-link">Hello, {{ user.username }}</span>
                 </li>
                 <li class="nav-item">
                     <form method="POST" action="{{ url_for('logout') }}" class="d-inline">
-                        {% if csrf_token is defined %}
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        {% endif %}
                         <button type="submit" class="btn btn-link nav-link">Log out</button>
                     </form>
                 </li>
