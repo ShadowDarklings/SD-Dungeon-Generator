@@ -42,6 +42,57 @@ app = Flask(__name__)
 # In production this comes from an environment variable and is a long random string.
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-not-for-production")
 
+# ---------------------------------------------------------------------------
+# Session hardening (Week 7, CONTRACTS.md §9)
+# ---------------------------------------------------------------------------
+from datetime import timedelta
+
+# Cookie flags — HttpOnly and SameSite always on; Secure only over HTTPS.
+app.config["SESSION_COOKIE_HTTPONLY"]  = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"]   = os.environ.get("FLASK_ENV") != "development"
+
+# Session lifetime: 2 hours without "remember me", 14 days with.
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
+app.config["REMEMBER_COOKIE_DURATION"]   = timedelta(days=14)
+app.config["REMEMBER_COOKIE_HTTPONLY"]    = True
+app.config["REMEMBER_COOKIE_SAMESITE"]   = "Lax"
+app.config["REMEMBER_COOKIE_SECURE"]     = os.environ.get("FLASK_ENV") != "development"
+
+# ---------------------------------------------------------------------------
+# CSRF protection (Week 7, CONTRACTS.md §9.3)
+# ---------------------------------------------------------------------------
+from flask_wtf.csrf import CSRFProtect, CSRFError
+
+csrf = CSRFProtect(app)
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    return {"error": "csrf_invalid", "message": "CSRF validation failed."}, 400
+
+# Exempt JSON API routes — protected by SameSite=Lax + JSON content type.
+@csrf.exempt
+def csrf_exempt_api():
+    pass
+
+# We exempt API routes by URL prefix using before_request + exempt decorator.
+# Flask-WTF's CSRFProtect checks all POST/PUT/DELETE by default.
+# We use the app-level exemption via WTF_CSRF_CHECK_DEFAULT below.
+app.config["WTF_CSRF_CHECK_DEFAULT"] = False  # We'll check manually
+
+@app.before_request
+def csrf_check():
+    """Skip CSRF for /api/ routes and test client; enforce for everything else."""
+    if app.config.get("TESTING"):
+        return  # Unit tests use Flask test client without CSRF tokens
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        if not request.path.startswith("/api/"):
+            from flask_wtf.csrf import validate_csrf
+            try:
+                validate_csrf(request.form.get("csrf_token") or request.headers.get("X-CSRFToken"))
+            except CSRFError as e:
+                return {"error": "csrf_invalid", "message": "CSRF validation failed."}, 400
+
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -79,7 +130,25 @@ class User(SQLModel, UserMixin, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=80)
-    password_hash: str = Field(max_length=255)
+    password_hash: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+    email: str | None = Field(default=None, sa_column=Column(String(254), unique=True, nullable=True))
+    display_name: str | None = Field(default=None, max_length=200)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class OAuthIdentity(SQLModel, table=True):
+    __tablename__ = "oauth_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_user_id", name="uq_oauth_provider_user"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(
+        sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    )
+    provider: str = Field(max_length=50)
+    provider_user_id: str = Field(max_length=200)
+    provider_login: str | None = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # 1. SavedRun model
@@ -714,6 +783,31 @@ def get_random_tables():
             "error": "upstream_invalid",
             "message": "The upstream content provider returned an unparseable or faulty response."
         }), 503
+
+# ---------------------------------------------------------------------------
+# Test-login backdoor (Week 7, CONTRACTS.md §2 — testing only)
+# ---------------------------------------------------------------------------
+
+@app.route("/test/login/<username>")
+def test_login(username):
+    """Logs in a named user without GitHub OAuth. Only available when TESTING=True."""
+    if not app.config.get("TESTING"):
+        abort(404)
+    db = get_db_session()
+    user = db.exec(select(User).where(User.email == f"{username}@test")).first()
+    if user is None:
+        user = User(
+            username=f"test_{username}",
+            email=f"{username}@test",
+            display_name=username,
+            password_hash=None,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    login_user(user)
+    return redirect("/")
+
 
 # ---------------------------------------------------------------------------
 # Entry point
