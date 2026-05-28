@@ -38,4 +38,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
+        env:
+          SECRET_KEY: "ci-test-secret-not-for-production"
+          DATABASE_URL: "sqlite:///test.db"
+          OAUTH_CLIENT_ID: "ci-placeholder"
+          OAUTH_CLIENT_SECRET: "ci-placeholder"
+          TESTING: "true"
         run: pytest -v
