@@ -3,6 +3,47 @@ import { getTile } from "./state-schema.js";
 import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibility.js";
 
 const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
+const DEFAULT_INVENTORY_SLOTS = 10;
+
+function ensureInventory(state) {
+  if (!state.inventory) {
+    state.inventory = {
+      baseSlots: DEFAULT_INVENTORY_SLOTS,
+      bonusSlots: 0,
+      usedSlots: 0
+    };
+  }
+  state.inventory.baseSlots = Math.max(0, Number(state.inventory.baseSlots ?? DEFAULT_INVENTORY_SLOTS) || DEFAULT_INVENTORY_SLOTS);
+  state.inventory.bonusSlots = Math.max(0, Number(state.inventory.bonusSlots ?? 0) || 0);
+  state.inventory.usedSlots = Math.max(0, Number(state.inventory.usedSlots ?? 0) || 0);
+  return state.inventory;
+}
+
+function getInventoryCapacity(state) {
+  const inventory = ensureInventory(state);
+  return inventory.baseSlots + inventory.bonusSlots;
+}
+
+function getItemSlots(item) {
+  const slots = Number(item?.slots ?? 1);
+  return Number.isFinite(slots) && slots > 0 ? Math.ceil(slots) : 1;
+}
+
+function getItemBonusSlots(item) {
+  const bonusSlots = Number(item?.bonusSlots ?? 0);
+  return Number.isFinite(bonusSlots) && bonusSlots > 0 ? Math.ceil(bonusSlots) : 0;
+}
+
+function getLootValueLabel(item) {
+  return item?.priceless === true ? "priceless" : `${item?.value ?? 0} gp`;
+}
+
+function recomputeInventory(state) {
+  const inventory = ensureInventory(state);
+  inventory.usedSlots = state.lootLog.entries.reduce((total, entry) => total + getItemSlots(entry), 0);
+  inventory.bonusSlots = state.lootLog.entries.reduce((total, entry) => total + getItemBonusSlots(entry), 0);
+  return inventory;
+}
 
 function findEntityAt(state, x, y) {
   return state.entities.find((entity) => {
@@ -441,17 +482,33 @@ export function collectLoot(state, lootId) {
     };
   }
 
+  const inventory = ensureInventory(state);
+  const itemSlots = getItemSlots(entity);
+  const capacity = getInventoryCapacity(state);
+  if (inventory.usedSlots + itemSlots > capacity) {
+    return {
+      collected: 0,
+      message: `Not enough inventory slots. Carrying ${inventory.usedSlots}/${capacity} slots.`
+    };
+  }
+
   entity.collected = true;
   state.lootLog.entries.push({
     id: entity.id,
     name: entity.name || "loot",
+    kind: entity.kind || entity.subtype || "treasure",
     value: entity.value,
+    slots: itemSlots,
+    bonusSlots: getItemBonusSlots(entity),
+    priceless: entity.priceless === true,
+    description: entity.description || "",
     originTile: { x: entity.x, y: entity.y }
   });
   state.lootLog.totalValue += entity.value;
+  recomputeInventory(state);
   return {
     collected: 1,
-    message: `Got: ${entity.name || "treasure"} (${entity.value} gp).`
+    message: `Got: ${entity.name || "treasure"} (${getLootValueLabel(entity)}).`
   };
 }
 
@@ -493,14 +550,29 @@ export function dropLootAtPlayer(state, lootId) {
     type: ENTITY_TYPES.TREASURE,
     subtype: "dropped-loot",
     name: entry.name,
+    kind: entry.kind || "treasure",
     x: state.player.x,
     y: state.player.y,
     roomId: state.player.roomId,
     visible: true,
     value: entry.value,
+    slots: getItemSlots(entry),
+    bonusSlots: getItemBonusSlots(entry),
+    priceless: entry.priceless === true,
+    description: entry.description || "",
     collected: false
   });
-  return { message: `Left ${entry.name} (${entry.value} gp).` };
+  recomputeInventory(state);
+  return { message: `Left ${entry.name} (${getLootValueLabel(entry)}).` };
+}
+
+export function getInventorySummary(state) {
+  const inventory = ensureInventory(state);
+  return {
+    usedSlots: inventory.usedSlots,
+    bonusSlots: inventory.bonusSlots,
+    capacity: getInventoryCapacity(state)
+  };
 }
 
 export function toggleTorch(state) {

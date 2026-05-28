@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SD Dungeon Generator</title>
+    <title>ShadowSpawner</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="layout">
       <section class="controls-panel">
-        <h1>SD Dungeon Generator</h1>
+        <h1 class="site-title">ShadowSpawner</h1>
         <label>
           Level (1-10)
           <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
@@ -53,15 +53,16 @@
         <p>Search result: <span id="search-result" title="">none</span></p>
 
         <h2>Carried treasure</h2>
+        <p id="inventory-slots" class="inventory-slots">0 / 10 slots</p>
         <ul id="loot-list"></ul>
         <p>Total Value: <span id="total-value">0</span> gp</p>
 
-        <h2>Room Loot</h2>
+        <h2>Loot</h2>
         <div id="room-loot-panel" class="room-loot-panel">
           No loot in this room.
         </div>
 
-        <h2>Room Monsters</h2>
+        <h2>Monsters</h2>
         <div id="monster-panel" class="monster-panel">
           No monsters in this room.
         </div>

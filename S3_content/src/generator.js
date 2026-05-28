@@ -1,7 +1,6 @@
 import {
   ENTITY_TYPES,
   FEATURE_NAMES,
-  LOOT_NAMES,
   TILE_TYPES,
   TREASURE_SPAWN_CHANCE
 } from "./constants.js";
@@ -627,10 +626,94 @@ function spawnTrap(state, rng, room, trapTable, targetType, targetEntityId = nul
   });
 }
 
-function createLootDetails(rng) {
+function pickLootBucket(level) {
+  if (level >= 5) {
+    return [
+      ["magic-item", 28],
+      ["armor", 20],
+      ["weapon", 22],
+      ["gear", 30]
+    ];
+  }
+  if (level >= 3) {
+    return [
+      ["magic-item", 12],
+      ["armor", 24],
+      ["weapon", 28],
+      ["gear", 36]
+    ];
+  }
+  return [
+    ["magic-item", 5],
+    ["armor", 12],
+    ["weapon", 23],
+    ["gear", 60]
+  ];
+}
+
+function normalizeLootEntry(item, kind) {
+  if (!item) {
+    return null;
+  }
+  const isMagicItem = kind === "magic-item";
+  const name = item.name || item.slug || "treasure";
+  const slots = Math.max(1, Number(item.slots ?? 1) || 1);
+  const bonusSlots = Math.max(0, Number(item.bonusSlots ?? 0) || 0);
   return {
-    name: rng.pick(LOOT_NAMES),
+    name,
+    kind,
+    value: isMagicItem ? 0 : Math.max(0, Number(item.cost ?? item.value ?? 0) || 0),
+    slots,
+    bonusSlots,
+    priceless: isMagicItem || item.priceless === true,
+    description: item.description || "",
+    searchDc: item.searchDc ?? null
+  };
+}
+
+function pickLootTemplate(rng, level, lootCatalog = {}) {
+  const lootPools = {
+    "magic-item": Array.isArray(lootCatalog.magicItems) ? lootCatalog.magicItems : [],
+    armor: Array.isArray(lootCatalog.armor) ? lootCatalog.armor : [],
+    weapon: Array.isArray(lootCatalog.weapons) ? lootCatalog.weapons : [],
+    gear: Array.isArray(lootCatalog.gear) ? lootCatalog.gear : []
+  };
+  const weightedKinds = pickLootBucket(level).filter(([kind]) => lootPools[kind].length > 0);
+  if (!weightedKinds.length) {
+    return null;
+  }
+  const totalWeight = weightedKinds.reduce((sum, [, weight]) => sum + weight, 0);
+  let roll = rng.nextInt(1, totalWeight);
+  let chosenKind = weightedKinds[0][0];
+  for (const [kind, weight] of weightedKinds) {
+    roll -= weight;
+    if (roll <= 0) {
+      chosenKind = kind;
+      break;
+    }
+  }
+  const item = rng.pick(lootPools[chosenKind]);
+  const loot = normalizeLootEntry(item, chosenKind);
+  if (loot?.name?.toLowerCase() === "bag of holding") {
+    loot.bonusSlots = 10;
+  }
+  return loot;
+}
+
+function createLootDetails(rng, level, lootCatalog = {}) {
+  const loot = pickLootTemplate(rng, level, lootCatalog);
+  if (loot) {
+    loot.searchDc = rng.nextInt(8, 14);
+    return loot;
+  }
+  return {
+    name: "treasure",
+    kind: "coin-cache",
     value: rng.nextInt(5, 100),
+    slots: 1,
+    bonusSlots: 0,
+    priceless: false,
+    description: "",
     searchDc: rng.nextInt(8, 14)
   };
 }
@@ -725,13 +808,14 @@ function findFurthestTreasureFromStart(state) {
   return bestTreasure;
 }
 
-function spawnTreasureAtTile(state, rng, room, tile, extra = {}) {
-  const loot = createLootDetails(rng);
+function spawnTreasureAtTile(state, rng, room, tile, extra = {}, lootCatalog = {}) {
+  const loot = createLootDetails(rng, state.level, lootCatalog);
   const treasureId = extra.id || `treasure-${state.entities.length}`;
   const entity = {
     id: treasureId,
     type: ENTITY_TYPES.TREASURE,
-    subtype: "coin-cache",
+    subtype: loot.kind || "coin-cache",
+    kind: loot.kind || "coin-cache",
     x: tile.x,
     y: tile.y,
     roomId: room.id,
@@ -739,6 +823,10 @@ function spawnTreasureAtTile(state, rng, room, tile, extra = {}) {
     name: loot.name,
     value: loot.value,
     searchDc: loot.searchDc,
+    slots: loot.slots,
+    bonusSlots: loot.bonusSlots,
+    priceless: loot.priceless,
+    description: loot.description,
     revealed: false,
     collected: false,
     ...extra
@@ -747,17 +835,22 @@ function spawnTreasureAtTile(state, rng, room, tile, extra = {}) {
   return entity;
 }
 
-function trySpawnRoomTreasure(state, rng, room, trapTable) {
+function trySpawnRoomTreasure(state, rng, room, trapTable, lootCatalog = {}) {
   if (rng.nextFloat() >= TREASURE_SPAWN_CHANCE) {
     return null;
   }
-  const loot = createLootDetails(rng);
+  const loot = createLootDetails(rng, state.level, lootCatalog);
   const treasureId = `treasure-${state.entities.length}`;
   const treasure = spawnEntity(state, rng, room, "treasure", ENTITY_TYPES.TREASURE, "coin-cache", false, {
     id: treasureId,
+    kind: loot.kind,
     name: loot.name,
     value: loot.value,
     searchDc: loot.searchDc,
+    slots: loot.slots,
+    bonusSlots: loot.bonusSlots,
+    priceless: loot.priceless,
+    description: loot.description,
     revealed: false,
     collected: false
   });
@@ -767,7 +860,7 @@ function trySpawnRoomTreasure(state, rng, room, trapTable) {
   return treasure;
 }
 
-function balanceTreasureSpawns(state, rng, trapTable = []) {
+function balanceTreasureSpawns(state, rng, trapTable = [], lootCatalog = {}) {
   const totalRooms = state.rooms.length;
   const expectedCount = getExpectedTreasureRoomCount(totalRooms);
   let treasureRoomCount = countTreasureRooms(state);
@@ -778,7 +871,7 @@ function balanceTreasureSpawns(state, rng, trapTable = []) {
       ? findFurthestFloorTileInRoomFromStart(state, furthestRoom)
       : null;
     if (tile) {
-      const treasure = spawnTreasureAtTile(state, rng, furthestRoom, tile);
+      const treasure = spawnTreasureAtTile(state, rng, furthestRoom, tile, {}, lootCatalog);
       if (treasure && rng.nextFloat() < 0.25) {
         spawnTrap(state, rng, furthestRoom, trapTable, "treasure", treasure.id);
       }
@@ -804,22 +897,26 @@ function balanceTreasureSpawns(state, rng, trapTable = []) {
 }
 
 function createMonsterDetails(rng, monsterTable = []) {
-  const validMonsters = monsterTable.filter((monster) => monster?.["Monster Name"]);
+  const validMonsters = monsterTable.filter((monster) => monster?.name || monster?.["Monster Name"]);
   const monster = rng.pick(validMonsters);
   if (!monster) {
     return null;
   }
+  const name = monster.name || monster["Monster Name"];
   return {
-    name: monster["Monster Name"],
-    ac: monster["**AC**"] || null,
-    hp: monster["**HP**"] || null,
-    attack: monster["**ATK**"] || null,
-    abilities: monster.abilities || {},
+    name,
+    level: monster.level ?? monster.lv ?? null,
+    ac: monster.ac ?? monster["**AC**"] ?? monster["AC"] ?? null,
+    hp: monster.hp ?? monster["**HP**"] ?? monster["HP"] ?? null,
+    attack: monster.attack ?? monster["**ATK**"] ?? monster["ATK"] ?? null,
+    movement: monster.movement ?? monster.mv ?? null,
+    abilities: monster.abilities || monster.talents || {},
+    tags: monster.tags || [],
     defeated: false
   };
 }
 
-function populateRoomEntities(state, rng, monsterTable = [], trapTable = []) {
+function populateRoomEntities(state, rng, monsterTable = [], trapTable = [], lootCatalog = {}) {
   for (const room of state.rooms) {
     if (room.id === state.generation.entranceRoomId) {
       continue;
@@ -830,7 +927,7 @@ function populateRoomEntities(state, rng, monsterTable = [], trapTable = []) {
         spawnEntity(state, rng, room, "monster", ENTITY_TYPES.MONSTER, "foe", true, monster);
       }
     }
-    trySpawnRoomTreasure(state, rng, room, trapTable);
+    trySpawnRoomTreasure(state, rng, room, trapTable, lootCatalog);
     if (rng.nextFloat() < 0.35) {
       spawnTrap(state, rng, room, trapTable, "tile");
     }
@@ -892,7 +989,7 @@ export function generateDungeon(seed = Date.now(), level = 1, options = {}) {
   state.generation.connectivityValid =
     reachableRooms.size === state.rooms.length && validateTileConnectivity(state);
 
-  populateRoomEntities(state, rng, options.monsterTable || [], options.trapTable || []);
-  balanceTreasureSpawns(state, rng, options.trapTable || []);
+  populateRoomEntities(state, rng, options.monsterTable || [], options.trapTable || [], options.contentCatalog?.loot || {});
+  balanceTreasureSpawns(state, rng, options.trapTable || [], options.contentCatalog?.loot || {});
   return state;
 }

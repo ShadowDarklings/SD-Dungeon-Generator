@@ -110,4 +110,4 @@ def test_login_redirects_home_with_session(client):
 
     # Session is set
     with client.session_transaction() as sess:
-        assert "user_id" in sess
+        assert "_user_id" in sess

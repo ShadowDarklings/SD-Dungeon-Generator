@@ -43,6 +43,14 @@ function normalizeWandering(raw = {}) {
   };
 }
 
+function normalizeInventory(raw = {}) {
+  return {
+    baseSlots: Math.max(0, Number(raw.baseSlots ?? 10) || 10),
+    bonusSlots: Math.max(0, Number(raw.bonusSlots ?? 0) || 0),
+    usedSlots: Math.max(0, Number(raw.usedSlots ?? 0) || 0)
+  };
+}
+
 export function normalizeSaveName(name) {
   return String(name || "").trim().slice(0, MAX_SAVE_NAME_LENGTH);
 }
@@ -93,6 +101,7 @@ export function hydrateDungeonState(raw) {
     totalValue: Number(state.lootLog?.totalValue) || 0,
     fullyLootedShown: state.lootLog?.fullyLootedShown === true
   };
+  state.inventory = normalizeInventory(state.inventory);
   return state;
 }
 
