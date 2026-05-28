@@ -57,6 +57,7 @@ const ui = {
   wanderingNumerator: document.getElementById("wandering-numerator"),
   wanderingDenominator: document.getElementById("wandering-denominator"),
   lootList: document.getElementById("loot-list"),
+  inventorySlots: document.getElementById("inventory-slots"),
   totalValue: document.getElementById("total-value"),
   roomLootPanel: document.getElementById("room-loot-panel"),
   monsterPanel: document.getElementById("monster-panel"),
@@ -84,6 +85,7 @@ let layers = null;
 let forceBlackoutWhenTorchOut = true;
 let monsterTable = [];
 let trapTable = [];
+let shadowdarkContent = null;
 let saveDialog = {
   mode: "save",
   runs: [],
@@ -103,17 +105,16 @@ const DRAG_THRESHOLD_PX = 8;
 const MIN_ZOOM_INSET = 0.92;
 let dragState = null;
 
-async function loadMonsterTable(level) {
-  const tableLevel = level <= 1 ? 1 : 2;
+async function loadShadowdarkContent() {
   try {
-    const response = await fetch(`./monsters-${tableLevel}.json`);
+    const response = await fetch("./data/shadowdark-content.json");
     if (!response.ok) {
-      throw new Error(`Monster table request failed: ${response.status}`);
+      throw new Error(`Shadowdark content request failed: ${response.status}`);
     }
     return response.json();
   } catch (error) {
-    console.warn("Using fallback monster names because the JSON table could not load.", error);
-    return [];
+    console.warn("Using fallback local content because the Shadowdark snapshot could not load.", error);
+    return { monsters: [], loot: { gear: [], armor: [], weapons: [], magicItems: [] } };
   }
 }
 
@@ -342,7 +343,9 @@ function updateLootUi() {
   for (const entry of state.lootLog.entries) {
     const item = document.createElement("li");
     item.className = "loot-item";
-    item.textContent = `${entry.name} (${entry.value} gp)`;
+    const slotText = `${entry.slots || 1} slot${(entry.slots || 1) === 1 ? "" : "s"}`;
+    const valueText = entry.priceless ? "priceless" : `${entry.value} gp`;
+    item.textContent = `${entry.name} (${slotText}, ${valueText})`;
     const dropBtn = document.createElement("button");
     dropBtn.textContent = "Leave";
     dropBtn.addEventListener("click", () => {
@@ -356,6 +359,11 @@ function updateLootUi() {
     ui.lootList.append(item);
   }
   ui.totalValue.textContent = `${state.lootLog.totalValue}`;
+  if (ui.inventorySlots) {
+    const inventory = state.inventory || { baseSlots: 10, bonusSlots: 0, usedSlots: 0 };
+    const capacity = (inventory.baseSlots || 10) + (inventory.bonusSlots || 0);
+    ui.inventorySlots.textContent = `${inventory.usedSlots || 0} / ${capacity} slots`;
+  }
 }
 
 function updateRoomLootPanel() {
@@ -384,7 +392,9 @@ function updateRoomLootPanel() {
   for (const loot of roomLoot) {
     const lootButton = document.createElement("button");
     lootButton.type = "button";
-    lootButton.textContent = `Get: ${loot.name || "treasure"} (${loot.value} gp)`;
+    const slotText = `${loot.slots || 1} slot${(loot.slots || 1) === 1 ? "" : "s"}`;
+    const valueText = loot.priceless ? "priceless" : `${loot.value} gp`;
+    lootButton.textContent = `Get: ${loot.name || "treasure"} (${slotText}, ${valueText})`;
     lootButton.addEventListener("click", () => {
       const result = collectLoot(state, loot.id);
       markUserActivity();
@@ -989,8 +999,15 @@ async function generateAndRender() {
   const seed = Number(ui.seedInput.value || Date.now());
   const level = Number(ui.levelInput.value || 1);
   setStatus("Generating dungeon...");
-  [monsterTable, trapTable] = await Promise.all([loadMonsterTable(level), loadTrapTable()]);
-  state = generateDungeon(seed, level, { monsterTable, trapTable });
+  [shadowdarkContent, trapTable] = await Promise.all([loadShadowdarkContent(), loadTrapTable()]);
+  monsterTable = Array.isArray(shadowdarkContent?.monsters)
+    ? shadowdarkContent.monsters.filter((monster) => (monster.level ?? monster.lv ?? 1) <= Math.max(2, level + 1))
+    : [];
+  state = generateDungeon(seed, level, {
+    monsterTable,
+    trapTable,
+    contentCatalog: shadowdarkContent
+  });
   normalizeWanderingChance(state, ui.wanderingNumerator.value, ui.wanderingDenominator.value);
   state.run.hasUserActivity = false;
   state.run.dirty = false;

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from __future__ import annotations
+
 """
 Course 506 Week 7 — Flask + Postgres/SQLite + SQLModel + Bootstrap + OAuth Engine
 
@@ -10,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from flask import (
     Flask, render_template, request, redirect, url_for, session, flash, g,
-    send_from_directory, abort, jsonify
+    send_from_directory, abort, jsonify,
 )
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -21,16 +25,15 @@ from sqlalchemy import (
     Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint, text
 )
 from dotenv import load_dotenv
-from authlib.integ.flask_client import OAuth
+from authlib.integrations.flask_client import OAuth
 from flask_wtf.csrf import CSRFProtect, CSRFError
 
 # ---------------------------------------------------------------------------
 # 1. Environment Secrets Management (§12)
 # ---------------------------------------------------------------------------
-# Ensure load_dotenv() runs before any environment variable lookups
+
 load_dotenv()
 
-# Using bracket notation so the app crashes on startup if a secret is missing
 SECRET_KEY = os.environ["SECRET_KEY"]
 DATABASE_URL = os.environ["DATABASE_URL"]
 OAUTH_CLIENT_ID = os.environ["OAUTH_CLIENT_ID"]
@@ -39,32 +42,24 @@ OAUTH_CLIENT_SECRET = os.environ["OAUTH_CLIENT_SECRET"]
 # ---------------------------------------------------------------------------
 # 2. Application Setup & Security Hardening Configuration (§9)
 # ---------------------------------------------------------------------------
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
-
-# Session Lifetime Configurations
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=14)
-
-# Cookie Security Flags
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Safe development/testing bypass flag for Secure cookies
 if not app.config.get("TESTING") and os.environ.get("FLASK_ENV") == "production":
     app.config["SESSION_COOKIE_SECURE"] = True
 else:
     app.config["SESSION_COOKIE_SECURE"] = False
 
-# Initialize Global CSRF Protection Framework
 csrf = CSRFProtect(app)
+
 
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
-    """Returns the contractually mandated JSON envelope on CSRF validation failures."""
-    return jsonify({
-        "error": "csrf_invalid", 
-        "message": "CSRF validation failed."
-    }), 400
+    return jsonify({"error": "csrf_invalid", "message": "CSRF validation failed."}), 400
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -77,11 +72,11 @@ def unauthorized():
         return {"error": "login_required", "message": "Authentication required."}, 401
     return redirect(url_for("login"))
 
+
 # Initialize Engines
 engine = create_engine(DATABASE_URL, echo=False)
 S3_CONTENT_DIR = Path(__file__).parent / "S3_content"
 
-# Initialize Authlib Engine
 oauth = OAuth(app)
 oauth.register(
     name="github",
@@ -95,8 +90,9 @@ oauth.register(
     client_kwargs={"scope": "user:email"},
 )
 
+
 # ---------------------------------------------------------------------------
-# 3. Database Schema Models (§1)
+# Database model
 # ---------------------------------------------------------------------------
 
 class User(SQLModel, UserMixin, table=True):
@@ -104,7 +100,7 @@ class User(SQLModel, UserMixin, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=80)
-    password_hash: str | None = Field(default=None, max_length=255) # Nullable for OAuth-only users
+    password_hash: str | None = Field(default=None, max_length=255)
     email: str | None = Field(default=None, unique=True, index=True, max_length=254)
     display_name: str | None = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -136,6 +132,7 @@ class SavedRun(SQLModel, table=True):
 class Tile(SQLModel, table=True):
     __tablename__ = "tiles"
     __table_args__ = (UniqueConstraint("saved_run_id", "x", "y", name="uq_tile_saved_run_x_y"),)
+
     id: int | None = Field(default=None, primary_key=True)
     saved_run_id: int = Field(sa_column=Column(Integer, ForeignKey("saved_runs.id", ondelete="CASCADE"), nullable=False, index=True))
     x: int = Field(nullable=False)
@@ -147,6 +144,7 @@ class Tile(SQLModel, table=True):
 class Room(SQLModel, table=True):
     __tablename__ = "rooms"
     __table_args__ = (UniqueConstraint("saved_run_id", "room_key", name="uq_room_saved_run_key"),)
+
     id: int | None = Field(default=None, primary_key=True)
     saved_run_id: int = Field(sa_column=Column(Integer, ForeignKey("saved_runs.id", ondelete="CASCADE"), nullable=False, index=True))
     room_key: str = Field(sa_column=Column(String(80), nullable=False))
@@ -160,6 +158,7 @@ class Room(SQLModel, table=True):
 class Hall(SQLModel, table=True):
     __tablename__ = "halls"
     __table_args__ = (UniqueConstraint("saved_run_id", "hall_key", name="uq_hall_saved_run_key"),)
+
     id: int | None = Field(default=None, primary_key=True)
     saved_run_id: int = Field(sa_column=Column(Integer, ForeignKey("saved_runs.id", ondelete="CASCADE"), nullable=False, index=True))
     hall_key: str = Field(sa_column=Column(String(80), nullable=False))
@@ -169,6 +168,7 @@ class Hall(SQLModel, table=True):
 class Entity(SQLModel, table=True):
     __tablename__ = "entities"
     __table_args__ = (UniqueConstraint("saved_run_id", "entity_key", name="uq_entity_saved_run_key"),)
+
     id: int | None = Field(default=None, primary_key=True)
     saved_run_id: int = Field(sa_column=Column(Integer, ForeignKey("saved_runs.id", ondelete="CASCADE"), nullable=False, index=True))
     entity_key: str = Field(sa_column=Column(String(120), nullable=False))
@@ -184,14 +184,25 @@ class Entity(SQLModel, table=True):
 
 class LootEntry(SQLModel, table=True):
     __tablename__ = "loot_entries"
+
     id: int | None = Field(default=None, primary_key=True)
     saved_run_id: int = Field(sa_column=Column(Integer, ForeignKey("saved_runs.id", ondelete="CASCADE"), nullable=False, index=True))
     name: str = Field(sa_column=Column(String(200), nullable=False))
     value: int = Field(default=0, nullable=False)
     origin_tile: dict = Field(sa_column=Column(JSON, nullable=False))
 
+
 # ---------------------------------------------------------------------------
-# 4. Context Session Handlers
+# Session helper
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Session helper
+#
+# SQLModel doesn't have a Flask extension. We open a fresh DB session for each
+# request and close it when the request finishes. Flask's `g` object holds
+# request-scoped state.
 # ---------------------------------------------------------------------------
 
 def get_db_session():
@@ -199,35 +210,49 @@ def get_db_session():
         g.db_session = Session(engine)
     return g.db_session
 
+
 @app.teardown_appcontext
 def close_db_session(exception=None):
     db_session = g.pop("db_session", None)
     if db_session is not None:
         db_session.close()
 
+
 @login_manager.user_loader
 def load_user(user_id):
     db = get_db_session()
     return db.get(User, int(user_id))
 
+
 @app.context_processor
 def inject_user():
     return {"user": current_user}
 
+
 # ---------------------------------------------------------------------------
-# 5. Core Content & Static Asset Delivery Delivery
+# Routes — your S3 static site
+#
+# Your S3 site lives at /site/. Populate the S3_content/ folder by running:
+#   aws s3 sync s3://<your-bucket>/ S3_content/
+# from the repo root. Then click "My Site" in the navbar.
+#
+# The home page is Flask-rendered and acts as the entry point: it has the
+# navbar (Login/Register/About/My Site) and a brief landing message.
 # ---------------------------------------------------------------------------
 
 @app.route("/")
 def home():
     return render_template("home.html")
 
+
 @app.route("/site/")
 def site_home():
     index_path = S3_CONTENT_DIR / "index.html"
     if not index_path.exists():
+        # Friendly placeholder when the student hasn't synced yet.
         return render_template("placeholder.html"), 200
     return send_from_directory(S3_CONTENT_DIR, "index.html")
+
 
 @app.route("/site/<path:filename>")
 def serve_s3_content(filename):
@@ -236,15 +261,19 @@ def serve_s3_content(filename):
         abort(404)
     return send_from_directory(S3_CONTENT_DIR, filename)
 
+
+
 # ---------------------------------------------------------------------------
-# 6. Legacy Password Form Routing Operations
+# Routes — authentication (Flask-rendered, not static)
 # ---------------------------------------------------------------------------
 
+@csrf.exempt
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":
         return render_template("register.html")
 
+    # POST: create a new user.
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
 
@@ -270,11 +299,14 @@ def register():
     login_user(user)
     return redirect(url_for("home"))
 
+
+@csrf.exempt
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
         return render_template("login.html")
 
+    # POST: validate credentials.
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
 
@@ -282,7 +314,6 @@ def login():
     user = db.exec(select(User).where(User.username == username)).first()
 
     if user is not None and user.password_hash is None:
-        # Prevent login attempts against OAuth-only accounts with custom flash message (§1)
         flash("This account uses GitHub login.")
         return redirect(url_for("login"))
 
@@ -294,30 +325,23 @@ def login():
     login_user(user)
     return redirect(url_for("home"))
 
+
+@csrf.exempt
 @app.route("/logout", methods=["POST"])
 @login_required
 def logout():
-    """Implements local session destruction without clearing third-party provider status (§11)."""
     logout_user()
     return redirect(url_for("home"))
 
-@app.route("/about")
-def about():
-    return render_template("about.html")
-
-# ---------------------------------------------------------------------------
-# 7. Production OAuth Handshake Flow Control Layout (§2, §8)
-# ---------------------------------------------------------------------------
 
 @app.route("/login/github")
 def login_github():
-    """Initiates outward OAuth handoff workflow redirecting to GitHub (§2)."""
     redirect_uri = url_for("auth_github_callback", _external=True)
     return oauth.github.authorize_redirect(redirect_uri)
 
+
 @app.route("/auth/github/callback")
 def auth_github_callback():
-    """Consumes authorization return codes implementing Create-or-Link Tree Logic (§2, §8)."""
     try:
         token = oauth.github.authorize_access_token()
     except Exception:
@@ -330,22 +354,19 @@ def auth_github_callback():
         return redirect(url_for("login"))
 
     profile = resp.json()
-    
     github_id = str(profile.get("id"))
     github_login = profile.get("login")
-    github_email = profile.get("email") # Nullable profile field (§3b)
-    github_name = profile.get("name") or github_login # Fallback profile configuration (§3b)
+    github_email = profile.get("email")
+    github_name = profile.get("name") or github_login
 
     if not github_id or not github_login:
         flash("Incomplete profile data provided by authentication partner.", "error")
         return redirect(url_for("login"))
 
     db = get_db_session()
-
-    # Decision Node 1: Lookup existing connected identity mapping row
     identity_stmt = select(OAuthIdentity).where(
         OAuthIdentity.provider == "github",
-        OAuthIdentity.provider_user_id == github_id
+        OAuthIdentity.provider_user_id == github_id,
     )
     identity = db.exec(identity_stmt).first()
 
@@ -354,36 +375,30 @@ def auth_github_callback():
         if not user:
             flash("Linked account profile no longer exists.", "error")
             return redirect(url_for("login"))
-        
         identity.provider_login = github_login
         db.add(identity)
         db.commit()
-        
         session.permanent = True
         login_user(user)
         return redirect(url_for("list_runs_page"))
 
-    # Decision Node 2: Scan for matching user by verified email 
     user = None
     if github_email:
         email_stmt = select(User).where(User.email == github_email)
         user = db.exec(email_stmt).first()
 
     if user:
-        new_identity = OAuthIdentity(
+        db.add(OAuthIdentity(
             user_id=user.id,
             provider="github",
             provider_user_id=github_id,
-            provider_login=github_login
-        )
-        db.add(new_identity)
+            provider_login=github_login,
+        ))
         db.commit()
-        
         session.permanent = True
         login_user(user)
         return redirect(url_for("list_runs_page"))
 
-    # Decision Node 3: Provision entirely new local identity
     unique_username = f"github_{github_login}"
     collision_stmt = select(User).where(User.username == unique_username)
     if db.exec(collision_stmt).first():
@@ -391,37 +406,32 @@ def auth_github_callback():
 
     new_user = User(
         username=unique_username,
-        password_hash=None, # Explicitly null for OAuth-only safety profile
+        password_hash=None,
         email=github_email,
-        display_name=github_name
+        display_name=github_name,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    new_identity = OAuthIdentity(
+    db.add(OAuthIdentity(
         user_id=new_user.id,
         provider="github",
         provider_user_id=github_id,
-        provider_login=github_login
-    )
-    db.add(new_identity)
+        provider_login=github_login,
+    ))
     db.commit()
 
     session.permanent = True
     login_user(new_user)
     return redirect(url_for("list_runs_page"))
 
-# ---------------------------------------------------------------------------
-# 8. Automated E2E QA Test Backdoor Integration Route (§2, §4)
-# ---------------------------------------------------------------------------
 
 @app.route("/test/login/<username>")
 def test_login(username):
-    """Bypasses provider handshakes to simulate logins inside automated sandboxes (§2)."""
     if not app.config.get("TESTING"):
         abort(404)
-    
+
     db = get_db_session()
     user = db.exec(select(User).where(User.username == username)).first()
     if user is None:
@@ -429,21 +439,32 @@ def test_login(username):
             username=username,
             password_hash=None,
             email=f"{username}@test.local",
-            display_name=username
+            display_name=username,
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        
+
     session.permanent = True
     login_user(user)
     return redirect(url_for("list_runs_page"))
 
+
+@app.route("/about")
+def about():
+    # Each team replaces this content with their own About page (see
+    # the assignment instructions in README.md).
+    return render_template("about.html")
+
+
+
 # ---------------------------------------------------------------------------
-# 9. Relational Run Child Tables Populate Sync Sync Helper
+# Saved Runs Relational DB Populate Helper
 # ---------------------------------------------------------------------------
 
 def populate_child_tables(db, run, state):
+    """Refreshes all relational tables matching the saved run's JSON state snapshot."""
+    # Delete any existing child rows for this run
     db.exec(text(f"DELETE FROM tiles WHERE saved_run_id = {run.id}"))
     db.exec(text(f"DELETE FROM rooms WHERE saved_run_id = {run.id}"))
     db.exec(text(f"DELETE FROM halls WHERE saved_run_id = {run.id}"))
@@ -478,8 +499,9 @@ def populate_child_tables(db, run, state):
         
     db.commit()
 
+
 # ---------------------------------------------------------------------------
-# 10. Runs Context API Endpoint Contracts (§2)
+# Routes — saved runs and API contracts
 # ---------------------------------------------------------------------------
 
 @app.route("/runs")
@@ -497,9 +519,10 @@ def list_runs_page():
     ).all()
     return render_template("placeholder.html", runs=runs)
 
+
 @app.route("/api/runs", methods=["POST"])
 @login_required
-@csrf.exempt # JSON APIs exempted from traditional cross-origin vectors (§9.3)
+@csrf.exempt
 def create_run():
     data = request.get_json(silent=True)
     if data is None:
@@ -513,10 +536,12 @@ def create_run():
         return {"error": "invalid_json", "message": "Seed is required and must be an integer."}, 400
     if level is None or not isinstance(level, int) or not (1 <= level <= 10):
         return {"error": "invalid_level", "message": "Level is required and must be between 1 and 10."}, 400
+        
     if not isinstance(state_json, dict):
         return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
         
     db = get_db_session()
+    
     run = SavedRun(user_id=current_user.id, seed=seed, level=level, state_json=state_json)
     db.add(run)
     db.commit()
@@ -536,6 +561,7 @@ def create_run():
         "updated_at": run.updated_at.isoformat() if run.updated_at else None,
         "links": {"self": f"/api/runs/{run.id}"}
     }, 201
+
 
 @app.route("/api/runs", methods=["GET"])
 @login_required
@@ -563,6 +589,7 @@ def api_list_runs():
         })
     return {"results": results, "error": None}, 200
 
+
 @app.route("/api/runs/<int:run_id>", methods=["GET"])
 @login_required
 def get_run(run_id):
@@ -581,6 +608,7 @@ def get_run(run_id):
         "created_at": run.created_at.isoformat() if run.created_at else None,
         "updated_at": run.updated_at.isoformat() if run.updated_at else None
     }, 200
+
 
 @app.route("/api/runs/<int:run_id>", methods=["PUT"])
 @login_required
@@ -606,6 +634,7 @@ def update_run(run_id):
         if not isinstance(seed, int):
             return {"error": "invalid_json", "message": "Seed must be an integer."}, 400
         run.seed = seed
+        
     if "level" in data:
         level = data["level"]
         if not isinstance(level, int) or not (1 <= level <= 10):
@@ -633,6 +662,7 @@ def update_run(run_id):
         "updated_at": run.updated_at.isoformat() if run.updated_at else None
     }, 200
 
+
 @app.route("/api/runs/<int:run_id>", methods=["DELETE"])
 @login_required
 @csrf.exempt
@@ -640,67 +670,46 @@ def delete_run(run_id):
     db = get_db_session()
     run = db.exec(select(SavedRun).where(SavedRun.id == run_id)).first()
     
-    # Enforce BOLA OWASP A01 Rule: 404 instead of 403 (§4)
+    # Enforce BOLA OWASP A01 rule (404 instead of 403)
     if run is None or run.user_id != current_user.id:
         return {"error": "not_found", "message": "Saved run not found."}, 404
         
     db.delete(run)
     db.commit()
+    
     return "", 204
-
-# ---------------------------------------------------------------------------
-# 11. Individual Role Context - Megan's External S3 Random Tables Proxy Logic (§2, §3a)
-# ---------------------------------------------------------------------------
 
 @app.route("/api/random-tables", methods=["GET"])
 def get_random_tables():
-    """Proxies request tasks to external upstream bucket securely (§2, §3a)."""
+    """Proxies requests to the team's external S3 bucket to fetch random dungeon tables."""
     level = request.args.get("level", default="1")
     table_type = request.args.get("type", default="monsters")
-    
-    # Basic input checks for the contract parameters
+
     if table_type not in ["monsters", "traps"]:
         return jsonify({"error": "invalid_table", "message": "Invalid table type."}), 400
-        
-    S3_BUCKET_URL = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/{table_type}-{level}.json"
+
+    s3_bucket_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/{table_type}-{level}.json"
     if table_type == "traps":
-        S3_BUCKET_URL = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/traps.json"
-    
+        s3_bucket_url = "http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/traps.json"
+
     try:
-        response = requests.get(S3_BUCKET_URL, timeout=3.0)
+        response = requests.get(s3_bucket_url, timeout=3.0)
         response.raise_for_status()
         data = response.json()
-        return jsonify({"results": data, "source": S3_BUCKET_URL, "error": None}), 200
-        
+        return jsonify({"results": data, "source": s3_bucket_url, "error": None}), 200
     except requests.exceptions.Timeout:
-        return jsonify({
-            "error": "timeout", 
-            "results": [], 
-            "message": "Dungeon table temporarily unavailable."
-        }), 503
-    except requests.exceptions.HTTPError as he:
-        if he.response.status_code == 429:
-            return jsonify({
-                "error": "rate_limited", 
-                "results": [], 
-                "message": "Dungeon table temporarily unavailable."
-            }), 503
-        return jsonify({
-            "error": "upstream_invalid", 
-            "results": [], 
-            "message": "Dungeon table response was not usable."
-        }), 503
+        return jsonify({"error": "timeout", "results": [], "message": "Dungeon table temporarily unavailable."}), 503
+    except requests.exceptions.HTTPError as error:
+        if error.response is not None and error.response.status_code == 429:
+            return jsonify({"error": "rate_limited", "results": [], "message": "Dungeon table temporarily unavailable."}), 503
+        return jsonify({"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}), 503
     except (requests.exceptions.RequestException, ValueError):
-        return jsonify({
-            "error": "upstream_invalid", 
-            "results": [], 
-            "message": "Dungeon table response was not usable."
-        }), 503
+        return jsonify({"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}), 503
+
 
 # ---------------------------------------------------------------------------
-# 12. First-Run Schema Engine Delivery
+# Entry point
 # ---------------------------------------------------------------------------
-SQLModel.metadata.create_all(engine)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

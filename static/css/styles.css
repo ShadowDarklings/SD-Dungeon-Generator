@@ -2,6 +2,13 @@
    Bootstrap handles the bulk of layout and components. Add team-specific
    styling here as your project grows. */
 
+@font-face {
+    font-family: "JBlack";
+    src: url("/site/JBLACK.TTF") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+}
+
 body {
     min-height: 100vh;
     display: flex;
@@ -13,6 +20,21 @@ body {
 
 main {
     flex: 1;
+}
+
+.site-header {
+    background: #000;
+}
+
+.site-header .nav-link,
+.site-header .navbar-brand {
+    color: #fff !important;
+}
+
+.site-brand {
+    font-family: "JBlack", "Impact", "Haettenschweiler", "Arial Black", sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.04em;
 }
 
 .card {
