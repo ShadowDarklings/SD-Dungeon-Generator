@@ -91,6 +91,11 @@ oauth.register(
 )
 
 
+def bootstrap_database() -> None:
+    """Create the SQLModel tables if they are missing."""
+    SQLModel.metadata.create_all(engine)
+
+
 # ---------------------------------------------------------------------------
 # Database model
 # ---------------------------------------------------------------------------
@@ -117,6 +122,9 @@ class OAuthIdentity(SQLModel, table=True):
     provider_user_id: str = Field(max_length=200, nullable=False, index=True)
     provider_login: str | None = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+bootstrap_database()
 
 class SavedRun(SQLModel, table=True):
     __tablename__ = "saved_runs"
