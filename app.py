@@ -267,6 +267,7 @@ def serve_s3_content(filename):
 # Routes — authentication (Flask-rendered, not static)
 # ---------------------------------------------------------------------------
 
+@csrf.exempt
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":
@@ -299,6 +300,7 @@ def register():
     return redirect(url_for("home"))
 
 
+@csrf.exempt
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
@@ -324,6 +326,7 @@ def login():
     return redirect(url_for("home"))
 
 
+@csrf.exempt
 @app.route("/logout", methods=["POST"])
 @login_required
 def logout():
