@@ -600,56 +600,6 @@ def delete_run(run_id):
     return "", 204
 
 
-@app.route("/api/random-tables")
-def random_tables():
-    table_type = request.args.get("type")
-    level = request.args.get("level")
-    
-    if table_type not in ("monsters", "traps"):
-        return {"error": "invalid_table", "message": "Type must be monsters or traps."}, 400
-        
-    if table_type == "monsters":
-        if not level:
-            return {"error": "invalid_level", "message": "Level is required for monsters."}, 400
-        try:
-            level_int = int(level)
-            if not (1 <= level_int <= 10):
-                raise ValueError()
-        except ValueError:
-            return {"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}, 400
-            
-    base_url = "http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com"
-    if table_type == "monsters":
-        level_int = int(level)
-        table_file = "/monsters-1.json" if level_int == 1 else "/monsters-2.json"
-    else:
-        table_file = "/traps.json"
-        
-    url = f"{base_url}{table_file}"
-    
-    try:
-        res = requests.get(url, timeout=5)
-        if res.status_code == 429:
-            return {"error": "rate_limited", "results": [], "message": "Dungeon table temporarily unavailable."}, 503
-        if res.status_code != 200:
-            return {"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}, 503
-            
-        try:
-            results = res.json()
-            if not isinstance(results, list):
-                raise ValueError()
-        except ValueError:
-            return {"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}, 503
-            
-        return {"results": results, "source": url, "error": None}, 200
-        
-    except requests.exceptions.Timeout:
-        return {"error": "timeout", "results": [], "message": "Dungeon table temporarily unavailable."}, 503
-    except Exception:
-        return {"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}, 503
-
-
-
 # ---------------------------------------------------------------------------
 # First-run schema creation
 # ---------------------------------------------------------------------------
