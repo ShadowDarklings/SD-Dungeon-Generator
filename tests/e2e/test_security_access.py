@@ -88,26 +88,34 @@ def test_non_owner_still_gets_404_for_other_users_run(seeded_client):
     assert response.status_code == 404
 
 
-def test_charles_auth_smoke_path(page, live_server):
+def test_charles_auth_smoke_path(live_server):
     """Playwright smoke test for the client-side auth flow."""
-    login_url = f"{live_server.url}/login"
-    home_url = f"{live_server.url}/"
-    backdoor_url = f"{live_server.url}/test/login/charles_smoke"
+    from playwright.sync_api import sync_playwright
 
-    page.goto(login_url)
-    expect(page.get_by_role("link", name="Sign in with GitHub")).to_be_visible()
-    expect(page.get_by_role("textbox", name="Username")).to_be_visible()
-    expect(page.get_by_role("textbox", name="Password")).to_be_visible()
-    expect(page.get_by_role("checkbox", name="Remember me")).to_be_visible()
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
 
-    page.goto(backdoor_url)
-    expect(page).to_have_url(f"{live_server.url}/runs")
-    expect(page.get_by_text("Almost there.")).to_be_visible()
+        login_url = f"{live_server.url}/login"
+        home_url = f"{live_server.url}/"
+        backdoor_url = f"{live_server.url}/test/login/charles_smoke"
 
-    page.goto(home_url)
-    expect(page.get_by_role("navigation").get_by_text("Logged in as charles_smoke", exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="Log out")).to_be_visible()
+        page.goto(login_url)
+        expect(page.get_by_role("link", name="Sign in with GitHub")).to_be_visible()
+        expect(page.get_by_role("textbox", name="Username")).to_be_visible()
+        expect(page.get_by_role("textbox", name="Password")).to_be_visible()
+        expect(page.get_by_role("checkbox", name="Remember me")).to_be_visible()
 
-    page.get_by_role("button", name="Log out").click()
-    expect(page.get_by_role("link", name="Log in")).to_be_visible()
-    expect(page.get_by_role("link", name="Register")).to_be_visible()
+        page.goto(backdoor_url)
+        expect(page).to_have_url(f"{live_server.url}/runs")
+        expect(page.get_by_text("Almost there.")).to_be_visible()
+
+        page.goto(home_url)
+        expect(page.get_by_role("navigation").get_by_text("Logged in as charles_smoke", exact=True)).to_be_visible()
+        expect(page.get_by_role("button", name="Log out")).to_be_visible()
+
+        page.get_by_role("button", name="Log out").click()
+        expect(page.get_by_role("link", name="Log in")).to_be_visible()
+        expect(page.get_by_role("link", name="Register")).to_be_visible()
+
+        browser.close()
