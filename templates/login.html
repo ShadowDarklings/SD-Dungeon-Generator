@@ -2,9 +2,10 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-5 mx-auto">
+    <div class="col-md-5 mx-auto auth-panel p-4 p-md-5">
         <h1 class="h3 mb-4">Log in</h1>
         <form method="POST" action="{{ url_for('login') }}" data-disable-on-submit>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required autofocus>
@@ -13,8 +14,15 @@
                 <label for="password" class="form-label">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
-            <button type="submit" class="btn btn-primary">Log in</button>
-            <a href="{{ url_for('register') }}" class="btn btn-link">Need an account?</a>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
+                <label class="form-check-label" for="remember">Remember me</label>
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">Log in</button>
+                <a href="/login/github" class="btn btn-outline-dark oauth-button">Sign in with GitHub</a>
+            </div>
+            <a href="{{ url_for('register') }}" class="btn btn-link px-0 mt-2">Need an account?</a>
         </form>
     </div>
 </div>
