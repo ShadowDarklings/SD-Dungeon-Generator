@@ -3,7 +3,7 @@ Playwright e2e test fixtures (Week 7).
 
 Starts a live Flask server with:
 - TESTING = True (enables the /test/login/<username> backdoor)
-- SQLite in-memory DB (hermetic, no Postgres dependency)
+- SQLite file-backed DB in the temp folder (hermetic, no Postgres dependency)
 - SESSION_COOKIE_SECURE = False (test server runs over HTTP)
 """
 

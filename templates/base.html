@@ -9,7 +9,7 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark shadow-sm site-header">
-        <div class="container">
+        <div class="container py-1">
             <a class="navbar-brand site-brand" href="{{ url_for('home') }}">ShadowSpawner</a>
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
@@ -25,15 +25,15 @@
                 <li class="nav-item">
                     <form method="POST" action="{{ url_for('logout') }}" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-link nav-link">Log out</button>
+                        <button type="submit" class="btn btn-link nav-link nav-action-link">Log out</button>
                     </form>
                 </li>
                 {% else %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('login') }}">Log in</a>
+                    <a class="nav-link nav-action-link" href="{{ url_for('login') }}">Log in</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                    <a class="nav-link nav-action-link" href="{{ url_for('register') }}">Register</a>
                 </li>
                 {% endif %}
             </ul>
@@ -52,8 +52,8 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="container text-center text-muted small my-4">
-        ShadowDarklings Week 5 Walking Skeleton
+    <footer class="container text-center text-muted small my-4 footer-copy">
+        ShadowSpawner Week 7 Walking Skeleton
     </footer>
 
     <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
