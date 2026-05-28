@@ -8,3 +8,6 @@ beautifulsoup4==4.12.3
 Flask-Login==0.6.3
 requests==2.31.0
 responses
+Authlib==1.3.2
+Flask-WTF==1.2.2
+python-dotenv==1.1.0

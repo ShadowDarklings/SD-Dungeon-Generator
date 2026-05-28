@@ -2,11 +2,18 @@
   box-sizing: border-box;
 }
 
+@font-face {
+  font-family: "JBlack";
+  src: url("./JBLACK.TTF") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #17191d;
-  color: #e8eaed;
+  background: #000;
+  color: #fff;
 }
 
 .layout {
@@ -18,10 +25,34 @@ body {
 }
 
 .controls-panel {
-  background: #24272f;
-  border: 1px solid #3f4450;
+  background: #000;
+  border: 1px solid #2f2f2f;
   border-radius: 8px;
   padding: 12px;
+}
+
+.controls-panel h1,
+.site-title {
+  font-family: "JBlack", "Impact", "Haettenschweiler", "Arial Black", sans-serif;
+  color: #fff;
+}
+
+.site-title {
+  margin: 0 0 0.75rem;
+  font-size: 3rem;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+}
+
+.controls-panel h1 {
+  margin-top: 0;
+}
+
+.inventory-slots {
+  margin: 0.35rem 0 0.65rem;
+  color: #cfe1ff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .controls-panel label,
@@ -55,6 +86,14 @@ body {
   cursor: pointer;
   border-radius: 4px;
   white-space: nowrap;
+}
+
+.controls-panel a {
+  color: #fff;
+}
+
+.controls-panel a:visited {
+  color: #fff;
 }
 
 .save-load-controls {
