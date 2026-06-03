@@ -1,3 +1,5 @@
+import { normalizeCharacterState } from "./characters.js";
+
 const MAX_SAVE_NAME_LENGTH = 15;
 const MAX_SAVED_RUNS = 10;
 
@@ -69,6 +71,7 @@ export function serializeDungeonState(state) {
     lastTickAt: null
   };
   copy.wanderingMonsters = normalizeWandering(state.wanderingMonsters);
+  normalizeCharacterState(copy);
   return copy;
 }
 
@@ -101,6 +104,7 @@ export function hydrateDungeonState(raw) {
     totalValue: Number(state.lootLog?.totalValue) || 0,
     fullyLootedShown: state.lootLog?.fullyLootedShown === true
   };
+  normalizeCharacterState(state);
   state.inventory = normalizeInventory(state.inventory);
   return state;
 }
@@ -198,6 +202,15 @@ export async function updateRun(runId, name, state) {
     })
   });
   return parseJsonResponse(response);
+}
+
+export async function importShadowdarklingsCharacter() {
+  const response = await fetch("/api/shadowdarklings/import", {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  const data = await parseJsonResponse(response);
+  return typeof data.character_json === "string" ? data.character_json : "";
 }
 
 export { MAX_SAVE_NAME_LENGTH, MAX_SAVED_RUNS };

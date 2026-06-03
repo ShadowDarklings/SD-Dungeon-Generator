@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 """
 Course 506 Week 7 — Flask + Postgres/SQLite + SQLModel + Bootstrap + OAuth Engine
 
@@ -9,6 +7,9 @@ Fully synchronized with CONTRACTS.md specifications.
 """
 
 import os
+import json
+import re
+import random
 import requests
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -27,6 +28,7 @@ from sqlalchemy import (
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
 from flask_wtf.csrf import CSRFProtect, CSRFError
+from playwright.sync_api import sync_playwright
 
 # ---------------------------------------------------------------------------
 # 1. Environment Secrets Management (§12)
@@ -76,6 +78,7 @@ def unauthorized():
 # Initialize Engines
 engine = create_engine(DATABASE_URL, echo=False)
 S3_CONTENT_DIR = Path(__file__).parent / "S3_content"
+SHADOWDARKLINGS_CREATE_URL = "https://shadowdarklings.net/create"
 
 oauth = OAuth(app)
 oauth.register(
@@ -465,6 +468,21 @@ def about():
     return render_template("about.html")
 
 
+@app.route("/api/shadowdarklings/import", methods=["POST"])
+@csrf.exempt
+def import_shadowdarklings_character():
+    try:
+        character_json = fetch_shadowdarklings_character_json()
+    except Exception as exc:
+        return {"error": "shadowdarklings_import_failed", "message": str(exc)}, 502
+
+    return {
+        "source": "shadowdarklings",
+        "character_json": character_json,
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }, 200
+
+
 
 # ---------------------------------------------------------------------------
 # Saved Runs Relational DB Populate Helper
@@ -506,6 +524,26 @@ def populate_child_tables(db, run, state):
         db.add(loot)
         
     db.commit()
+def fetch_shadowdarklings_character_json() -> str:
+    """Generate a ShadowDarklings character and capture the exported JSON from the live site."""
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            context = browser.new_context(viewport={"width": 1280, "height": 1440})
+            context.grant_permissions(["clipboard-read", "clipboard-write"], origin=SHADOWDARKLINGS_CREATE_URL)
+            page = context.new_page()
+            page.goto(SHADOWDARKLINGS_CREATE_URL, wait_until="networkidle")
+            page.get_by_role("button", name="Random 1").click()
+            page.get_by_role("button", name="Best Fit").click()
+            page.get_by_role("button", name="Generate a Random Character").click()
+            page.get_by_role("button", name="JSON").click()
+            page.wait_for_timeout(750)
+            clipboard_text = str(page.evaluate("navigator.clipboard.readText()")).strip()
+            if not clipboard_text:
+                raise RuntimeError("ShadowDarklings export did not return character JSON.")
+            return clipboard_text
+    except Exception as exc:
+        raise RuntimeError(f"ShadowDarklings import failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------

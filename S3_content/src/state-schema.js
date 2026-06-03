@@ -82,6 +82,8 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
       totalValue: 0,
       fullyLootedShown: false
     },
+    characters: [],
+    activeCharacterId: null,
     inventory: {
       baseSlots: 10,
       bonusSlots: 0,

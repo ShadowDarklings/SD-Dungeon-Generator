@@ -591,11 +591,15 @@ export function getRoomTraps(state) {
   });
 }
 
-function rollCheck(modifier) {
-  const roll = Math.floor(Math.random() * 20) + 1;
+function rollCheck(modifier, options = {}) {
+  const firstRoll = Math.floor(Math.random() * 20) + 1;
+  const secondRoll = options.doubleRoll === true ? Math.floor(Math.random() * 20) + 1 : null;
+  const roll = secondRoll === null ? firstRoll : Math.max(firstRoll, secondRoll);
   const normalizedModifier = Math.max(-99, Math.min(99, Number(modifier) || 0));
   return {
     roll,
+    firstRoll,
+    secondaryRoll: secondRoll,
     modifier: normalizedModifier,
     total: roll + normalizedModifier
   };
@@ -614,7 +618,7 @@ function isSearchCandidate(entity, roomId) {
   return false;
 }
 
-export function searchForTraps(state, modifier) {
+export function searchForTraps(state, modifier, options = {}) {
   if (!state.player.torchLit) {
     return {
       roll: 0,
@@ -626,7 +630,7 @@ export function searchForTraps(state, modifier) {
     };
   }
 
-  const check = rollCheck(modifier);
+  const check = rollCheck(modifier, options);
   const candidates = state.entities.filter((entity) => isSearchCandidate(entity, state.player.roomId));
 
   const found = candidates.filter((entity) => check.total >= (entity.searchDc ?? entity.dc));
@@ -649,18 +653,18 @@ export function searchForTraps(state, modifier) {
   };
 }
 
-export function disarmTrap(state, trapId, modifier) {
+export function disarmTrap(state, trapId, modifier, options = {}) {
   const trap = state.entities.find((entity) => entity.id === trapId && entity.type === ENTITY_TYPES.TRAP);
   if (!trap || !trap.revealed || trap.triggered || trap.disarmed) {
     return {
-      ...rollCheck(modifier),
+      ...rollCheck(modifier, options),
       disarmed: false,
       triggered: false,
       message: "No active revealed trap to disarm."
     };
   }
 
-  const check = rollCheck(modifier);
+  const check = rollCheck(modifier, options);
   if (check.total >= trap.dc) {
     const trapIndex = state.entities.findIndex((entity) => entity.id === trap.id);
     if (trapIndex !== -1) {
@@ -694,11 +698,11 @@ export function disarmTrap(state, trapId, modifier) {
   };
 }
 
-export function attemptLockedDoor(state, method, modifier = 0) {
+export function attemptLockedDoor(state, method, modifier = 0, options = {}) {
   const action = getPendingLockedDoorAction(state);
   if (!action) {
     return {
-      ...rollCheck(modifier),
+      ...rollCheck(modifier, options),
       opened: false,
       message: "No locked door selected."
     };
@@ -706,7 +710,7 @@ export function attemptLockedDoor(state, method, modifier = 0) {
 
   const door = state.entities.find((entity) => entity.id === action.doorId && entity.subtype === "door");
   const dc = method === "break" ? action.breakDc : action.pickDc;
-  const check = rollCheck(modifier);
+  const check = rollCheck(modifier, options);
   if (check.total < dc) {
     return {
       ...check,

@@ -25,7 +25,7 @@ export const DOOR_STATES = Object.freeze({
 export const DEFAULT_LIGHT_RADIUS = 6;
 
 /** Per-room treasure spawn chance (excluding entrance). Expected count uses ceil(rooms * chance). */
-export const TREASURE_SPAWN_CHANCE = 0.25;
+export const TREASURE_SPAWN_CHANCE = 0.5;
 
 export const MIN_SEARCH_MODIFIER = -99;
 export const MAX_SEARCH_MODIFIER = 99;
