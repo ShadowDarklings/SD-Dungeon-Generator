@@ -9,9 +9,5 @@ RUN pip install -r requirements.txt requests responses
 # Copy the rest of the app.
 COPY . .
 
-# Expose Flask's default port.
-EXPOSE 5000
-
-# Use Flask's built-in dev server. For production, you'd use gunicorn
-# or similar — covered later in the course.
-CMD ["python", "app.py"]
+# Gunicorn binds to a Unix socket shared with nginx (see gunicorn.conf.py).
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]

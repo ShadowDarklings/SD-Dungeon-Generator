@@ -1,35 +1,49 @@
-# Course 506 Week 5 Skeleton — two-container app.
+# docker-compose.yml — SD Dungeon Generator production stack
 #
-# Run with: docker compose up
-# The Flask app will be available at http://localhost:5000
+# Three-container setup: nginx (TLS termination) → app (gunicorn) → db (Postgres)
+# Adapted from Study Guide §6 for our project.
 #
-# The two services:
-#   app — Flask, talks to the database via the hostname "db"
-#   db  — Postgres, holds the users table
+# Run with:
+#   mkdir -p nginx/certs
+#   openssl req -x509 -newkey rsa:2048 -nodes \
+#     -keyout nginx/certs/key.pem -out nginx/certs/cert.pem \
+#     -days 365 -subj "/CN=localhost"
+#   docker compose up --build
 #
-# In production you'd run Postgres on a managed service (RDS, etc.) instead of
-# in a container, but Compose mirrors that architecture closely.
+# Then visit: https://localhost
 
 services:
-  app:
-    build: .
+  nginx:
+    image: nginx:1.27-alpine
     ports:
-      - "5000:5000"
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - gunicorn-socket:/tmp
+      - ./static:/app/static:ro
+      - ./S3_content:/app/S3_content:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - gunicorn-socket:/tmp
     environment:
       DATABASE_URL: postgresql://app:app@db:5432/app
-      SECRET_KEY: dev-secret-not-for-production
+      FLASK_ENV: production
     env_file:
-      # Optional override file; gitignored. The defaults above work
-      # for development. See .env.example for the template.
       - path: .env
-        required: false
+        required: true
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      # Mount the source so changes are picked up without rebuilding.
-      # Flask's debug mode auto-reloads on file changes.
-      - .:/app
+    restart: unless-stopped
 
   db:
     image: postgres:16-alpine
@@ -44,6 +58,11 @@ services:
       interval: 2s
       timeout: 2s
       retries: 10
+    restart: unless-stopped
+    # NOTE: db has NO 'ports:' — only reachable from other services on the
+    # docker network, never from the host or public internet. This is the
+    # trust boundary (see CONTRACTS.md §15.8).
 
 volumes:
-  pgdata:
+  gunicorn-socket:   # shared between nginx and app for the unix socket
+  pgdata:            # persists the database across container restarts
