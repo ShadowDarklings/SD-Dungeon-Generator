@@ -28,7 +28,6 @@ from sqlalchemy import (
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
 from flask_wtf.csrf import CSRFProtect, CSRFError
-from playwright.sync_api import sync_playwright
 
 # ---------------------------------------------------------------------------
 # 1. Environment Secrets Management (§12)
@@ -526,6 +525,7 @@ def populate_child_tables(db, run, state):
     db.commit()
 def fetch_shadowdarklings_character_json() -> str:
     """Generate a ShadowDarklings character and capture the exported JSON from the live site."""
+    from playwright.sync_api import sync_playwright
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
