@@ -16,12 +16,33 @@ import {
 import {
   createRun,
   hydrateDungeonState,
+  importShadowdarklingsCharacter,
   listRunsWithNames,
   loadRun,
   MAX_SAVE_NAME_LENGTH,
   normalizeSaveName,
   updateRun
 } from "./persistence.js";
+import {
+  abilityScoreModifier,
+  decrementCharacterDyingRounds,
+  extractShadowdarkCharacters,
+  getActiveCharacter,
+  getCharacterActionModifier,
+  getCharacterAmmo,
+  getCharacterAmmoEntries,
+  getCharacterAttackSummary,
+  getCharacterDisplayHeader,
+  getCharacterGearFreeSlots,
+  hasCharacterAmmo,
+  getCharacterSpellText,
+  getCharacterRuleText,
+  getCharacterStatSummary,
+  markCharacterSlain,
+  normalizeCharacterState,
+  setActiveCharacter,
+  setCharacterHp
+} from "./characters.js";
 import { preloadRendererAssets, renderDungeon } from "./render.js";
 import {
   advanceTorchTime,
@@ -62,6 +83,22 @@ const ui = {
   roomLootPanel: document.getElementById("room-loot-panel"),
   monsterPanel: document.getElementById("monster-panel"),
   trapPanel: document.getElementById("trap-panel"),
+  dungeonTabBtn: document.getElementById("dungeon-tab-btn"),
+  charactersTabBtn: document.getElementById("characters-tab-btn"),
+  dungeonTabPanel: document.getElementById("dungeon-tab-panel"),
+  charactersTabPanel: document.getElementById("characters-tab-panel"),
+  importCharacterBtn: document.getElementById("import-character-btn"),
+  charactersEmpty: document.getElementById("characters-empty"),
+  charactersList: document.getElementById("characters-list"),
+  characterDetail: document.getElementById("character-detail"),
+  characterImportModal: document.getElementById("character-import-modal"),
+  characterImportInput: document.getElementById("character-import-input"),
+  characterImportStatus: document.getElementById("character-import-status"),
+  characterImportSubmit: document.getElementById("character-import-submit"),
+  characterImportClose: document.getElementById("character-import-close"),
+  characterSheetModal: document.getElementById("character-sheet-modal"),
+  characterSheetContent: document.getElementById("character-sheet-content"),
+  characterSheetClose: document.getElementById("character-sheet-close"),
   saveLoadModal: document.getElementById("save-load-modal"),
   saveLoadTitle: document.getElementById("save-load-title"),
   saveLoadStatus: document.getElementById("save-load-status"),
@@ -86,6 +123,7 @@ let forceBlackoutWhenTorchOut = true;
 let monsterTable = [];
 let trapTable = [];
 let shadowdarkContent = null;
+let activeTab = "dungeon";
 let saveDialog = {
   mode: "save",
   runs: [],
@@ -101,6 +139,27 @@ let viewport = {
   panY: 0
 };
 const DRAG_THRESHOLD_PX = 8;
+const MAX_SESSION_CHARACTERS = 16;
+const characterAmmoOverrides = new Map();
+const characterColorOverrides = new Map();
+const CHARACTER_COLOR_PALETTE = Object.freeze([
+  { id: "dark-blue", label: "Dark blue", value: "#174a9c" },
+  { id: "purple", label: "Purple", value: "#7b3fb2" },
+  { id: "dark-purple", label: "Dark purple", value: "#44206f" },
+  { id: "light-purple", label: "Light purple", value: "#b78cff" },
+  { id: "orange", label: "Orange", value: "#e07022" },
+  { id: "dark-red", label: "Dark red", value: "#7f1111" },
+  { id: "brown", label: "Brown", value: "#694327" },
+  { id: "black", label: "Black", value: "#050505" },
+  { id: "white", label: "White", value: "#f7f7f7" },
+  { id: "dark-gray", label: "Dark gray", value: "#3c3c3c" },
+  { id: "light-gray", label: "Light gray", value: "#b8b8b8" },
+  { id: "dark-green", label: "Dark green", value: "#155b2a" },
+  { id: "light-green", label: "Light green", value: "#65bd55" },
+  { id: "pink", label: "Pink", value: "#ef7aa7" },
+  { id: "magenta", label: "Magenta", value: "#d51ea7" },
+  { id: "cyan", label: "Cyan", value: "#22bfd0" }
+]);
 /** Slightly smaller than "fit entire map" so neither axis binds flush; otherwise the limiting axis often gets zero slack (only X or only Y would pan). */
 const MIN_ZOOM_INSET = 0.92;
 let dragState = null;
@@ -316,6 +375,21 @@ function updateControlSizing() {
   document.querySelectorAll("[data-autosize-field]").forEach(sizeControlField);
 }
 
+function syncSidebarWidth() {
+  // Fixed width: ~180px narrow default + 300px requested (not title-sized).
+  const SIDEBAR_WIDTH_PX = 480;
+  const panel = document.querySelector(".controls-panel");
+  if (!panel) {
+    return;
+  }
+  panel.style.width = `${SIDEBAR_WIDTH_PX}px`;
+  panel.style.setProperty("--sidebar-width", `${SIDEBAR_WIDTH_PX}px`);
+  const layout = document.querySelector(".layout");
+  if (layout) {
+    layout.style.setProperty("--sidebar-width", `${SIDEBAR_WIDTH_PX}px`);
+  }
+}
+
 function processWanderingChecks(count) {
   let lastMessage = "";
   for (let i = 0; i < count; i += 1) {
@@ -336,6 +410,27 @@ function render() {
   ui.connectivityText.textContent = state.generation.connectivityValid ? "valid" : "invalid";
   updateLockedDoorUi();
   updateWanderingUi();
+}
+
+function setActiveTab(nextTab) {
+  activeTab = nextTab;
+  const isDungeon = nextTab === "dungeon";
+  ui.dungeonTabBtn?.classList.toggle("is-active", isDungeon);
+  ui.charactersTabBtn?.classList.toggle("is-active", !isDungeon);
+  ui.dungeonTabBtn?.setAttribute("aria-selected", `${isDungeon}`);
+  ui.charactersTabBtn?.setAttribute("aria-selected", `${!isDungeon}`);
+  if (ui.dungeonTabPanel) {
+    ui.dungeonTabPanel.hidden = false;
+  }
+  if (ui.charactersTabPanel) {
+    ui.charactersTabPanel.hidden = true;
+  }
+  if (ui.characterDetail) {
+    ui.characterDetail.hidden = true;
+  }
+  if (!isDungeon && state) {
+    updateCharactersUi();
+  }
 }
 
 function updateLootUi() {
@@ -364,6 +459,1642 @@ function updateLootUi() {
     const capacity = (inventory.baseSlots || 10) + (inventory.bonusSlots || 0);
     ui.inventorySlots.textContent = `${inventory.usedSlots || 0} / ${capacity} slots`;
   }
+}
+
+function getCharacterActionContext(action) {
+  const character = getActiveCharacter(state);
+  const situational = Number(ui.searchModifierInput.value || 0) || 0;
+  const baseModifier = getCharacterActionModifier(character, action);
+  return {
+    character,
+    modifier: baseModifier + situational,
+    doubleRoll: character?.className?.toLowerCase() === "thief"
+  };
+}
+
+function formatRollText(result) {
+  if (!result) {
+    return "none";
+  }
+  const modifierText = result.modifier >= 0 ? `+${result.modifier}` : `${result.modifier}`;
+  if (Number.isFinite(result.secondaryRoll)) {
+    const kept = `*${result.roll}${modifierText}*`;
+    const secondary = `${result.firstRoll}${modifierText}`;
+    return `${kept} / ${secondary}`;
+  }
+  return `${result.roll}${modifierText}`;
+}
+
+function formatModifier(value) {
+  const modifier = Number(value) || 0;
+  return modifier >= 0 ? `+${modifier}` : `${modifier}`;
+}
+
+function formatAbilityPair(character, key) {
+  const score = character.stats?.[key] ?? 10;
+  return `${score} / ${formatModifier(abilityScoreModifier(score))}`;
+}
+
+function getCharacterColorValue(character) {
+  const match = CHARACTER_COLOR_PALETTE.find((color) => color.id === character?.colorId);
+  return match?.value || CHARACTER_COLOR_PALETTE[0].value;
+}
+
+function hasCharacterMapPosition(character) {
+  return (
+    character?.x !== null &&
+    character?.x !== undefined &&
+    character?.y !== null &&
+    character?.y !== undefined &&
+    Number.isFinite(Number(character.x)) &&
+    Number.isFinite(Number(character.y))
+  );
+}
+
+function clampInt(value, min, max, fallback = 0) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return Math.max(min, Math.min(max, fallback));
+  }
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function formatAttackForSheet(attackText) {
+  return String(attackText || "").replace(/^ATTACKS?:\s*/i, "").trim();
+}
+
+function buildTalentSpellLines(character) {
+  const lines = [];
+  const seenLines = new Set();
+  const spellBuckets = {};
+  const sourceEntries = new Map();
+  const globalKnownSpells = new Set();
+  const hasTopLevelLanguages = Boolean(normalizeName(character?.languages));
+
+  function getSource(label) {
+    const labelBase = normalizeName(label).replace(/\s+\d+$/u, "");
+    if (!sourceEntries.has(label)) {
+      sourceEntries.set(label, {
+        learnByTier: new Map(),
+        extraByDesc: new Map(),
+        pendingExtraDesc: labelBase ? `Learn an additional ${labelBase} spell` : "Learn an additional spell",
+        defaultSpellTier: "",
+        simpleLines: []
+      });
+    }
+    return sourceEntries.get(label);
+  }
+
+  function normalizeName(value) {
+    return String(value || "").replace(/\s+/g, " ").replace(/^["']|["']$/g, "").trim();
+  }
+
+  function isNullText(value) {
+    return /^\s*none\s*$/i.test(normalizeName(value));
+  }
+
+  function prettifyTalentName(value) {
+    const normalized = normalizeName(value)
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([0-9])([A-Za-z])/g, "$1 $2")
+      .replace(/([A-Za-z])([0-9])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return normalized
+      .split(" ")
+      .map((word) => (/^[A-Z]{2,}$/i.test(word) ? word : `${word.charAt(0).toUpperCase()}${word.slice(1)}`))
+      .filter(Boolean)
+      .join(" ")
+      .replace(/^Stat Bonus$/i, "Stat Bonus");
+  }
+
+  function normalizeTier(value) {
+    const tier = String(value || "").trim();
+    return tier ? tier : "";
+  }
+
+  function extractBonusSourceLabel(bonus) {
+    const sourceName = normalizeName(bonus?.sourceName);
+    const sourceType = normalizeName(bonus?.sourceType);
+    const level = bonus?.gainedAtLevel || character.level || 1;
+    const sourceTypeLower = sourceType.toLowerCase();
+
+    if (sourceTypeLower === "class") {
+      return `${sourceName || character.className || "Class"} ${level}`.trim();
+    }
+    if (sourceTypeLower === "ancestry") {
+      return `${sourceName || character.ancestry || "Ancestry"}`.trim();
+    }
+    if (sourceTypeLower === "ambition") {
+      return `${sourceName || character.ancestry || "Ancestry"} Ambition Talent`;
+    }
+    if (sourceName && sourceType && sourceTypeLower !== "talent") {
+      if (sourceTypeLower.includes("ambition")) {
+        return `${sourceName} ${sourceType}`.replace(/\bAmbition$/i, "Ambition Talent").trim();
+      }
+      return `${sourceName} ${sourceType}`.trim();
+    }
+    return `${sourceName || sourceType || "Talent"} ${sourceTypeLower === "talent" ? "" : level}`.trim();
+  }
+
+  function sanitizeSpell(value) {
+    return normalizeName(value)
+      .replace(/^\((.*?)\)$/, "$1")
+      .replace(/^\[(.*?)\]$/, "$1")
+      .replace(/^(?:-|\u2014)\s*/, "")
+      .replace(/\s+(?:\(V\)|\(M\)|\(S\))$/i, "")
+      .trim();
+  }
+
+  function looksLikeSpell(value) {
+    const normalized = normalizeName(value);
+    if (!normalized) {
+      return false;
+    }
+    if (normalized.length > 70) {
+      return false;
+    }
+    if (/^\d+$/.test(normalized)) {
+      return false;
+    }
+    if (/learn\s+an\s+additional|learnextra|pickextraspell|spell(?:s)?\s*$/i.test(normalized)) {
+      return false;
+    }
+    return true;
+  }
+
+  function extractExtraDescription(value) {
+    const sourceText = normalizeName(value);
+    const learnExtraMatch = sourceText.match(/\blearn\s+an\s+additional\s+(.+?\bspell)\b/i);
+    if (learnExtraMatch && learnExtraMatch[1]) {
+      const compact = normalizeName(`Learn an additional ${learnExtraMatch[1]}`);
+      if (compact) {
+        return compact;
+      }
+    }
+    return "";
+  }
+
+  function ensureBucket(map, tier) {
+    const tierKey = normalizeTier(tier);
+    if (!map.has(tierKey)) {
+      map.set(tierKey, []);
+    }
+    return map.get(tierKey);
+  }
+
+  function addSpellToBucket(map, name, tier) {
+    const spell = sanitizeSpell(name);
+    if (!spell || !looksLikeSpell(spell)) {
+      return;
+    }
+    const bucket = ensureBucket(map, tier);
+    const key = spell.toLowerCase();
+    const already = bucket.some((item) => item.toLowerCase() === key);
+    if (!already) {
+      bucket.push(spell);
+    }
+  }
+
+  function readSpellsForDisplay(spellsByTier) {
+    const output = [];
+    const sorted = Array.from(spellsByTier.entries()).sort((a, b) => {
+      if (!a[0] && b[0]) {
+        return 1;
+      }
+      if (a[0] && !b[0]) {
+        return -1;
+      }
+      const aNum = Number(a[0]);
+      const bNum = Number(b[0]);
+      if (Number.isFinite(aNum) && Number.isFinite(bNum)) {
+        return aNum - bNum;
+      }
+      return a[0].localeCompare(b[0]);
+    });
+    for (const [tier, spells] of sorted) {
+      for (const spell of spells) {
+        output.push({ tier, name: spell });
+      }
+    }
+    return output;
+  }
+
+  function addExtraGroup(source, desc, name, tier) {
+    const groupKey = normalizeName(desc || "Learn an additional spell");
+    const group = source.extraByDesc.get(groupKey) || {
+      desc: groupKey,
+      spellsByTier: new Map()
+    };
+    addSpellToBucket(group.spellsByTier, name, tier);
+    source.extraByDesc.set(groupKey, group);
+  }
+
+  function addLine(line) {
+    const value = String(line || "").trim();
+    if (!value) {
+      return;
+    }
+    const key = value.toLowerCase();
+    if (seenLines.has(key)) {
+      return;
+    }
+    seenLines.add(key);
+    lines.push(value);
+  }
+
+  function hasGlobalSpellAnyTier(name) {
+    const lower = sanitizeSpell(name).toLowerCase();
+    return Object.values(spellBuckets).some((bucket) => (
+      bucket.some((entry) => entry.toLowerCase() === lower)
+    ));
+  }
+
+  function sameTalentText(name, detail) {
+    const cleanName = prettifyTalentName(name).replace(/\s+/g, "").toLowerCase();
+    const cleanDetail = prettifyTalentName(detail).replace(/\s+/g, "").toLowerCase();
+    return cleanName && cleanName === cleanDetail;
+  }
+
+  function isChoiceText(name, detail) {
+    const text = normalizeName(`${name} ${detail}`);
+    return /\bor\b/i.test(text) && /\bplus\s*\d|\+\d/i.test(text);
+  }
+
+  function getCastingTarget(detail, learnedSpells) {
+    if (learnedSpells.length) {
+      return learnedSpells[0];
+    }
+    const castMatch = normalizeName(detail).match(/\bcasting\s+([A-Za-z][A-Za-z0-9' -]+)/i);
+    return castMatch ? castMatch[1] : "";
+  }
+
+  function parseLearnSpells(source, sourceText) {
+    const getBucketCount = (map) => Array.from(map.values()).reduce((count, list) => count + list.length, 0);
+    const knownCount = getBucketCount(source.learnByTier);
+    let text = sourceText;
+    const addLearnSpell = (name, tier) => {
+      const tierValue = normalizeTier(tier);
+      if (!source.defaultSpellTier && tierValue) {
+        source.defaultSpellTier = tierValue;
+      }
+      addSpellToBucket(source.learnByTier, name, tierValue);
+    };
+
+    const learnByNamePattern = /\b([A-Za-z][A-Za-z0-9' -]+?)\s*:\s*Tier:\s*([0-9]+)\s*,\s*Spell\b[^;,]*/gi;
+    text = text.replace(learnByNamePattern, (match, name, tier) => {
+      addLearnSpell(name, tier);
+      return " ";
+    });
+
+    const learnByNameNoColonPattern = /\b([A-Za-z][A-Za-z0-9' -]+?)\s+Tier:\s*([0-9]+)\s*,\s*Spell\b/gi;
+    text = text.replace(learnByNameNoColonPattern, (match, name, tier) => {
+      addLearnSpell(name, tier);
+      return " ";
+    });
+
+    const learnBySpellPattern = /\bSpell\s*\d*\s*:\s*([^,;()-]+)(?:\s*-\s*Tier\s*:\s*([0-9]+))?/gi;
+    text = text.replace(learnBySpellPattern, (match, spellName, tier) => {
+      const tierValue = normalizeTier(tier);
+      if (!source.defaultSpellTier && tierValue) {
+        source.defaultSpellTier = tierValue;
+      }
+      addSpellToBucket(source.learnByTier, spellName, tier);
+      return " ";
+    });
+
+    const learnListPattern = /\blearn\s*:\s*([^;]+)/i;
+    text = text.replace(learnListPattern, (match, listText) => {
+      const spellNames = normalizeName(listText).split(",").map((entry) => sanitizeSpell(entry)).filter(Boolean);
+      for (const spellName of spellNames) {
+        addSpellToBucket(source.learnByTier, spellName, "");
+      }
+      return " ";
+    });
+
+    const learnTierOnlyPattern = /\b([A-Za-z][A-Za-z0-9' -]+?)\s*:\s*Tier:\s*([0-9]+)(?!\s*,\s*Spell)/gi;
+    text = text.replace(learnTierOnlyPattern, (match, name, tier) => {
+      addLearnSpell(name, tier);
+      return " ";
+    });
+
+    return {
+      parsedText: text.trim(),
+      foundSpells: getBucketCount(source.learnByTier) > knownCount
+    };
+  }
+
+  function toSpellList(value) {
+    const list = normalizeName(value)
+      .split(",")
+      .map((entry) => sanitizeSpell(entry))
+      .filter(Boolean)
+      .filter(looksLikeSpell);
+    return list;
+  }
+
+    function collectExtraSpells(label, source, sourceText) {
+    const text = normalizeName(sourceText);
+    if (!text) {
+      return false;
+    }
+
+    const tierMatch = text.match(/Tier:\s*([0-9]+)/i);
+    const tier = tierMatch ? tierMatch[1] : "";
+
+    const extraKeywordPresent = /(Learn\s*Extra\s*Spell|LearnExtraSpell|PickExtraSpell)/i.test(text);
+    const extraDescMatch = text.match(/\blearn\s+an\s+additional[^:;]*/i);
+
+    if (!extraKeywordPresent && !extraDescMatch) {
+      return false;
+    }
+
+    let markerMatch = text.match(/Learn\s*Extra\s*Spell|LearnExtraSpell|PickExtraSpell/i);
+    const marker = markerMatch ? markerMatch[0] : "";
+    const markerStart = markerMatch ? markerMatch.index : -1;
+    const markerEnd = markerMatch ? markerStart + marker.length : -1;
+
+    const beforeMarker = normalizeName(markerMatch ? text.slice(0, markerStart) : text);
+    const afterMarker = normalizeName(markerMatch ? text.slice(markerEnd) : "");
+
+    const descriptionCandidate = normalizeName(
+      extractExtraDescription(beforeMarker) || extractExtraDescription(afterMarker) || source.pendingExtraDesc || "Learn an additional spell"
+    );
+    if (descriptionCandidate) {
+      source.pendingExtraDesc = descriptionCandidate;
+    }
+
+    const beforeSpells = toSpellList(beforeMarker);
+    const afterSpells = toSpellList(afterMarker);
+    let spellNames = [...afterSpells];
+    if (!spellNames.length) {
+      spellNames = [...beforeSpells];
+    }
+    if (!spellNames.length && extraDescMatch) {
+      source.pendingExtraDesc = extractExtraDescription(extraDescMatch[0]) || source.pendingExtraDesc;
+      source.extraByDesc.set(source.pendingExtraDesc, {
+        desc: source.pendingExtraDesc,
+        spellsByTier: new Map()
+      });
+      return true;
+    }
+
+    if (!spellNames.length) {
+      return false;
+    }
+
+    const effectiveTier = tier || source.defaultSpellTier || "";
+    for (const spellName of spellNames) {
+      addExtraGroup(source, source.pendingExtraDesc || "Learn an additional spell", spellName, effectiveTier);
+    }
+    return true;
+  }
+
+  function addSourceLanguageLine(characterLanguages) {
+    if (!characterLanguages) {
+      return;
+    }
+    addLine(`Languages: ${characterLanguages}`);
+  }
+
+  function addSourceFromKnownSpells(knownSpells) {
+    for (const spell of knownSpells) {
+      if (isNullText(spell)) {
+        continue;
+      }
+      const cleaned = sanitizeSpell(spell);
+      if (!looksLikeSpell(cleaned)) {
+        continue;
+      }
+      if (globalKnownSpells.has(cleaned.toLowerCase())) {
+        continue;
+      }
+      if (hasGlobalSpellAnyTier(cleaned)) {
+        continue;
+      }
+      globalKnownSpells.add(cleaned.toLowerCase());
+      addGlobalSpell(cleaned, "");
+    }
+  }
+
+  function addGlobalSpell(name, tier) {
+    const spell = sanitizeSpell(name);
+    if (!spell || !looksLikeSpell(spell)) {
+      return;
+    }
+    const key = normalizeTier(tier);
+    const bucket = spellBuckets[key] || [];
+    const lower = spell.toLowerCase();
+    const exists = bucket.some((entry) => entry.toLowerCase() === lower);
+    if (exists) {
+      return;
+    }
+    if (!spellBuckets[key]) {
+      spellBuckets[key] = [];
+    }
+    spellBuckets[key].push(spell);
+  }
+
+  function addSourceLines() {
+    for (const [label, source] of sourceEntries) {
+      const learnSpells = readSpellsForDisplay(source.learnByTier);
+      if (learnSpells.length) {
+        const names = [];
+        for (const entry of learnSpells) {
+          if (!names.includes(entry.name)) {
+            names.push(entry.name);
+          }
+        }
+        addLine(`${label}: Learn: ${names.join(", ")}`);
+      }
+
+      for (const extra of source.extraByDesc.values()) {
+        const extras = readSpellsForDisplay(extra.spellsByTier);
+        if (!extras.length) {
+          continue;
+        }
+        const spellNames = extras.map((entry) => entry.name);
+        if (spellNames.length) {
+          const extraDesc = normalizeName(extra.desc) || "Learn an additional spell";
+          if (isNullText(extraDesc)) {
+            addLine(`${label}: Learn Extra Spell: ${spellNames.join(", ")}`);
+          } else {
+            addLine(`${label}: Learn Extra Spell: ${extraDesc}: ${spellNames.join(", ")}`);
+          }
+        }
+      }
+
+      for (const simple of source.simpleLines) {
+        const talentName = String(simple?.name || "").trim();
+        const detail = String(simple?.desc || "").trim();
+        const nameLower = talentName.toLowerCase();
+        const detailLower = detail.toLowerCase();
+        const learnedSpells = readSpellsForDisplay(source.learnByTier).map((entry) => entry.name);
+
+        if (/^languages$/i.test(nameLower) || /^languages$/i.test(detailLower)) {
+          continue;
+        }
+        if (hasTopLevelLanguages && /languages/i.test(nameLower)) {
+          continue;
+        }
+        if (hasTopLevelLanguages && /^languages\b/i.test(detailLower)) {
+          continue;
+        }
+        if (hasTopLevelLanguages && /:\s*languages\b/i.test(detailLower)) {
+          continue;
+        }
+
+        const isStatBonusGeneric = nameLower === "statbonus" || detailLower.startsWith("statbonus:");
+        if (isStatBonusGeneric && /to\s+/.test(detailLower)) {
+          const abilities = detailLower.match(/\b(str|strength|dex|dexterity|con|constitution|int|intelligence|wis|wisdom|cha|charisma)\b/g) || [];
+          if (abilities.length >= 2) {
+            continue;
+          }
+          continue;
+        }
+        if (nameLower === "talent" && !detail) {
+          continue;
+        }
+        if (isChoiceText(talentName, detail)) {
+          continue;
+        }
+        if (/^advantage/i.test(nameLower) || /adv on cast one spell|adv on cast/i.test(nameLower)) {
+          if (/casting/i.test(detailLower) && /spell/i.test(detailLower)) {
+            const castTarget = normalizeName(getCastingTarget(detail, learnedSpells));
+            addLine(`${label}: Gain advantage on casting${castTarget ? ` ${castTarget}` : ""}`);
+            continue;
+          }
+        }
+        if (nameLower === "spellcasting") {
+          const bonusMatch = detail.match(/[+-]?\d+/);
+          if (bonusMatch) {
+            const bonusValue = bonusMatch[0].startsWith("-") || bonusMatch[0].startsWith("+")
+              ? bonusMatch[0]
+              : `+${bonusMatch[0]}`;
+            addLine(`${label}: Spellcasting${bonusValue}`);
+            continue;
+          }
+          addLine(`${label}: Spellcasting${detail ? `: ${detail}` : ""}`);
+          continue;
+        }
+        if (nameLower && detailLower === "") {
+          if (nameLower.startsWith("learn an additional spell")) {
+            const extraDesc = normalizeName(nameLower.replace(/\blearn an additional spell\b/i, "Learn an additional spell"));
+            addLine(`${label}: Learn Extra Spell: ${extraDesc}`);
+            continue;
+          }
+          if (nameLower === "learn") {
+            continue;
+          }
+        }
+        if (/^plus\s+\d/i.test(talentName) && !detail) {
+          continue;
+        }
+
+        if (!nameLower && detail) {
+          addLine(`${label}: ${detail}`);
+          continue;
+        }
+        if (nameLower === "stat bonus" || nameLower === "statbonus") {
+          const displayLabel = label.replace(/\bAmbition$/i, "Ambition Talent");
+          addLine(`${displayLabel}: Stat Bonus${detail ? `: ${detail}` : ""}`);
+          continue;
+        }
+        if (talentName && detail) {
+          if (sameTalentText(talentName, detail)) {
+            addLine(`${label}: ${prettifyTalentName(talentName)}`);
+          } else if (/^plus\s+\d/i.test(talentName)) {
+            addLine(`${label}: ${detail}`);
+          } else {
+            addLine(`${label}: ${prettifyTalentName(talentName)}: ${detail}`);
+          }
+          continue;
+        }
+        if (talentName) {
+          addLine(`${label}: ${prettifyTalentName(talentName)}`);
+        }
+      }
+    }
+  }
+
+  function parseTalentLine(label, talentName, talentDesc) {
+    const source = getSource(label);
+    const parsedName = normalizeName(talentName);
+    const parsedDesc = normalizeName(talentDesc);
+    const normalizedTalentName = /^spells?$/i.test(parsedName) ? "" : parsedName;
+    const normalizedTalentDesc = parsedDesc;
+    const talentText = normalizeName(`${normalizedTalentName} ${normalizedTalentDesc}`.trim());
+    if (!talentText) {
+      return false;
+    }
+
+    const parsed = parseLearnSpells(source, talentText);
+    const extrasFound = collectExtraSpells(label, source, parsed.parsedText);
+
+    const introPhrase = parsed.parsedText.match(/\blearn\s+an\s+additional\s+.+?\bspell\b/i);
+    if (introPhrase) {
+      const description = extractExtraDescription(introPhrase[0]);
+      if (description) {
+        source.pendingExtraDesc = description;
+      }
+      return true;
+    }
+
+    if (!parsed.foundSpells && !extrasFound && talentName) {
+      source.simpleLines.push({
+        name: normalizeName(prettifyTalentName(normalizedTalentName)),
+        desc: normalizedTalentDesc
+      });
+    }
+    return parsed.foundSpells || extrasFound || Boolean(talentName && talentText);
+  }
+
+  addSourceLanguageLine(character.languages);
+
+  const className = character.className || "Class";
+  for (const level of character.levels || []) {
+    const levelNumber = level?.level || character.level || 1;
+    const sourceLabel = `${className} ${levelNumber}`;
+    if (!parseTalentLine(sourceLabel, level?.talentRolledName || "", level?.talentRolledDesc || "")) {
+      parseTalentLine(sourceLabel, "Talent", level?.talentRolledDesc || "");
+    }
+  }
+
+  for (const bonus of character.bonuses || []) {
+    const sourceLabel = extractBonusSourceLabel(bonus);
+    const sourceName = bonus?.bonusName || bonus?.name || "";
+    const bonusDetail = bonus?.bonusTo || "";
+    if (!parseTalentLine(sourceLabel, sourceName, bonusDetail)) {
+      parseTalentLine(sourceLabel, "Talent", [sourceName, bonusDetail].filter(Boolean).join(" "));
+    }
+  }
+
+  addSourceLines();
+
+  for (const source of sourceEntries.values()) {
+    for (const [tier, entry] of source.learnByTier.entries()) {
+      for (const name of entry) {
+        addGlobalSpell(name, tier);
+      }
+    }
+    for (const extra of source.extraByDesc.values()) {
+      for (const [tier, entry] of extra.spellsByTier.entries()) {
+        for (const name of entry) {
+          addGlobalSpell(name, tier);
+        }
+      }
+    }
+  }
+
+  const knownSpells = typeof character?.spellsKnown === "string" ? character.spellsKnown.split(",").map((entry) => entry.trim()).filter(Boolean) : [];
+  addSourceFromKnownSpells(knownSpells);
+
+  const sortedTiers = Object.keys(spellBuckets).sort((a, b) => {
+    if (!a) {
+      return 1;
+    }
+    if (!b) {
+      return -1;
+    }
+    return Number(a) - Number(b);
+  });
+  const spellLineParts = [];
+  for (const tier of sortedTiers) {
+    const values = spellBuckets[tier] || [];
+    if (!values.length) {
+      continue;
+    }
+    const label = tier ? `(Tier ${tier})` : "";
+    spellLineParts.push(`${label ? `${label}: ` : ""}${values.join(", ")}`);
+  }
+  if (spellLineParts.length) {
+    addLine(`Spells: ${spellLineParts.join("; ")}`);
+  } else {
+    addLine("Spells: None");
+  }
+
+  return lines;
+}
+
+function getCharacterGearSlots(character, options = {}) {
+  const { maxSlots = 20, excludeBackpack } = options;
+  const lines = [];
+  const freeCarry = [];
+  let totalSlots = 0;
+  let backpackReserved = false;
+  const strScore = clampInt(character?.stats?.STR, 10, 20, 10);
+  const capacitySlots = Math.min(maxSlots, Math.max(10, strScore || 10));
+
+  const maxUsedSlots = Number.isFinite(Number(maxSlots)) ? Number(maxSlots) : 20;
+  const items = Array.isArray(character?.gear) ? character.gear : [];
+
+  function lightweightGroupSize(name) {
+    if (/arrows?|bolts?/i.test(name)) {
+      return 20;
+    }
+    if (/rations?/i.test(name)) {
+      return 3;
+    }
+    return 1;
+  }
+
+  function formatStackName(name, units, groupSize) {
+    return groupSize > 1 && units > 1 ? `${name} x ${units}` : name;
+  }
+
+  for (const item of items) {
+    const rawItemName = String(item?.name || "Gear").trim() || "Gear";
+    const itemName = rawItemName;
+    const normalizedItemName = itemName.toLowerCase();
+    const isTorch = normalizedItemName === "torch" || normalizedItemName.startsWith("torch ");
+    const isBackpack = itemName.toLowerCase() === "backpack";
+    const rawUnits = Number.isFinite(Number(item?.totalUnits)) && Number(item.totalUnits) > 0
+      ? Math.max(0, Math.floor(Number(item.totalUnits)))
+      : Number.isFinite(Number(item?.quantity)) && Number(item.quantity) > 0
+        ? Math.max(0, Math.floor(Number(item.quantity)))
+        : 1;
+    const units = /arrows?/i.test(itemName)
+      ? getCharacterAmmo(character, "arrows")
+      : /bolts?/i.test(itemName)
+        ? getCharacterAmmo(character, "bolts")
+        : rawUnits;
+    if (units <= 0) {
+      continue;
+    }
+    const groupSize = lightweightGroupSize(itemName);
+    const slotsPerUnit = isTorch ? 1 : Math.max(1, Math.floor(Number(item?.slots) || 1));
+
+    let remainingUnits = units;
+    if (isBackpack && !backpackReserved && excludeBackpack !== false) {
+      backpackReserved = true;
+      if (units > 0) {
+        freeCarry.push(itemName);
+      }
+      remainingUnits = Math.max(0, units - 1);
+    }
+
+    if (groupSize > 1) {
+      const slotGroups = Math.max(1, Math.ceil(remainingUnits / groupSize));
+      const displayName = formatStackName(itemName, remainingUnits, groupSize);
+      lines.push({ text: displayName, available: totalSlots < capacitySlots });
+      totalSlots += 1;
+      for (let group = 1; group < slotGroups; group += 1) {
+        lines.push({ text: `(${itemName})`, available: totalSlots < capacitySlots });
+        totalSlots += 1;
+      }
+      continue;
+    }
+
+    const unitText = formatStackName(itemName, 1, groupSize);
+    for (let unit = 0; unit < remainingUnits; unit += 1) {
+      for (let slot = 0; slot < slotsPerUnit; slot += 1) {
+        lines.push({ text: unitText, available: totalSlots < capacitySlots });
+        totalSlots += 1;
+      }
+    }
+  }
+
+  const total = maxUsedSlots;
+  while (lines.length < total) {
+    lines.push({
+      text: "",
+      available: lines.length < capacitySlots && lines.length < maxUsedSlots
+    });
+    totalSlots += 1;
+  }
+  return {
+    slots: lines.slice(0, maxUsedSlots),
+    freeCarry: freeCarry.slice(0, 1)
+  };
+}
+
+function getCharacterMoney(character, key) {
+  return Number(character?.[key] ?? character?.raw?.[key] ?? 0) || 0;
+}
+
+function getXpTarget(character) {
+  return Number(character.raw?.xpNext ?? character.raw?.XPToNextLevel ?? (character.level || 1) * 10) || 10;
+}
+
+function getTileAt(x, y) {
+  if (!state || x < 0 || y < 0 || x >= state.map.width || y >= state.map.height) {
+    return null;
+  }
+  return state.tiles[y * state.map.width + x] || null;
+}
+
+function isCharacterTileBlocked(x, y) {
+  const tile = getTileAt(x, y);
+  if (!tile || tile.type !== "floor") {
+    return true;
+  }
+  return state.entities.some((entity) => (
+    entity.type === "trap" &&
+    !entity.disarmed &&
+    entity.x === x &&
+    entity.y === y
+  ));
+}
+
+function findOpenCharacterTile(originX, originY, occupied = new Set()) {
+  for (let radius = 0; radius <= 4; radius += 1) {
+    for (let y = originY - radius; y <= originY + radius; y += 1) {
+      for (let x = originX - radius; x <= originX + radius; x += 1) {
+        if (Math.max(Math.abs(x - originX), Math.abs(y - originY)) !== radius) {
+          continue;
+        }
+        if (!isCharacterTileBlocked(x, y) && !occupied.has(`${x},${y}`)) {
+          return { x, y, roomId: getTileAt(x, y)?.roomId || null };
+        }
+      }
+    }
+  }
+  return { x: originX, y: originY, roomId: getTileAt(originX, originY)?.roomId || null };
+}
+
+function ensureCharacterPresentation() {
+  if (!state?.characters?.length) {
+    return;
+  }
+  const usedColors = new Set();
+  const occupied = new Set();
+
+  for (const [index, character] of state.characters.entries()) {
+    const overrideColorId = characterColorOverrides.get(character.id);
+    if (overrideColorId) {
+      character.colorId = overrideColorId;
+    } else if (character.raw?.colorId) {
+      character.colorId = character.raw.colorId;
+    }
+    const paletteHasColor = CHARACTER_COLOR_PALETTE.some((color) => color.id === character.colorId);
+    if (!paletteHasColor || usedColors.has(character.colorId)) {
+      const preferred = index === 0 ? CHARACTER_COLOR_PALETTE[0] : null;
+      const nextColor = preferred && !usedColors.has(preferred.id)
+        ? preferred
+        : CHARACTER_COLOR_PALETTE.find((color) => !usedColors.has(color.id)) || CHARACTER_COLOR_PALETTE[index % CHARACTER_COLOR_PALETTE.length];
+      character.colorId = nextColor.id;
+    }
+    if (character.id && character.colorId) {
+      characterColorOverrides.set(character.id, character.colorId);
+      character.raw = character.raw || {};
+      character.raw.colorId = character.colorId;
+    }
+    usedColors.add(character.colorId);
+
+    if (!hasCharacterMapPosition(character) || occupied.has(`${character.x},${character.y}`) || isCharacterTileBlocked(Number(character.x), Number(character.y))) {
+      const origin = index > 0 ? state.characters[index - 1] : state.player;
+      const originX = hasCharacterMapPosition(origin) ? Number(origin.x) : Number(state.player.x);
+      const originY = hasCharacterMapPosition(origin) ? Number(origin.y) : Number(state.player.y);
+      const start = findOpenCharacterTile(originX, originY, occupied);
+      character.x = start.x;
+      character.y = start.y;
+      character.roomId = start.roomId;
+    }
+    occupied.add(`${character.x},${character.y}`);
+    character.colorValue = getCharacterColorValue(character);
+  }
+
+  const active = getActiveCharacter(state);
+  if (hasCharacterMapPosition(active)) {
+    state.player.x = active.x;
+    state.player.y = active.y;
+    state.player.roomId = active.roomId ?? getTileAt(active.x, active.y)?.roomId ?? state.player.roomId;
+  }
+}
+
+function syncPlayerToActiveCharacter() {
+  const active = getActiveCharacter(state);
+  if (!active || !hasCharacterMapPosition(active)) {
+    return;
+  }
+  state.player.x = Number(active.x);
+  state.player.y = Number(active.y);
+  state.player.roomId = active.roomId ?? getTileAt(active.x, active.y)?.roomId ?? state.player.roomId;
+}
+
+function activateCharacter(character) {
+  if (!state || !character) {
+    return null;
+  }
+  setActiveCharacter(state, character.id);
+  ensureCharacterPresentation();
+  syncPlayerToActiveCharacter();
+  recomputeVisibility(state);
+  return getCurrentCharacter(character);
+}
+
+function syncActiveCharacterToPlayer() {
+  const active = getActiveCharacter(state);
+  if (!active) {
+    return;
+  }
+  active.x = state.player.x;
+  active.y = state.player.y;
+  active.roomId = state.player.roomId;
+}
+
+function getCharacterAtTile(x, y) {
+  return state?.characters?.find((character) => (
+    character.dead !== true &&
+    character.slain !== true &&
+    hasCharacterMapPosition(character) &&
+    Number(character.x) === x &&
+    Number(character.y) === y
+  )) || null;
+}
+
+function getCurrentCharacter(character) {
+  if (!character?.id) {
+    return character;
+  }
+  return state?.characters?.find((candidate) => candidate.id === character.id) || character;
+}
+
+function getCharacterAmmoOverrideKey(character, type) {
+  return character?.id && type ? `${character.id}:${type}` : "";
+}
+
+function getDisplayCharacterAmmo(character, type) {
+  const key = getCharacterAmmoOverrideKey(character, type);
+  if (key && characterAmmoOverrides.has(key)) {
+    return characterAmmoOverrides.get(key);
+  }
+  return getCharacterAmmo(character, type);
+}
+
+function setDisplayCharacterColor(character, color) {
+  const currentCharacter = getCurrentCharacter(character);
+  if (!currentCharacter?.id || !color?.id) {
+    return currentCharacter;
+  }
+  characterColorOverrides.set(currentCharacter.id, color.id);
+  currentCharacter.colorId = color.id;
+  currentCharacter.colorValue = color.value;
+  currentCharacter.raw = currentCharacter.raw || {};
+  currentCharacter.raw.colorId = color.id;
+  return currentCharacter;
+}
+
+function applyCharacterColorOverrides() {
+  if (!state?.characters?.length || !characterColorOverrides.size) {
+    return;
+  }
+  for (const character of state.characters) {
+    const colorId = characterColorOverrides.get(character.id);
+    if (!colorId) {
+      continue;
+    }
+    character.colorId = colorId;
+    character.colorValue = getCharacterColorValue(character);
+    character.raw = character.raw || {};
+    character.raw.colorId = colorId;
+  }
+}
+
+function setDisplayCharacterAmmo(character, type, value) {
+  const currentCharacter = getCurrentCharacter(character);
+  const key = getCharacterAmmoOverrideKey(currentCharacter, type);
+  if (key) {
+    characterAmmoOverrides.set(key, value);
+  }
+  setCharacterAmmo(currentCharacter, type, value);
+  return currentCharacter;
+}
+
+function applyCharacterAmmoOverrides() {
+  if (!state?.characters?.length || !characterAmmoOverrides.size) {
+    return;
+  }
+  for (const character of state.characters) {
+    for (const type of ["arrows", "bolts"]) {
+      const key = getCharacterAmmoOverrideKey(character, type);
+      if (key && characterAmmoOverrides.has(key)) {
+        setCharacterAmmo(character, type, characterAmmoOverrides.get(key));
+      }
+    }
+  }
+}
+
+function refreshCharacterViews(character) {
+  const currentCharacter = getCurrentCharacter(character);
+  normalizeCharacterState(state);
+  applyCharacterAmmoOverrides();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  const refreshedCharacter = getCurrentCharacter(currentCharacter);
+  markUserActivity();
+  updateCharactersUi();
+  if (ui.characterSheetModal && !ui.characterSheetModal.hidden) {
+    renderCharacterDetail(refreshedCharacter, ui.characterSheetContent, { popout: true });
+  }
+  updatePanels();
+}
+
+function createDyingBanner(character) {
+  if (!character?.dead && !character?.dyingRounds) {
+    return null;
+  }
+  const banner = document.createElement("button");
+  banner.type = "button";
+  banner.className = character.dead ? "character-death-banner is-dead" : "character-death-banner";
+  banner.textContent = character.dead
+    ? "DEAD"
+    : `${character.name} is dying in ${character.dyingRounds} ${character.dyingRounds === 1 ? "round" : "rounds"}!`;
+  banner.disabled = character.dead === true;
+  banner.addEventListener("click", (event) => {
+    event.stopPropagation();
+    decrementCharacterDyingRounds(character);
+    refreshCharacterViews(character);
+  });
+  return banner;
+}
+
+function renderCharacterCard(character) {
+  const card = document.createElement("article");
+  card.className = "character-card";
+  card.classList.toggle("is-active", character.id === state.activeCharacterId);
+  card.classList.toggle("is-slain", character.dead === true || character.slain === true);
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `Open ${character.name} character sheet`);
+  card.addEventListener("click", () => {
+    const currentCharacter = activateCharacter(character) || character;
+    updateCharactersUi();
+    render();
+    openCharacterSheet(currentCharacter);
+  });
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      const currentCharacter = activateCharacter(character) || character;
+      updateCharactersUi();
+      render();
+      openCharacterSheet(currentCharacter);
+    }
+  });
+
+  const header = document.createElement("div");
+  header.className = "character-mini-header";
+  header.append(
+    document.createTextNode(`${character.name} | ${character.ancestry || "Unknown"} | ${character.className || "Class"} ${character.level || 1} | AC ${character.armorClass} | HP `),
+    createMiniInlineNumberField(character.hp, 99, (value) => {
+      const currentCharacter = getCurrentCharacter(character);
+      setCharacterHp(currentCharacter, value);
+      refreshCharacterViews(currentCharacter);
+    }),
+    document.createTextNode(" "),
+    createCharacterColorControl(character)
+  );
+  card.append(header);
+
+  card.append(buildMiniAttackLine(character));
+  const dyingBanner = createDyingBanner(character);
+  if (dyingBanner) {
+    card.append(dyingBanner);
+  }
+  return card;
+}
+
+function removeCharacterCompletely(character) {
+  if (!state || !character?.id) {
+    return false;
+  }
+  const index = state.characters.findIndex((candidate) => candidate.id === character.id);
+  if (index === -1) {
+    return false;
+  }
+  const removed = state.characters[index]?.name || "Character";
+  state.characters.splice(index, 1);
+  normalizeCharacterState(state);
+  state.run.dirty = true;
+  state.run.hasUserActivity = true;
+  markUserActivity();
+  updateCharactersUi();
+  updatePanels();
+  closeCharacterSheet();
+  setStatus(`${removed} has been removed.`);
+  return true;
+}
+
+function renderCharacterDetail(character, target = ui.characterDetail, options = {}) {
+  const { popout = false } = options;
+  if (!target) {
+    return;
+  }
+  if (!character) {
+    target.hidden = true;
+    target.innerHTML = "";
+    return;
+  }
+
+  target.hidden = false;
+  target.innerHTML = "";
+
+  const sheet = document.createElement("article");
+  sheet.className = "character-sheet";
+  if (popout) {
+    sheet.classList.add("character-sheet--popout");
+  }
+  sheet.classList.toggle("is-slain", character.dead === true || character.slain === true);
+
+  const dyingBanner = createDyingBanner(character);
+  if (dyingBanner) {
+    sheet.append(dyingBanner);
+  }
+
+  const logo = document.createElement("div");
+  logo.className = "sd-sheet-logo";
+  logo.textContent = "ShadowDark";
+
+  const nameBox = createSdField("Name", character.name, "sd-name-box");
+  const talents = createSdPanel("Talents / Spells", buildSheetLines(buildTalentSpellLines(character), 8), "sd-talents-panel");
+  const attacks = createSdPanel("Attacks", buildSheetLines((character.attacks || []).map(formatAttackForSheet), 8), "sd-attacks-panel");
+  const gear = createSdGearPanel(character);
+  const dismissal = popout ? createSdDismissPanel(character) : null;
+
+  const statCluster = document.createElement("div");
+  statCluster.className = "sd-stat-cluster";
+  for (const key of ["STR", "INT", "DEX", "WIS", "CON", "CHA"]) {
+    statCluster.append(createSdField(key, formatAbilityPair(character, key), "sd-stat-box"));
+  }
+  statCluster.append(createSdField("HP", `${character.hp} / ${character.maxHitPoints}`, "sd-vital-box"));
+  statCluster.append(createSdField("AC", `${character.armorClass}`, "sd-vital-box"));
+
+  const identity = document.createElement("div");
+  identity.className = "sd-identity-column";
+  identity.append(
+    createSdField("Ancestry", character.ancestry || "Unknown"),
+    createSdField("Class", character.className || "Class"),
+    createSdField("Level", `${character.level || 1}`, "sd-level-box"),
+    createSdField("XP", `${character.XP || 0} / ${getXpTarget(character)}`, "sd-xp-box"),
+    createSdField("Title", character.title || "Unknown"),
+    createSdField("Alignment", character.alignment || "Unknown"),
+    createSdField("Background", character.background || "Unknown"),
+    createSdField("Deity", character.deity || "Unknown")
+  );
+
+  sheet.append(logo, nameBox, talents, statCluster, identity, attacks, gear);
+  if (dismissal) {
+    sheet.append(dismissal);
+  }
+  target.append(sheet);
+}
+
+function createSdDismissPanel(character) {
+  const panel = document.createElement("section");
+  panel.className = "sd-sheet-panel sd-dismiss-panel";
+
+  const name = character?.name || "character";
+  const isDead = character.dead === true || character.slain === true || (character.hp <= 0 && (character.dyingRounds || 0) <= 0);
+  const actionLabel = `${isDead ? "BURY" : "DISMISS"} ${name}`;
+
+  const dismissButton = document.createElement("button");
+  dismissButton.type = "button";
+  dismissButton.className = "sd-dismiss-button";
+  dismissButton.textContent = actionLabel;
+
+  const buttonWrap = document.createElement("div");
+  buttonWrap.className = "sd-dismiss-button-wrap";
+  buttonWrap.append(dismissButton);
+
+  if (isDead) {
+    dismissButton.addEventListener("click", () => {
+      setStatus(`you say a few words and bury ${name} in the dungeon.`);
+      removeCharacterCompletely(character);
+    });
+    panel.append(buttonWrap);
+  } else {
+    const confirmation = document.createElement("div");
+    confirmation.className = "sd-dismiss-confirmation";
+    confirmation.hidden = true;
+    const promptText = document.createElement("div");
+    promptText.className = "sd-dismiss-prompt-text";
+    promptText.textContent = "I'm really being fired?";
+
+    const actions = document.createElement("div");
+    actions.className = "sd-dismiss-confirmation-actions";
+    const yesButton = document.createElement("button");
+    yesButton.type = "button";
+    yesButton.textContent = "Yes";
+    const noButton = document.createElement("button");
+    noButton.type = "button";
+    noButton.textContent = "No";
+
+    yesButton.addEventListener("click", () => {
+      removeCharacterCompletely(character);
+    });
+
+    noButton.addEventListener("click", () => {
+      confirmation.hidden = true;
+    });
+
+    actions.append(yesButton, noButton);
+    confirmation.append(promptText, actions);
+    buttonWrap.append(confirmation);
+
+    dismissButton.addEventListener("click", () => {
+      confirmation.hidden = false;
+    });
+    panel.append(buttonWrap);
+  }
+
+  return panel;
+}
+
+function buildMiniAttackLine(character) {
+  const line = document.createElement("div");
+  line.className = "character-mini-attacks";
+  const attacks = (character.attacks || [])
+    .map((attack) => createMiniAttackNode(String(attack), character))
+    .filter(Boolean);
+  if (!attacks.length) {
+    line.textContent = "Attacks: None";
+    return line;
+  }
+  line.append(document.createTextNode("Attacks: "));
+  attacks.forEach((attackNode, index) => {
+    if (index > 0) {
+      line.append(document.createTextNode("; "));
+    }
+    line.append(attackNode);
+  });
+  return line;
+}
+
+function createMiniAttackNode(attackText, character) {
+  const normalized = attackText.replace(/^ATTACKS?:\s*/i, "").trim();
+  if (!normalized) {
+    return null;
+  }
+  const colonIndex = normalized.indexOf(":");
+  if (colonIndex === -1) {
+    const fallback = document.createElement("span");
+    fallback.textContent = normalized;
+    return fallback;
+  }
+
+  const namePart = normalized.slice(0, colonIndex).trim();
+  const remainder = normalized.slice(colonIndex + 1).trim();
+  const firstComma = remainder.indexOf(",");
+  const firstChunk = firstComma === -1 ? remainder : remainder.slice(0, firstComma).trim();
+  const rest = firstComma === -1 ? "" : remainder.slice(firstComma + 1).trim();
+  const name = namePart
+    .replace(/\b([A-Z]{2,})\b/g, (match) => match.charAt(0) + match.slice(1).toLowerCase())
+    .replace(/\s+/g, " ");
+  const bonusMatch = firstChunk.match(/^[+\-]\d+/);
+  const bonus = bonusMatch ? bonusMatch[0] : firstChunk;
+  const flagMatch = firstChunk.match(/\(([^)]+)\)/);
+  const flag = flagMatch ? ` (${flagMatch[1]})` : "";
+  const ammoType = /bolt|crossbow/i.test(namePart)
+    ? "bolts"
+    : /bow|arrow/i.test(namePart)
+      ? "arrows"
+      : "";
+  const ammoValue = ammoType ? getDisplayCharacterAmmo(character, ammoType) : undefined;
+  const detail = rest
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/[\s,;]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const attackNode = document.createElement("span");
+  attackNode.className = "character-mini-attack-entry";
+  attackNode.append(document.createTextNode(`${name}${flag}: ${bonus}`));
+  if (ammoValue !== undefined) {
+    attackNode.append(document.createTextNode(" "));
+    attackNode.append(createMiniInlineNumberField(ammoValue, 99, (value) => {
+      const currentCharacter = setDisplayCharacterAmmo(character, ammoType, value);
+      refreshCharacterViews(currentCharacter);
+    }));
+  }
+  if (detail) {
+    attackNode.append(document.createTextNode(`, ${detail}`));
+  }
+  return attackNode;
+}
+
+function createCharacterColorControl(character) {
+  const wrap = document.createElement("span");
+  wrap.className = "character-color-control";
+  ["click", "mousedown", "mouseup", "pointerdown", "pointerup", "keydown"].forEach((eventName) => {
+    wrap.addEventListener(eventName, (event) => event.stopPropagation());
+  });
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "character-color-dot";
+  button.title = "Change character color";
+  const currentColorValue = getCharacterColorValue(character);
+  button.style.setProperty("--character-color", currentColorValue);
+  button.style.setProperty("background-color", currentColorValue);
+  button.style.setProperty("background", currentColorValue);
+  button.style.backgroundImage = "none";
+
+  const picker = document.createElement("span");
+  picker.className = "character-color-picker";
+  picker.hidden = true;
+  ["click", "mousedown", "mouseup", "pointerdown", "pointerup", "keydown"].forEach((eventName) => {
+    picker.addEventListener(eventName, (event) => event.stopPropagation());
+  });
+
+  const usedColors = new Set(state.characters.filter((candidate) => candidate.id !== character.id).map((candidate) => candidate.colorId));
+  for (const color of CHARACTER_COLOR_PALETTE) {
+    const colorButton = document.createElement("button");
+    colorButton.type = "button";
+    colorButton.className = "character-color-choice";
+    colorButton.title = color.label;
+    colorButton.disabled = usedColors.has(color.id);
+    colorButton.style.setProperty("--character-color", color.value);
+    colorButton.style.setProperty("background-color", color.value);
+    colorButton.style.setProperty("background", color.value);
+    colorButton.style.backgroundImage = "none";
+    colorButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (colorButton.disabled) {
+        return;
+      }
+      closeActiveColorPicker(picker);
+      setDisplayCharacterColor(character, color);
+      markUserActivity();
+      updateCharactersUi();
+      render();
+    });
+    picker.append(colorButton);
+  }
+
+  button.addEventListener("click", (event) => {
+    if (event.button !== 0 && event.button !== undefined) {
+      return;
+    }
+    const wasOpen = !picker.hidden;
+    if (activeColorPicker?.picker && activeColorPicker.picker !== picker) {
+      closeActiveColorPicker();
+    }
+
+    if (wasOpen) {
+      closeActiveColorPicker(picker);
+      return;
+    }
+
+    picker.hidden = false;
+    document.body.append(picker);
+    picker.classList.add("is-floating");
+    const buttonRect = button.getBoundingClientRect();
+    picker.style.left = `${buttonRect.left}px`;
+    picker.style.top = `${buttonRect.bottom + 6}px`;
+    activeColorPicker = {
+      picker,
+      anchor: wrap,
+      home: wrap
+    };
+  });
+
+  wrap.append(button, picker);
+  return wrap;
+}
+
+let lastMousePosition = { x: 0, y: 0 };
+let activeColorPicker = null;
+const COLOR_PICKER_CLOSE_DISTANCE = 20;
+
+function isPointerInActiveColorPickerBuffer(point) {
+  if (!activeColorPicker?.picker || activeColorPicker.picker.hidden) {
+    return false;
+  }
+  const pickerRect = activeColorPicker.picker.getBoundingClientRect();
+  const anchorRect = activeColorPicker.anchor?.getBoundingClientRect?.() || pickerRect;
+  const minX = Math.min(pickerRect.left, anchorRect.left) - COLOR_PICKER_CLOSE_DISTANCE;
+  const maxX = Math.max(pickerRect.right, anchorRect.right) + COLOR_PICKER_CLOSE_DISTANCE;
+  const minY = Math.min(pickerRect.top, anchorRect.top) - COLOR_PICKER_CLOSE_DISTANCE;
+  const maxY = Math.max(pickerRect.bottom, anchorRect.bottom) + COLOR_PICKER_CLOSE_DISTANCE;
+  return (
+    point.x >= minX &&
+    point.x <= maxX &&
+    point.y >= minY &&
+    point.y <= maxY
+  );
+}
+
+function closeActiveColorPicker(expectedPicker = null) {
+  if (!activeColorPicker?.picker) {
+    return;
+  }
+  if (expectedPicker && activeColorPicker.picker !== expectedPicker) {
+    return;
+  }
+  activeColorPicker.picker.hidden = true;
+  activeColorPicker.picker.classList.remove("is-floating");
+  activeColorPicker.picker.style.left = "";
+  activeColorPicker.picker.style.top = "";
+  if (activeColorPicker.home && activeColorPicker.picker.parentElement !== activeColorPicker.home) {
+    activeColorPicker.home.append(activeColorPicker.picker);
+  }
+  activeColorPicker = null;
+}
+
+document.addEventListener("pointermove", (event) => {
+  lastMousePosition = { x: event.clientX, y: event.clientY };
+  if (activeColorPicker?.picker && !isPointerInActiveColorPickerBuffer(lastMousePosition)) {
+    closeActiveColorPicker();
+  }
+});
+
+function createMiniInlineNumberField(value, max, onChange) {
+  const field = document.createElement("span");
+  field.className = "character-mini-inline-field";
+  ["click", "mousedown", "pointerdown", "keydown"].forEach((eventName) => {
+    field.addEventListener(eventName, (event) => event.stopPropagation());
+  });
+  const controls = document.createElement("span");
+  controls.className = "character-mini-spinner";
+  const up = document.createElement("button");
+  up.type = "button";
+  up.textContent = "^";
+  const down = document.createElement("button");
+  down.type = "button";
+  down.textContent = "v";
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "0";
+  input.max = `${max}`;
+  input.value = `${value}`;
+  input.inputMode = "numeric";
+  input.step = "1";
+  const emitValue = () => {
+    const parsed = Number.parseInt(input.value, 10);
+    const next = Number.isFinite(parsed) ? Math.max(0, Math.min(max, parsed)) : value;
+    input.value = `${next}`;
+    onChange(next);
+  };
+  input.addEventListener("change", emitValue);
+  input.addEventListener("blur", emitValue);
+  input.addEventListener("input", () => {
+    const parsed = Number.parseInt(input.value, 10);
+    const clamped = Number.isFinite(parsed) ? Math.max(0, Math.min(max, parsed)) : value;
+    if (parsed !== Number(input.value)) {
+      input.value = `${clamped}`;
+    }
+    if (Number.isFinite(parsed)) {
+      onChange(clamped);
+    }
+  });
+  up.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const next = Math.min(max, (Number(input.value) || 0) + 1);
+    input.value = `${next}`;
+    emitValue();
+  });
+  down.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const next = Math.max(0, (Number(input.value) || 0) - 1);
+    input.value = `${next}`;
+    emitValue();
+  });
+  input.addEventListener("click", (event) => event.stopPropagation());
+  controls.append(up, down);
+  field.append(controls, input);
+  return field;
+
+}
+
+function updateCharactersUi() {
+  if (!state) {
+    return;
+  }
+  if (activeColorPicker?.picker && !activeColorPicker.picker.hidden) {
+    return;
+  }
+  normalizeCharacterState(state);
+  applyCharacterAmmoOverrides();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  ui.charactersList.innerHTML = "";
+  ui.charactersEmpty.hidden = state.characters.length > 0;
+  for (const character of state.characters) {
+    ui.charactersList.append(renderCharacterCard(character));
+  }
+  ui.characterDetail.hidden = true;
+  ui.characterDetail.innerHTML = "";
+}
+
+function openCharacterSheet(character) {
+  if (!ui.characterSheetModal || !ui.characterSheetContent) {
+    return;
+  }
+  const currentCharacter = getCurrentCharacter(character);
+  if (!currentCharacter) {
+    return;
+  }
+  renderCharacterDetail(currentCharacter, ui.characterSheetContent, { popout: true });
+  ui.characterSheetModal.hidden = false;
+}
+
+function closeCharacterSheet() {
+  if (!ui.characterSheetModal) {
+    return;
+  }
+  ui.characterSheetModal.hidden = true;
+}
+
+function createSheetField(label, value, options = {}) {
+  const field = document.createElement("div");
+  field.className = "sheet-field";
+  const fieldLabel = document.createElement("div");
+  fieldLabel.className = "sheet-field-label";
+  fieldLabel.textContent = label;
+  const fieldValue = options.editable ? document.createElement("input") : document.createElement("div");
+  fieldValue.className = "sheet-field-value";
+  if (options.editable) {
+    fieldValue.type = "number";
+    fieldValue.min = options.min ?? "0";
+    fieldValue.max = options.max ?? "99";
+    fieldValue.value = `${value ?? ""}`;
+    fieldValue.addEventListener("change", () => {
+      if (typeof options.onChange === "function") {
+        options.onChange(fieldValue);
+      }
+    });
+  } else {
+    fieldValue.textContent = `${value ?? ""}`;
+  }
+  field.append(fieldLabel, fieldValue);
+  return field;
+}
+
+function createSdField(label, value, className = "") {
+  const field = document.createElement("section");
+  field.className = ["sd-sheet-field", className].filter(Boolean).join(" ");
+  const heading = document.createElement("h3");
+  heading.textContent = label;
+  const content = document.createElement("div");
+  content.className = "sd-sheet-value";
+  content.textContent = `${value ?? ""}`;
+  field.append(heading, content);
+  return field;
+}
+
+function buildSheetLines(lines, minimumLines = 1) {
+  const block = document.createElement("div");
+  block.className = "sd-lined-block";
+  const normalized = lines.map((line) => String(line || "").trim()).filter(Boolean);
+  while (normalized.length < minimumLines) {
+    normalized.push("");
+  }
+  for (const line of normalized) {
+    const row = document.createElement("div");
+    row.textContent = line;
+    block.append(row);
+  }
+  return block;
+}
+
+function createSdPanel(title, content, className = "") {
+  const panel = document.createElement("section");
+  panel.className = ["sd-sheet-panel", className].filter(Boolean).join(" ");
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  panel.append(heading, content);
+  return panel;
+}
+
+function createSdGearPanel(character) {
+  const panel = document.createElement("section");
+  panel.className = "sd-sheet-panel sd-gear-panel";
+  const heading = document.createElement("h3");
+  heading.textContent = "Gear";
+
+  const money = document.createElement("div");
+  money.className = "sd-money-row";
+  money.textContent = `GP ${getCharacterMoney(character, "gold")}   SP ${getCharacterMoney(character, "silver")}   CP ${getCharacterMoney(character, "copper")}`;
+
+  const rows = document.createElement("div");
+  rows.className = "sd-gear-lines";
+  const { slots, freeCarry } = getCharacterGearSlots(character, {
+    maxSlots: 20,
+    excludeBackpack: true
+  });
+  slots.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = entry.available ? "" : "sd-gear-slot-unavailable";
+    row.textContent = `${index + 1}. ${entry.text || ""}`;
+    rows.append(row);
+  });
+  const freeCarryPanel = document.createElement("div");
+  freeCarryPanel.className = "sd-free-carry";
+  const freeCarryHeading = document.createElement("h3");
+  freeCarryHeading.textContent = "FREE TO CARRY";
+  const freeCarryLines = document.createElement("div");
+  freeCarryLines.className = "sd-free-carry-lines";
+  for (let index = 0; index < 10; index += 1) {
+    const line = document.createElement("div");
+    line.textContent = freeCarry[index] || "";
+    freeCarryLines.append(line);
+  }
+  freeCarryPanel.append(freeCarryHeading, freeCarryLines);
+
+  panel.append(heading, money, rows, freeCarryPanel);
+  return panel;
+}
+
+function createStatBox(label, value) {
+  const box = document.createElement("div");
+  box.className = "stat-box";
+  const heading = document.createElement("div");
+  heading.className = "stat-box-label";
+  heading.textContent = label;
+  const statValue = document.createElement("div");
+  statValue.className = "stat-box-value";
+  statValue.textContent = `${value ?? ""}`;
+  box.append(heading, statValue);
+  return box;
+}
+
+function createSheetPanel(title, content) {
+  const panel = document.createElement("section");
+  panel.className = "sheet-panel";
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  panel.append(heading, content);
+  return panel;
+}
+
+function buildListBlock(items) {
+  const list = document.createElement("div");
+  list.className = "sheet-list-block";
+  const filtered = items.filter((item) => Boolean(item && String(item).trim()));
+  if (!filtered.length) {
+    list.textContent = "None";
+    return list;
+  }
+  for (const item of filtered) {
+    const line = document.createElement("div");
+    line.textContent = item;
+    list.append(line);
+  }
+  return list;
+}
+
+function buildTextBlock(text) {
+  const block = document.createElement("div");
+  block.className = "sheet-text-block";
+  block.textContent = text || "None";
+  return block;
+}
+
+function createCompactInputField(label, value, max, onChange) {
+  const field = document.createElement("label");
+  field.className = "compact-input-field";
+  const text = document.createElement("span");
+  text.textContent = label;
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "0";
+  input.max = `${max}`;
+  input.value = `${value}`;
+  input.addEventListener("change", () => onChange(input.value));
+  field.append(text, input);
+  return field;
 }
 
 function updateRoomLootPanel() {
@@ -463,8 +2194,14 @@ function updateMonsterPanel() {
 function updateTrapPanel() {
   ui.trapPanel.innerHTML = "";
   const traps = getRoomTraps(state);
-  if (!state.player.roomId || traps.length === 0) {
-    ui.trapPanel.textContent = "No revealed traps in this room.";
+  const roomFeatures = state.entities.filter((entity) => (
+    entity.type === "feature" &&
+    entity.subtype !== "door" &&
+    entity.visible !== false &&
+    entity.roomId === state.player.roomId
+  ));
+  if (!state.player.roomId || (traps.length === 0 && roomFeatures.length === 0)) {
+    ui.trapPanel.textContent = "No revealed traps or features in this room.";
     return;
   }
 
@@ -511,10 +2248,20 @@ function updateTrapPanel() {
 
     ui.trapPanel.append(card);
   }
+
+  for (const feature of roomFeatures) {
+    const card = document.createElement("article");
+    card.className = "trap-card";
+    const title = document.createElement("h3");
+    title.textContent = feature.name || "Dungeon feature";
+    card.append(title);
+    ui.trapPanel.append(card);
+  }
 }
 
 function updatePanels() {
   updateLootUi();
+  updateCharactersUi();
   updateRoomLootPanel();
   updateMonsterPanel();
   updateTrapPanel();
@@ -560,7 +2307,7 @@ function normalizeSearchModifier() {
 }
 
 function formatRollTooltip(result, action) {
-  return `roll of ${result.roll} ${result.modifier >= 0 ? "+" : "-"} ${Math.abs(result.modifier)} = ${result.total} for ${action}`;
+  return `roll ${formatRollText(result)} = ${result.total} for ${action}`;
 }
 
 function applyTorchAdvance(result) {
@@ -577,10 +2324,11 @@ function performSearch() {
   if (!state) {
     return;
   }
-  const result = searchForTraps(state, normalizeSearchModifier());
+  const context = getCharacterActionContext("search");
+  const result = searchForTraps(state, context.modifier, { doubleRoll: context.doubleRoll });
   markUserActivity();
   setStatus(result);
-  ui.searchResult.textContent = `${result.total}`;
+  ui.searchResult.textContent = formatRollText(result);
   ui.searchResult.title = result.roll ? formatRollTooltip(result, "search") : "";
   if (state.player.torchLit) {
     applyTorchAdvance(advanceTorchTime(state, TORCH_SEARCH_ADVANCE_MS));
@@ -623,10 +2371,11 @@ function performDisarm() {
     setStatus("No active revealed trap to disarm.");
     return;
   }
-  const result = disarmTrap(state, trap.id, normalizeSearchModifier());
+  const context = getCharacterActionContext("disarm");
+  const result = disarmTrap(state, trap.id, context.modifier, { doubleRoll: context.doubleRoll });
   markUserActivity();
   setStatus(result);
-  ui.searchResult.textContent = `${result.total}`;
+  ui.searchResult.textContent = formatRollText(result);
   ui.searchResult.title = formatRollTooltip(result, "disarm");
   render();
   updatePanels();
@@ -780,7 +2529,12 @@ function hookInputEvents() {
     const delta = moves[event.key];
     if (delta) {
       event.preventDefault();
+      syncPlayerToActiveCharacter();
       const result = movePlayer(state, delta[0], delta[1]);
+      if (result.moved) {
+        syncActiveCharacterToPlayer();
+        recomputeVisibility(state);
+      }
       markUserActivity();
       setStatus(result);
       render();
@@ -810,6 +2564,86 @@ function hookInputEvents() {
 
   ui.generateBtn.addEventListener("click", () => {
     generateAndRender();
+  });
+  ui.dungeonTabBtn?.addEventListener("click", () => setActiveTab("dungeon"));
+  ui.charactersTabBtn?.addEventListener("click", () => {
+    setActiveTab("characters");
+    if (state?.characters?.length) {
+      openCharacterSheet(getActiveCharacter(state));
+    }
+  });
+  ui.importCharacterBtn.addEventListener("click", async () => {
+    if (!state) {
+      return;
+    }
+    ui.importCharacterBtn.disabled = true;
+    setStatus("Importing a ShadowDarklings character...");
+    try {
+      const characterJson = await importShadowdarklingsCharacter();
+      const characters = extractShadowdarkCharacters(characterJson);
+      if (!characters.length) {
+        throw new Error("No valid ShadowDarklings character JSON found.");
+      }
+      const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
+      const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
+      if (!availableSlots) {
+        throw new Error("Maximum of 16 active characters reached.");
+      }
+      const importedCharacters = characters.slice(0, availableSlots);
+      state.characters.push(...importedCharacters);
+      normalizeCharacterState(state);
+      ensureCharacterPresentation();
+      state.run.dirty = true;
+      markUserActivity();
+      updatePanels();
+      render();
+      setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      setStatus(error.message || "ShadowDarklings import failed.");
+    } finally {
+      ui.importCharacterBtn.disabled = false;
+    }
+  });
+  ui.characterImportClose.addEventListener("click", () => {
+    ui.characterImportModal.hidden = true;
+  });
+  if (ui.characterSheetClose) {
+    ui.characterSheetClose.addEventListener("click", closeCharacterSheet);
+  }
+  if (ui.characterSheetModal) {
+    ui.characterSheetModal.addEventListener("click", (event) => {
+      if (event.target === ui.characterSheetModal) {
+        closeCharacterSheet();
+      }
+    });
+  }
+  ui.characterImportSubmit.addEventListener("click", () => {
+    const characters = extractShadowdarkCharacters(ui.characterImportInput.value);
+    if (!characters.length) {
+      ui.characterImportStatus.textContent = "No valid ShadowDarklings character JSON found.";
+      return;
+    }
+    const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
+    const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
+    if (!availableSlots) {
+      ui.characterImportStatus.textContent = "Maximum of 16 active characters reached.";
+      return;
+    }
+    const importedCharacters = characters.slice(0, availableSlots);
+    state.characters.push(...importedCharacters);
+    normalizeCharacterState(state);
+    ensureCharacterPresentation();
+    state.run.dirty = true;
+    markUserActivity();
+    ui.characterImportModal.hidden = true;
+    updatePanels();
+    render();
+    setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"}.`);
+  });
+  ui.characterImportModal.addEventListener("click", (event) => {
+    if (event.target === ui.characterImportModal) {
+      ui.characterImportModal.hidden = true;
+    }
   });
   ui.levelInput.addEventListener("input", () => sizeControlField(ui.levelInput));
 
@@ -869,20 +2703,22 @@ function hookInputEvents() {
   });
 
   ui.pickLockBtn.addEventListener("click", () => {
-    const result = attemptLockedDoor(state, "pick", normalizeSearchModifier());
+    const context = getCharacterActionContext("pick");
+    const result = attemptLockedDoor(state, "pick", context.modifier, { doubleRoll: context.doubleRoll });
     markUserActivity();
     setStatus(result);
-    ui.searchResult.textContent = `${result.total}`;
+    ui.searchResult.textContent = formatRollText(result);
     ui.searchResult.title = formatRollTooltip(result, "pick lock");
     render();
     updatePanels();
   });
 
   ui.breakDoorBtn.addEventListener("click", () => {
-    const result = attemptLockedDoor(state, "break", normalizeSearchModifier());
+    const context = getCharacterActionContext("break");
+    const result = attemptLockedDoor(state, "break", context.modifier, { doubleRoll: context.doubleRoll });
     markUserActivity();
     setStatus(result);
-    ui.searchResult.textContent = `${result.total}`;
+    ui.searchResult.textContent = formatRollText(result);
     ui.searchResult.title = formatRollTooltip(result, "break door");
     render();
     updatePanels();
@@ -952,11 +2788,22 @@ function hookMapViewportInteractions() {
       return;
     }
     const { x, y } = getTileFromPointer({ clientX: clickX, clientY: clickY });
+    const clickedCharacter = getCharacterAtTile(x, y);
+    if (clickedCharacter) {
+      activateCharacter(clickedCharacter);
+      markUserActivity();
+      setStatus(`Selected ${clickedCharacter.name}.`);
+      render();
+      updatePanels();
+      return;
+    }
     const result = clickEntity(state, x, y);
     markUserActivity();
     setStatus(result);
     render();
-    updatePanels();
+    if (!/^No interactive token\b|^That tile is hidden by darkness\./.test(result.message || "")) {
+      updatePanels();
+    }
   };
 
   panel.addEventListener("wheel", (event) => {
@@ -988,6 +2835,23 @@ function hookMapViewportInteractions() {
     document.addEventListener("pointercancel", finishPointerSequence);
   });
 
+  panel.addEventListener("contextmenu", (event) => {
+    if (!state || !layers) {
+      return;
+    }
+    event.preventDefault();
+    const { x, y } = getTileFromPointer(event);
+    const character = getCharacterAtTile(x, y);
+    if (!character || character.id === state.activeCharacterId) {
+      return;
+    }
+    character.guarding = !character.guarding;
+    markUserActivity();
+    setStatus(character.guarding ? `${character.name} is guarding.` : `${character.name} stops guarding.`);
+    render();
+    updatePanels();
+  });
+
   window.addEventListener("resize", () => {
     if (state) {
       applyViewportScale(viewport.scale);
@@ -1008,6 +2872,7 @@ async function generateAndRender() {
     trapTable,
     contentCatalog: shadowdarkContent
   });
+  normalizeCharacterState(state);
   normalizeWanderingChance(state, ui.wanderingNumerator.value, ui.wanderingDenominator.value);
   state.run.hasUserActivity = false;
   state.run.dirty = false;
@@ -1016,6 +2881,7 @@ async function generateAndRender() {
   recomputeVisibility(state);
   setupCanvasLayers(state);
   updatePanels();
+  setActiveTab(activeTab);
   render();
   setStatus(`Generated level ${level} map with seed ${seed}. Move with arrow keys.`);
 }
@@ -1026,12 +2892,18 @@ function startClock() {
       return;
     }
     const result = syncElapsedTime(state);
+    let changed = false;
     if (result.crossedWanderingChecks) {
       processWanderingChecks(result.crossedWanderingChecks);
+      changed = true;
     }
     if (result.expired) {
       recomputeVisibility(state);
       setStatus("Torch went out!");
+      changed = true;
+    }
+    if (!changed) {
+      return;
     }
     render();
     updatePanels();
@@ -1048,6 +2920,11 @@ async function initialize() {
   hookInputEvents();
   hookMapViewportInteractions();
   updateControlSizing();
+  syncSidebarWidth();
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(syncSidebarWidth);
+  }
+  window.addEventListener("resize", syncSidebarWidth);
   startClock();
   generateAndRender();
 }

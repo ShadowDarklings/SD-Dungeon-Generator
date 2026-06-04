@@ -501,6 +501,47 @@ function drawPlayer(state, ctx) {
   ctx.stroke();
 }
 
+function drawCharacterDot(character, ctx, isActive) {
+  const cx = character.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+  const cy = character.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+  const radius = TILE_SIZE_PX * 0.27;
+  ctx.fillStyle = character.colorValue || "#174a9c";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (character.guarding) {
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+  }
+  if (isActive) {
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
+function drawCharacters(state, ctx) {
+  const characters = (state.characters || []).filter((character) => (
+    character.dead !== true &&
+    character.slain !== true &&
+    character.x !== null &&
+    character.x !== undefined &&
+    character.y !== null &&
+    character.y !== undefined &&
+    Number.isFinite(Number(character.x)) &&
+    Number.isFinite(Number(character.y))
+  ));
+  if (!characters.length) {
+    drawPlayer(state, ctx);
+    return;
+  }
+  for (const character of characters) {
+    drawCharacterDot(character, ctx, character.id === state.activeCharacterId);
+  }
+}
+
 function drawFog(state, ctx, widthPx, heightPx, forceBlackout) {
   if (forceBlackout) {
     for (const tile of state.tiles) {
@@ -552,7 +593,7 @@ export function renderDungeon(state, layers, options = {}) {
   objectsCtx.clearRect(0, 0, widthPx, heightPx);
   objectsCtx.__doorNow = now;
   drawObjects(state, objectsCtx, { darkness: options.forceBlackout === true });
-  drawPlayer(state, objectsCtx);
   fogCtx.clearRect(0, 0, widthPx, heightPx);
   drawFog(state, fogCtx, widthPx, heightPx, options.forceBlackout === true);
+  drawCharacters(state, fogCtx);
 }
