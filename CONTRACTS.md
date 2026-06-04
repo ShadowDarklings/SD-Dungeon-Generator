@@ -1,9 +1,14 @@
 # SD Dungeon Generator - CONTRACTS.md
 
 **Team:** ShadowDarklings  
-**Week:** 7  
+**Week:** 10 — Hardening / Production Stack  
 **Project:** Procedural Shadowdark dungeon generator  
 **Contract status:** Load-bearing. Change this document first, then tests, then code.
+
+> **Week 10 note:** §§1–14 are unchanged from the Week 7 contract. Week 10 adds **§15 (Production Stack
+> & Hardening)** at the end. The schema, endpoint contracts, and authorization rules do not change; §15
+> records new infrastructure ownership and the one runtime behavior change (ProxyFix + Secure cookies
+> now active over HTTPS).
 
 This document defines what the system does. It is not an implementation
 plan. The back-end role builds the API described here, the front-end role
@@ -679,3 +684,128 @@ verify:
    is rejected.
 4. **Session expires** — with a short test-only `PERMANENT_SESSION_LIFETIME`,
    protected page becomes inaccessible after the lifetime passes.
+
+## 15. Production Stack & Hardening (Week 10)
+
+This section extends the contract for the Week 10 hardening work. It does **not** change the schema
+(§1), endpoint contracts (§2), or authorization rules (§4). The application's behavior is unchanged;
+Week 10 wraps it in a production stack — **nginx → gunicorn → Flask → Postgres** — over HTTPS, and
+records the new ownership boundaries plus the one runtime behavior change that follows from running
+behind a TLS-terminating proxy.
+
+### 15.1 Stack components and where each config lives
+
+| Component | File | Owner | Study Guide |
+|---|---|---|---|
+| Reverse proxy, TLS termination, headers, rate limits | `nginx/nginx.conf` (+ `nginx/proxy_params.conf`) | DB/sec (Mario) | §4 |
+| WSGI server config | `gunicorn.conf.py` | Back end (Megan) | §5 |
+| Three-container stack (nginx + app + db) | `docker-compose.yml` | DB/sec (Mario) | §6 |
+| App image / entry point | `Dockerfile` | Back end (Megan) | §7 |
+| Self-signed cert (generated, gitignored) | `nginx/certs/{cert,key}.pem` | DB/sec (Mario) | §7 |
+| Attack-path test | `tests/test_attack_paths.py` + `attack_paths.json` | DB/sec (Mario) | §10 |
+
+**Done means:** `docker-compose up` from `main` brings up nginx, the app under gunicorn, and Postgres;
+`https://localhost` reaches the Flask app through nginx → gunicorn. The Week 5 `python app.py` /
+two-container skeleton is retired as the production path (it may remain for local debugging).
+
+### 15.2 Application entry point and WSGI server
+
+- gunicorn imports the **module-level app object**: `gunicorn -c gunicorn.conf.py app:app`. There is no
+  app factory; `create_app()` does not exist. The `Dockerfile` `CMD` uses the same target.
+- gunicorn binds the unix socket `unix:/tmp/gunicorn.sock`, shared with nginx via the `gunicorn-socket`
+  volume. The app container no longer publishes port 5000, and the dev `.:/app` bind-mount is dropped
+  from the production path.
+- **`preload_app` decision (pending — back end):** `app.py` calls `create_engine(DATABASE_URL)` at
+  import time. With `preload_app = True` the engine is created before workers fork and must be disposed
+  per worker in a `post_fork` hook (`engine.dispose()`); otherwise set `preload_app = False`. One must
+  be chosen — see plan §10 / coord log.
+- `app.run(debug=True)` remains only under `if __name__ == "__main__"` and is never the production path.
+
+### 15.3 ProxyFix and forwarded headers (new)
+
+nginx terminates TLS and forwards plain HTTP to gunicorn, so Flask must trust nginx's
+`X-Forwarded-Proto` to know the original request was HTTPS:
+
+```python
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+```
+
+One proxy in the chain (nginx) → all args `= 1`. Without ProxyFix, `request.is_secure` is `False`,
+`url_for()` emits `http://`, and `SESSION_COOKIE_SECURE=True` refuses to set the session cookie. This is
+a Flask concern, not an nginx concern.
+
+### 15.4 Cookie flags activated over HTTPS (supersedes the §9.1 dev note)
+
+The Week 7 cookie flags (§9.1) were inert on `http://localhost`. With self-signed HTTPS and ProxyFix in
+place, `SESSION_COOKIE_SECURE` is now active:
+
+- `SESSION_COOKIE_SECURE` is `True` when `FLASK_ENV=production`, which the `app` service sets in
+  `docker-compose.yml`. The session and remember-me cookies are then sent only over HTTPS.
+- The §9.1 note ("for local development over `http://localhost` … set `SESSION_COOKIE_SECURE = False`")
+  and the §13 limitation ("`SESSION_COOKIE_SECURE` is disabled in dev/test") now apply **only** to the
+  Playwright e2e fixtures and any deliberate plain-HTTP local run — not to the docker-compose stack.
+
+### 15.5 Security headers and CSP (set in nginx, not Flask)
+
+Per the stack design, response security headers are set at nginx (§9, §4): `Strict-Transport-Security`,
+`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and a
+`Content-Security-Policy`. **Open item:** a strict `default-src 'self'` CSP conflicts with any inline
+`<script>`/`<style>` or inline handlers in `S3_content/index.html`; the front end either refactors the
+inline code into external files or adds nonces/hashes before the CSP can be enforced.
+
+### 15.6 Static assets served by nginx
+
+nginx serves static assets directly, out of Flask's hands:
+
+- `/static/` → `location /static/` (the existing Flask static dir).
+- `/site/` → the dungeon frontend in `S3_content/`. Previously served by Flask's `/site/` route; under
+  the stack nginx serves it via a `location /site/` alias with the directory mounted into the nginx
+  container. The Flask `/site/` route remains available for local debugging.
+
+### 15.7 Rate limiting on auth endpoints (nginx)
+
+nginx rate-limits authentication endpoints via `limit_req_zone` (§12). Applied to `/login`, `/register`,
+and `/login/github` at a starting rate of **5 r/m, `burst=3 nodelay`**. `/auth/github/callback` is
+**not** rate-limited — throttling the OAuth return risks failing legitimate logins (it is hit once per
+real login as part of the provider round-trip).
+
+### 15.8 The trust boundary (database)
+
+The `db` service has **no `ports:`** declaration — Postgres is reachable only from other services on the
+docker network, never from the host or public internet (§13). This protects against direct external DB
+access, accidental connection-string leaks from client code, and lateral movement from another
+compromised network. It does **not** protect against SQL injection, a compromised app container, or
+anyone with host shell access. DB-layer responsibilities that remain ours: parametrized queries
+(SQLModel handles this), the ownership-404 rule (§4), cascade deletes / unique constraints / the
+`level BETWEEN 1 AND 10` check (§1), and — a **known limitation** — the app currently connects as the
+Postgres superuser `app` rather than a least-privilege role.
+
+### 15.9 Deploy pipeline (intended, not yet built)
+
+Week 9 was a presentation; **no CI/CD release pipeline exists**. The only workflow is
+`.github/workflows/test.yml` (pytest). The *intended* pipeline (documented in `DEPLOY_AWS.md`,
+study guide §15–§17) is **tag-driven** (`on: push: tags: ['v*']`): build an image, push to a registry,
+deploy to EC2 over SSH. Secrets (`OAUTH_CLIENT_SECRET`, an EC2 SSH key, a Docker Hub token) live in
+three places only — generated at the provider, stored in GitHub Actions secrets / a gitignored `.env`,
+used at runtime via `os.environ[...]`. This subsection documents intent for the Part C role writeups;
+building the workflow is **out of scope** for Week 10.
+
+### 15.10 Hardening-layer role boundaries (extends §5)
+
+| Role | Week 10 hardening ownership |
+|---|---|
+| Front end (Charles) | nginx security headers + CSP; moving `/static/` and `/site/` to nginx; verifying the Secure-cookie behavior from the browser |
+| Back end (Megan) | `gunicorn.conf.py`; `Dockerfile` production entry point (`app:app`); `ProxyFix`; the `preload_app`/engine decision; Flask production config (debug off, error handlers, secret handling) |
+| DB / security (Mario) | `nginx.conf` server block (reverse proxy, rate limits, request filtering); `docker-compose.yml` 3-container wiring; self-signed cert generation; `attack_paths.json` + `test_attack_paths.py`; the db trust boundary; deploy/secrets (intended) |
+
+### 15.11 Known limitations (Week 10)
+
+- Self-signed cert only; real certs (Let's Encrypt) are out of scope.
+- No CI/CD deploy is built; the release pipeline is documented as **intended** only.
+- The app connects to Postgres as the superuser `app`, not a least-privilege role.
+- `attack_paths.json` is a known-bad-string list (20 paths), not a structural audit. The companion
+  `test_flask_never_saw_any_of_them` assertion is **skipped** unless gunicorn writes `logs/flask.log`
+  (current config logs to stdout).
+- Playwright e2e runs over HTTP + SQLite with `SESSION_COOKIE_SECURE=False`; it does not exercise the
+  HTTPS Secure-cookie path unless pointed at `https://localhost` with `ignore_https_errors=true`.

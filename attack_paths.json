@@ -1,0 +1,22 @@
+[
+  "/wp-login.php",
+  "/wp-admin/",
+  "/.env",
+  "/.git/config",
+  "/.git/HEAD",
+  "/.aws/credentials",
+  "/.ssh/id_rsa",
+  "/admin/",
+  "/administrator/",
+  "/phpmyadmin/",
+  "/xmlrpc.php",
+  "/server-status",
+  "/backup.sql",
+  "/.htaccess",
+  "/config.php",
+  "/wp-content/plugins/",
+  "/vendor/phpunit/",
+  "/.well-known/openid-configuration",
+  "/_profiler/",
+  "/actuator/health"
+]
