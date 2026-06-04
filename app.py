@@ -44,19 +44,32 @@ OAUTH_CLIENT_SECRET = os.environ["OAUTH_CLIENT_SECRET"]
 # 2. Application Setup & Security Hardening Configuration (§9)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 2. Application Setup & Security Hardening Configuration (§9)
+# ---------------------------------------------------------------------------
+
 app = Flask(__name__)
+
+# MEGAN'S HARDENING: Apply ProxyFix middleware.
+# This forces Flask to trust the security headers (X-Forwarded-*) injected by Nginx.
+# Without this, Flask won't realize the incoming traffic is over HTTPS, which breaks
+# our url_for redirects and stops secure cookies from attaching!
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 app.config["SECRET_KEY"] = SECRET_KEY
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=14)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-if not app.config.get("TESTING") and os.environ.get("FLASK_ENV") == "production":
+
+# MEGAN'S HARDENING: Secure cookies now activate in production over true HTTPS!
+if os.environ.get("FLASK_ENV") == "production":
     app.config["SESSION_COOKIE_SECURE"] = True
 else:
     app.config["SESSION_COOKIE_SECURE"] = False
 
 csrf = CSRFProtect(app)
-
 
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
@@ -758,4 +771,7 @@ def get_random_tables():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # If running locally via python app.py, default to debug mode.
+    # Production running containers will use Gunicorn directly, bypassing this block entirely.
+    is_prod = os.environ.get("FLASK_ENV") == "production"
+    app.run(host="0.0.0.0", port=5000, debug=not is_prod)
