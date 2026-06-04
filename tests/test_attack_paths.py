@@ -22,6 +22,22 @@ with open("attack_paths.json") as f:
 BASE = "https://localhost"
 
 
+def _stack_is_up():
+    """Return True if the nginx container is reachable on port 443."""
+    try:
+        requests.get(BASE, verify=False, timeout=2)
+        return True
+    except requests.exceptions.ConnectionError:
+        return False
+
+
+_skip_no_stack = pytest.mark.skipif(
+    not _stack_is_up(),
+    reason="Docker stack not running (nginx not reachable on port 443)"
+)
+
+
+@_skip_no_stack
 @pytest.mark.parametrize("path", PATHS)
 def test_nginx_blocks(path):
     """nginx should return 404/403 for known-bad attack paths."""
