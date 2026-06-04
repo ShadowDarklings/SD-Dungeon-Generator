@@ -39,9 +39,56 @@ The prototype now includes:
 - Search rolls support a one-digit modifier and show the total with a hover tooltip for the roll breakdown.
 - Loot log with running total and drop-back-to-map behavior.
 
-## Run Locally
+## Running the Production Stack
 
-Run the Week 5 walking skeleton with Docker Compose from the repo root:
+The production stack runs **nginx → gunicorn → Flask → Postgres** over HTTPS with a self-signed certificate.
+
+### Prerequisites
+
+- Docker and Docker Compose
+- A `.env` file in the repo root (see `.env.example` for required variables)
+- Port 443 and 80 free on your machine
+
+### Setup
+
+1. **Create your `.env`** from the example:
+   ```shell
+   cp .env.example .env
+   # Fill in SECRET_KEY, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET
+   ```
+
+2. **Generate a self-signed TLS certificate** (generated locally, never committed):
+   ```shell
+   mkdir -p nginx/certs
+   openssl req -x509 -newkey rsa:2048 -nodes \
+     -keyout nginx/certs/key.pem -out nginx/certs/cert.pem \
+     -days 365 -subj "/CN=localhost"
+   ```
+
+3. **Start the stack:**
+   ```shell
+   docker compose up --build
+   ```
+
+4. **Visit** `https://localhost` (accept the self-signed certificate warning).
+
+The stack brings up three containers:
+- **nginx** — TLS termination, reverse proxy, security headers, rate limiting, static asset serving
+- **app** — Flask under gunicorn (sync workers, unix socket)
+- **db** — Postgres 16 (data persisted in a named Docker volume, not exposed to the host network)
+
+### Running the attack-path test
+
+With the stack running:
+```shell
+pytest tests/test_attack_paths.py -v
+```
+
+This tests 20 known scanner paths (`/wp-login.php`, `/.env`, `/.git/config`, etc.) against nginx and asserts they all return 404/403.
+
+## Local Development (without the production stack)
+
+For quick local development without nginx or TLS:
 
 ```shell
 docker compose up -d
@@ -64,3 +111,5 @@ docker compose exec app pytest -v
 - State schema: `docs/STATE_SCHEMA.md`
 - AWS deployment notes: `DEPLOY_AWS.md`
 - Week 5 group setup: `WEEK5_GROUP_SETUP.md`
+- Contract and API documentation: `CONTRACTS.md`
+
