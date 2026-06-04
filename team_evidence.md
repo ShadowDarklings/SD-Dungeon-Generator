@@ -12,3 +12,4 @@
 
 - **mario-hardening**: https://github.com/ShadowDarklings/SD-Dungeon-Generator/tree/mario-hardening
 - **megan-hardening**: https://github.com/ShadowDarklings/SD-Dungeon-Generator/tree/megan-hardening
+- **charles-hardening**: https://github.com/ShadowDarklings/SD-Dungeon-Generator/tree/charles-hardening
