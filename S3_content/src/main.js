@@ -16,7 +16,6 @@ import {
 import {
   createRun,
   hydrateDungeonState,
-  importShadowdarklingsCharacter,
   listRunsWithNames,
   loadRun,
   MAX_SAVE_NAME_LENGTH,
@@ -35,15 +34,15 @@ import {
   getCharacterDisplayHeader,
   getCharacterGearFreeSlots,
   hasCharacterAmmo,
-  getCharacterSpellText,
-  getCharacterRuleText,
   getCharacterStatSummary,
   markCharacterSlain,
   normalizeCharacterState,
   setActiveCharacter,
   setCharacterHp
 } from "./characters.js";
+import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression } from "./damage.js";
 import { preloadRendererAssets, renderDungeon } from "./render.js";
+import { loadSpellLibrary, normalizeSpellLookupKey } from "./spells.js";
 import {
   advanceTorchTime,
   forceTorchOut,
@@ -96,9 +95,20 @@ const ui = {
   characterImportStatus: document.getElementById("character-import-status"),
   characterImportSubmit: document.getElementById("character-import-submit"),
   characterImportClose: document.getElementById("character-import-close"),
+  damageResult: document.getElementById("damage-result"),
+  damageContext: document.getElementById("damage-context"),
+  damageExpandBtn: document.getElementById("damage-expand-btn"),
+  damageDetail: document.getElementById("damage-detail"),
   characterSheetModal: document.getElementById("character-sheet-modal"),
   characterSheetContent: document.getElementById("character-sheet-content"),
   characterSheetClose: document.getElementById("character-sheet-close"),
+  spellDetailModal: document.getElementById("spell-detail-modal"),
+  spellDetailClose: document.getElementById("spell-detail-close"),
+  spellDetailTitle: document.getElementById("spell-detail-title"),
+  spellDetailMeta: document.getElementById("spell-detail-meta"),
+  spellDetailDuration: document.getElementById("spell-detail-duration"),
+  spellDetailRange: document.getElementById("spell-detail-range"),
+  spellDetailBody: document.getElementById("spell-detail-body"),
   saveLoadModal: document.getElementById("save-load-modal"),
   saveLoadTitle: document.getElementById("save-load-title"),
   saveLoadStatus: document.getElementById("save-load-status"),
@@ -123,6 +133,9 @@ let forceBlackoutWhenTorchOut = true;
 let monsterTable = [];
 let trapTable = [];
 let shadowdarkContent = null;
+let spellLibraryPromise = null;
+let spellLookup = new Map();
+let lastDamageRoll = null;
 let activeTab = "dungeon";
 let saveDialog = {
   mode: "save",
@@ -188,6 +201,41 @@ async function loadTrapTable() {
     console.warn("Using fallback trap names because traps.json could not load.", error);
     return [];
   }
+}
+
+function getMonsterBucket(level) {
+  const parsed = Number(level) || 1;
+  return Math.max(1, Math.min(10, parsed >= 10 ? 10 : parsed));
+}
+
+async function loadMonsterTableForLevel(level) {
+  const bucket = getMonsterBucket(level);
+  try {
+    const response = await fetch(`./monsters-${bucket}.json`);
+    if (!response.ok) {
+      throw new Error(`Monster table request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    console.warn(`Using fallback monster table for level ${level}.`, error);
+    return Array.isArray(shadowdarkContent?.monsters)
+      ? shadowdarkContent.monsters.filter((monster) => {
+        const monsterLevel = Number(monster?.level ?? monster?.lv ?? monster?.["**LV**"] ?? 1) || 1;
+        return bucket >= 10 ? monsterLevel >= 10 : monsterLevel === bucket;
+      })
+      : [];
+  }
+}
+
+async function ensureSpellLibraryLoaded() {
+  if (!spellLibraryPromise) {
+    spellLibraryPromise = loadSpellLibrary().then((library) => {
+      spellLookup = library.lookup;
+      return library;
+    });
+  }
+  return spellLibraryPromise;
 }
 
 function createLayerCanvas(className, width, height) {
@@ -1548,8 +1596,16 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
   logo.textContent = "ShadowDark";
 
   const nameBox = createSdField("Name", character.name, "sd-name-box");
-  const talents = createSdPanel("Talents / Spells", buildSheetLines(buildTalentSpellLines(character), 8), "sd-talents-panel");
-  const attacks = createSdPanel("Attacks", buildSheetLines((character.attacks || []).map(formatAttackForSheet), 8), "sd-attacks-panel");
+  const talentRows = buildTalentSpellLines(character).map((line) => (
+    /^Spells:/i.test(line)
+      ? createSpellSummaryLine(line)
+      : createDamageAwareLine(line, { sourceLabel: `${character.name} talent` })
+  ));
+  const attackRows = (character.attacks || []).map((attackText) => (
+    createDamageAwareLine(formatAttackForSheet(attackText), { sourceLabel: `${character.name} attack` })
+  ));
+  const talents = createSdPanel("Talents / Spells", buildSheetLines(talentRows, 8), "sd-talents-panel");
+  const attacks = createSdPanel("Attacks", buildSheetLines(attackRows, 8), "sd-attacks-panel");
   const gear = createSdGearPanel(character);
   const dismissal = popout ? createSdDismissPanel(character) : null;
 
@@ -1700,7 +1756,9 @@ function createMiniAttackNode(attackText, character) {
     .trim();
   const attackNode = document.createElement("span");
   attackNode.className = "character-mini-attack-entry";
-  attackNode.append(document.createTextNode(`${name}${flag}: ${bonus}`));
+  appendDamageAwareText(attackNode, `${name}${flag}: ${bonus}`, {
+    sourceLabel: `${character?.name || "Character"} attack`
+  });
   if (ammoValue !== undefined) {
     attackNode.append(document.createTextNode(" "));
     attackNode.append(createMiniInlineNumberField(ammoValue, 99, (value) => {
@@ -1709,7 +1767,10 @@ function createMiniAttackNode(attackText, character) {
     }));
   }
   if (detail) {
-    attackNode.append(document.createTextNode(`, ${detail}`));
+    attackNode.append(document.createTextNode(", "));
+    appendDamageAwareText(attackNode, detail, {
+      sourceLabel: `${character?.name || "Character"} attack`
+    });
   }
   return attackNode;
 }
@@ -1962,6 +2023,225 @@ function createSheetField(label, value, options = {}) {
   return field;
 }
 
+function openCharacterImportModal() {
+  if (!ui.characterImportModal) {
+    return;
+  }
+  ui.characterImportStatus.textContent = "";
+  ui.characterImportModal.hidden = false;
+  ui.characterImportInput.focus();
+  ui.characterImportInput.select();
+}
+
+function findSpellRecord(name) {
+  return spellLookup.get(normalizeSpellLookupKey(name)) || null;
+}
+
+function setDamageDetailVisibility(visible) {
+  if (!ui.damageDetail || !ui.damageExpandBtn) {
+    return;
+  }
+  ui.damageDetail.hidden = !visible;
+  ui.damageExpandBtn.textContent = visible ? "collapse" : "expand";
+}
+
+function renderDamageDetail(roll) {
+  if (!ui.damageDetail) {
+    return;
+  }
+  ui.damageDetail.innerHTML = "";
+  if (!roll) {
+    ui.damageDetail.hidden = true;
+    return;
+  }
+
+  const line = document.createElement("div");
+  line.className = "damage-breakdown-line";
+  roll.terms.forEach((term, index) => {
+    if (index > 0) {
+      line.append(document.createTextNode(term.sign < 0 ? " - " : " + "));
+    } else if (term.sign < 0) {
+      line.append(document.createTextNode("-"));
+    }
+
+    if (term.type === "die") {
+      const token = document.createElement("span");
+      token.className = "damage-breakdown-term";
+      if (term.isMinimum) {
+        token.classList.add("is-minimum");
+      }
+      if (term.isMaximum) {
+        token.classList.add("is-maximum");
+      }
+      token.textContent = `${term.label}: ${term.value}`;
+      line.append(token);
+      return;
+    }
+
+    line.append(document.createTextNode(String(term.value)));
+  });
+
+  if (roll.multiplier > 1) {
+    line.append(document.createTextNode(`, then x ${roll.multiplier}`));
+  }
+  line.append(document.createTextNode(` = ${roll.total}`));
+  ui.damageDetail.append(line);
+}
+
+function applyDamageRoll(reference, sourceLabel = "") {
+  const expression = normalizeDamageExpression(reference?.expression);
+  if (!expression || !ui.damageResult) {
+    return;
+  }
+  const roll = rollDamageExpression(expression);
+  lastDamageRoll = {
+    ...roll,
+    display: reference?.display || expression,
+    sourceLabel
+  };
+  ui.damageResult.textContent = `${roll.total}`;
+  ui.damageContext.textContent = sourceLabel
+    ? `${sourceLabel}: ${reference?.display || expression}`
+    : (reference?.display || expression);
+  ui.damageExpandBtn.hidden = roll.terms.length === 0;
+  renderDamageDetail(lastDamageRoll);
+  setDamageDetailVisibility(false);
+}
+
+function createDamageButton(reference, options = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "damage-token";
+  button.textContent = options.label || reference.expression;
+  button.title = `Roll ${reference.display || reference.expression}`;
+  button.addEventListener("click", () => {
+    applyDamageRoll(reference, options.sourceLabel || "");
+  });
+  return button;
+}
+
+function appendDamageAwareText(target, text, options = {}) {
+  const value = String(text || "");
+  const references = Array.isArray(options.references) && options.references.length
+    ? options.references
+    : extractDamageReferences(value, { preferDeathLabel: options.preferDeathLabel === true });
+  if (!references.length) {
+    target.append(document.createTextNode(value));
+    return;
+  }
+
+  const referenceMap = new Map();
+  references.forEach((reference) => {
+    const key = normalizeDamageExpression(reference.expression);
+    if (key && !referenceMap.has(key)) {
+      referenceMap.set(key, reference);
+    }
+  });
+
+  let cursor = 0;
+  for (const match of value.matchAll(/\b(?:\d+d\d+(?:\s*(?:\+\s*\d+|x\s*\d+|\*\s*\d+))*|d\d+)\b/gi)) {
+    const matchText = match[0];
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      target.append(document.createTextNode(value.slice(cursor, index)));
+    }
+    const expression = normalizeDamageExpression(matchText);
+    const reference = referenceMap.get(expression) || {
+      expression,
+      display: expression,
+      context: value
+    };
+    target.append(createDamageButton(reference, {
+      label: matchText,
+      sourceLabel: options.sourceLabel || ""
+    }));
+    cursor = index + matchText.length;
+  }
+
+  if (cursor < value.length) {
+    target.append(document.createTextNode(value.slice(cursor)));
+  }
+}
+
+function createDamageAwareLine(text, options = {}) {
+  const content = document.createElement("span");
+  appendDamageAwareText(content, text, options);
+  return content;
+}
+
+function createSpellButton(spellName) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "spell-link-button";
+  button.textContent = spellName;
+  button.addEventListener("click", async () => {
+    await ensureSpellLibraryLoaded();
+    const spell = findSpellRecord(spellName);
+    if (!spell) {
+      setStatus(`No spell details found for ${spellName}.`);
+      return;
+    }
+    ui.spellDetailTitle.textContent = spell.name.toUpperCase();
+    ui.spellDetailMeta.textContent = `Tier ${spell.tier}, ${spell.classes.join(", ")}`;
+    ui.spellDetailDuration.textContent = spell.duration || "Unknown";
+    ui.spellDetailRange.textContent = spell.range || "Unknown";
+    ui.spellDetailBody.innerHTML = "";
+    spell.paragraphs.forEach((paragraph) => {
+      const item = document.createElement("p");
+      appendDamageAwareText(item, paragraph, {
+        references: (spell.damage || []).filter((reference) => paragraph.includes(reference.expression) || reference.context.includes(reference.expression)),
+        preferDeathLabel: true,
+        sourceLabel: spell.name
+      });
+      ui.spellDetailBody.append(item);
+    });
+    ui.spellDetailModal.hidden = false;
+  });
+  return button;
+}
+
+function createSpellSummaryLine(text) {
+  const container = document.createElement("div");
+  container.className = "sd-spell-summary-line";
+  const prefix = document.createElement("strong");
+  prefix.className = "sd-line-prefix";
+  prefix.textContent = "Spells:";
+  container.append(prefix, document.createTextNode(" "));
+
+  const payload = String(text || "").replace(/^Spells:\s*/i, "").trim();
+  if (!payload || /^none$/i.test(payload)) {
+    container.append(document.createTextNode("None"));
+    return container;
+  }
+
+  const groups = payload.split(/\s*;\s*/).filter(Boolean);
+  groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      container.append(document.createTextNode("; "));
+    }
+    const match = group.match(/^\(Tier\s+(\d+)\):\s*(.+)$/i);
+    const tier = match?.[1] || "";
+    const names = (match?.[2] || group)
+      .split(/\s*,\s*/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (tier) {
+      const tierLabel = document.createElement("span");
+      tierLabel.className = "sd-spell-tier-label";
+      tierLabel.textContent = `Tier ${tier}`;
+      container.append(tierLabel, document.createTextNode(": "));
+    }
+    names.forEach((name, index) => {
+      if (index > 0) {
+        container.append(document.createTextNode(", "));
+      }
+      container.append(createSpellButton(name));
+    });
+  });
+
+  return container;
+}
+
 function createSdField(label, value, className = "") {
   const field = document.createElement("section");
   field.className = ["sd-sheet-field", className].filter(Boolean).join(" ");
@@ -1977,13 +2257,22 @@ function createSdField(label, value, className = "") {
 function buildSheetLines(lines, minimumLines = 1) {
   const block = document.createElement("div");
   block.className = "sd-lined-block";
-  const normalized = lines.map((line) => String(line || "").trim()).filter(Boolean);
+  const normalized = lines.filter((line) => {
+    if (line instanceof Node) {
+      return true;
+    }
+    return String(line || "").trim().length > 0;
+  });
   while (normalized.length < minimumLines) {
     normalized.push("");
   }
   for (const line of normalized) {
     const row = document.createElement("div");
-    row.textContent = line;
+    if (line instanceof Node) {
+      row.append(line);
+    } else {
+      row.textContent = line;
+    }
     block.append(row);
   }
   return block;
@@ -2138,12 +2427,20 @@ function updateRoomLootPanel() {
   }
 }
 
-function createStatRow(term, value) {
+function createStatRow(term, value, options = {}) {
   const fragment = document.createDocumentFragment();
   const dt = document.createElement("dt");
   dt.textContent = term;
   const dd = document.createElement("dd");
-  dd.textContent = value || "unknown";
+  const displayValue = value || "unknown";
+  if (options.damageAware) {
+    appendDamageAwareText(dd, displayValue, {
+      sourceLabel: options.sourceLabel || term,
+      references: options.references
+    });
+  } else {
+    dd.textContent = displayValue;
+  }
   fragment.append(dt, dd);
   return fragment;
 }
@@ -2172,7 +2469,11 @@ function updateMonsterPanel() {
     stats.append(
       createStatRow("AC", monster.ac),
       createStatRow("HP", monster.hp),
-      createStatRow("ATK", monster.attack)
+      createStatRow("ATK", monster.attack, {
+        damageAware: true,
+        sourceLabel: monster.name,
+        references: monster.damage
+      })
     );
     card.append(stats);
 
@@ -2181,7 +2482,9 @@ function updateMonsterPanel() {
       const abilities = document.createElement("ul");
       for (const [name, description] of abilityEntries) {
         const ability = document.createElement("li");
-        ability.textContent = `${name.replaceAll("*", "")}: ${description}`;
+        appendDamageAwareText(ability, `${name.replaceAll("*", "")}: ${description}`, {
+          sourceLabel: `${monster.name} ability`
+        });
         abilities.append(ability);
       }
       card.append(abilities);
@@ -2224,7 +2527,10 @@ function updateTrapPanel() {
     const stateLabel = trap.disarmed ? "disarmed" : trap.triggered ? "triggered" : "found";
     stats.append(
       createStatRow("Trigger", trap.trigger),
-      createStatRow("Effect", trap.effect),
+      createStatRow("Effect", trap.effect, {
+        damageAware: true,
+        sourceLabel: trap.name
+      }),
       createStatRow("Trap DC", trap.dc),
       createStatRow("State", stateLabel)
     );
@@ -2572,40 +2878,14 @@ function hookInputEvents() {
       openCharacterSheet(getActiveCharacter(state));
     }
   });
-  ui.importCharacterBtn.addEventListener("click", async () => {
-    if (!state) {
-      return;
-    }
-    ui.importCharacterBtn.disabled = true;
-    setStatus("Importing a ShadowDarklings character...");
-    try {
-      const characterJson = await importShadowdarklingsCharacter();
-      const characters = extractShadowdarkCharacters(characterJson);
-      if (!characters.length) {
-        throw new Error("No valid ShadowDarklings character JSON found.");
-      }
-      const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
-      const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
-      if (!availableSlots) {
-        throw new Error("Maximum of 16 active characters reached.");
-      }
-      const importedCharacters = characters.slice(0, availableSlots);
-      state.characters.push(...importedCharacters);
-      normalizeCharacterState(state);
-      ensureCharacterPresentation();
-      state.run.dirty = true;
-      markUserActivity();
-      updatePanels();
-      render();
-      setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"}.`);
-    } catch (error) {
-      setStatus(error.message || "ShadowDarklings import failed.");
-    } finally {
-      ui.importCharacterBtn.disabled = false;
-    }
+  ui.importCharacterBtn.addEventListener("click", () => {
+    openCharacterImportModal();
   });
   ui.characterImportClose.addEventListener("click", () => {
     ui.characterImportModal.hidden = true;
+  });
+  ui.damageExpandBtn?.addEventListener("click", () => {
+    setDamageDetailVisibility(ui.damageDetail.hidden);
   });
   if (ui.characterSheetClose) {
     ui.characterSheetClose.addEventListener("click", closeCharacterSheet);
@@ -2618,6 +2898,10 @@ function hookInputEvents() {
     });
   }
   ui.characterImportSubmit.addEventListener("click", () => {
+    if (!state) {
+      ui.characterImportStatus.textContent = "Generate a dungeon first, then import characters.";
+      return;
+    }
     const characters = extractShadowdarkCharacters(ui.characterImportInput.value);
     if (!characters.length) {
       ui.characterImportStatus.textContent = "No valid ShadowDarklings character JSON found.";
@@ -2636,6 +2920,7 @@ function hookInputEvents() {
     state.run.dirty = true;
     markUserActivity();
     ui.characterImportModal.hidden = true;
+    ui.characterImportStatus.textContent = "";
     updatePanels();
     render();
     setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"}.`);
@@ -2643,6 +2928,14 @@ function hookInputEvents() {
   ui.characterImportModal.addEventListener("click", (event) => {
     if (event.target === ui.characterImportModal) {
       ui.characterImportModal.hidden = true;
+    }
+  });
+  ui.spellDetailClose?.addEventListener("click", () => {
+    ui.spellDetailModal.hidden = true;
+  });
+  ui.spellDetailModal?.addEventListener("click", (event) => {
+    if (event.target === ui.spellDetailModal) {
+      ui.spellDetailModal.hidden = true;
     }
   });
   ui.levelInput.addEventListener("input", () => sizeControlField(ui.levelInput));
@@ -2863,10 +3156,8 @@ async function generateAndRender() {
   const seed = Number(ui.seedInput.value || Date.now());
   const level = Number(ui.levelInput.value || 1);
   setStatus("Generating dungeon...");
-  [shadowdarkContent, trapTable] = await Promise.all([loadShadowdarkContent(), loadTrapTable()]);
-  monsterTable = Array.isArray(shadowdarkContent?.monsters)
-    ? shadowdarkContent.monsters.filter((monster) => (monster.level ?? monster.lv ?? 1) <= Math.max(2, level + 1))
-    : [];
+  [shadowdarkContent] = await Promise.all([loadShadowdarkContent(), ensureSpellLibraryLoaded()]);
+  [trapTable, monsterTable] = await Promise.all([loadTrapTable(), loadMonsterTableForLevel(level)]);
   state = generateDungeon(seed, level, {
     monsterTable,
     trapTable,

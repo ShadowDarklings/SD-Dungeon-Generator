@@ -772,6 +772,65 @@ body {
   margin: 0;
 }
 
+.damage-panel {
+  background: #1b1e24;
+  border: 1px solid #3f4450;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.damage-result-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.damage-result-label {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.damage-result-value {
+  min-width: 3ch;
+  font: 800 1.4rem/1 "Times New Roman", Georgia, serif;
+  color: #f5df94;
+}
+
+.damage-context,
+.damage-detail {
+  margin: 8px 0 0;
+  color: #d8dde8;
+}
+
+.damage-breakdown-line {
+  line-height: 1.4;
+}
+
+.damage-breakdown-term.is-minimum {
+  color: #ff7979;
+}
+
+.damage-breakdown-term.is-maximum {
+  color: #79d987;
+}
+
+.damage-token,
+.spell-link-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #8fc7ff;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.damage-token:hover,
+.spell-link-button:hover {
+  color: #b8dbff;
+}
+
 .monster-panel {
   background: #1b1e24;
   border: 1px solid #3f4450;
@@ -899,6 +958,63 @@ body {
   border-color: #111;
   background: #f6f3eb;
   color: #111;
+}
+
+.spell-detail-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid #111;
+  border-radius: 0;
+  background: #fffdf8;
+  color: #111;
+  font-family: "Times New Roman", Georgia, serif;
+}
+
+.spell-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #111;
+  color: #fff;
+}
+
+.spell-detail-header h2 {
+  margin: 0;
+  font-family: "JBlack", "Impact", "Haettenschweiler", "Arial Black", sans-serif;
+  font-size: 1.9rem;
+  letter-spacing: 0.04em;
+}
+
+.spell-detail-header button {
+  width: auto;
+  margin: 0;
+  border: 1px solid #fff;
+  background: transparent;
+}
+
+.spell-detail-body {
+  padding: 18px 22px 24px;
+}
+
+.spell-detail-meta {
+  margin: 0 0 18px;
+  font-size: 1.7rem;
+  font-style: italic;
+}
+
+.spell-detail-field {
+  margin: 0 0 12px;
+  font-size: 1.2rem;
+}
+
+.spell-detail-copy p {
+  margin: 0 0 20px;
+  font-size: 1.2rem;
+  line-height: 1.42;
 }
 
 .character-sheet-modal-header {
@@ -1182,6 +1298,24 @@ body {
 .sd-gear-lines div {
   min-height: 1.28em;
   border-bottom: 1px solid #111;
+}
+
+.sd-lined-block .sd-spell-summary-line {
+  display: inline;
+  line-height: 1.22;
+}
+
+.sd-line-prefix {
+  font-weight: 700;
+}
+
+.sd-spell-tier-label {
+  display: inline-block;
+  margin-right: 3px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .sd-money-row {

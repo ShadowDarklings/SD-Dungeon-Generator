@@ -1,0 +1,1586 @@
+[
+  {
+    "slug": "ape-snow",
+    "name": "Ape, Snow",
+    "level": 4,
+    "ac": "13",
+    "hp": "19",
+    "attack": "2 fist +4 (1d6) or 1 rock (far) +4 (2d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 fist +4 (1d6) or 1 rock (far) +4 (2d6)"
+      },
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "2 fist +4 (1d6) or 1 rock (far) +4 (2d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Thick Fur",
+        "text": "Cold immune.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Ape, Snow",
+    "**AC**": "13",
+    "**HP**": "19",
+    "**ATK**": "2 fist +4 (1d6) or 1 rock (far) +4 (2d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Thick Fur**": "Cold immune."
+    }
+  },
+  {
+    "slug": "bat-swarm",
+    "name": "Bat, Swarm",
+    "level": 4,
+    "ac": "12",
+    "hp": "18",
+    "attack": "3 bite +2 (1d6)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "-3",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "3 bite +2 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Bat, Swarm",
+    "**AC**": "12",
+    "**HP**": "18",
+    "**ATK**": "3 bite +2 (1d6)",
+    "**MV**": "near (fly)",
+    "**S**": "-3",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {}
+  },
+  {
+    "slug": "cave-creeper",
+    "name": "Cave Creeper",
+    "level": 4,
+    "ac": "12",
+    "hp": "18",
+    "attack": "1 bite +3 (1d6) and 1 tentacles +3 (1d8 + toxin)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 bite +3 (1d6) and 1 tentacles +3 (1d8 + toxin)"
+      },
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "1 bite +3 (1d6) and 1 tentacles +3 (1d8 + toxin)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Toxin",
+        "text": "DC 12 CON or paralyzed 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 12 CON or paralyzed 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Cave Creeper",
+    "**AC**": "12",
+    "**HP**": "18",
+    "**ATK**": "1 bite +3 (1d6) and 1 tentacles +3 (1d8 + toxin)",
+    "**MV**": "near (climb)",
+    "**S**": "+2",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Toxin**": "DC 12 CON or paralyzed 1d4 rounds."
+    }
+  },
+  {
+    "slug": "centipede-swarm",
+    "name": "Centipede, Swarm",
+    "level": 4,
+    "ac": "11",
+    "hp": "18",
+    "attack": "3 bite +1 (1d4 + poison)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "-3",
+      "DEX": "+1",
+      "CON": "+0",
+      "INT": "-4",
+      "WIS": "-3",
+      "CHA": "-4"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "3 bite +1 (1d4 + poison)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Poison",
+        "text": "DC 12 CON or paralyzed 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 12 CON or paralyzed 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Centipede, Swarm",
+    "**AC**": "11",
+    "**HP**": "18",
+    "**ATK**": "3 bite +1 (1d4 + poison)",
+    "**MV**": "near (climb)",
+    "**S**": "-3",
+    "**D**": "+1",
+    "**C**": "+0",
+    "**I**": "-4",
+    "**W**": "-3",
+    "**CH**": "-4",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Poison**": "DC 12 CON or paralyzed 1d4 rounds."
+    }
+  },
+  {
+    "slug": "crocodile",
+    "name": "Crocodile",
+    "level": 4,
+    "ac": "14",
+    "hp": "20",
+    "attack": "2 bite +3 (1d8)",
+    "movement": "near (swim)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 bite +3 (1d8)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Crocodile",
+    "**AC**": "14",
+    "**HP**": "20",
+    "**ATK**": "2 bite +3 (1d8)",
+    "**MV**": "near (swim)",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {}
+  },
+  {
+    "slug": "doppelganger",
+    "name": "Doppelganger",
+    "level": 4,
+    "ac": "12",
+    "hp": "20",
+    "attack": "1 dagger (close/near) +2 (1d4)",
+    "movement": "near",
+    "stats": {
+      "STR": "+1",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "+1",
+      "WIS": "+0",
+      "CHA": "+4"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 dagger (close/near) +2 (1d4)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Change Shape",
+        "text": "In place of attacks, transform into any similarly-sized humanoid.",
+        "damage": []
+      },
+      {
+        "name": "Telepathy",
+        "text": "Can secretly hear the surface thoughts of all humanoids within near.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Doppelganger",
+    "**AC**": "12",
+    "**HP**": "20",
+    "**ATK**": "1 dagger (close/near) +2 (1d4)",
+    "**MV**": "near",
+    "**S**": "+1",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "+1",
+    "**W**": "+0",
+    "**CH**": "+4",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Change Shape**": "In place of attacks, transform into any similarly-sized humanoid.",
+      "**Telepathy**": "Can secretly hear the surface thoughts of all humanoids within near."
+    }
+  },
+  {
+    "slug": "dryad",
+    "name": "Dryad",
+    "level": 4,
+    "ac": "13",
+    "hp": "19",
+    "attack": "1 staff -1 (1d4) or 1 charm",
+    "movement": "near",
+    "stats": {
+      "STR": "-1",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "+1",
+      "WIS": "+3",
+      "CHA": "+4"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 staff -1 (1d4) or 1 charm"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Charm",
+        "text": "Near, one creature, DC 14 CHA or friendship for 1d8 days.",
+        "damage": [
+          {
+            "expression": "1d8",
+            "display": "1d8",
+            "context": "Near, one creature, DC 14 CHA or friendship for 1d8 days."
+          }
+        ]
+      },
+      {
+        "name": "Meld",
+        "text": "Step inside bonded tree.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Dryad",
+    "**AC**": "13",
+    "**HP**": "19",
+    "**ATK**": "1 staff -1 (1d4) or 1 charm",
+    "**MV**": "near",
+    "**S**": "-1",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "+1",
+    "**W**": "+3",
+    "**CH**": "+4",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Charm**": "Near, one creature, DC 14 CHA or friendship for 1d8 days.",
+      "**Meld**": "Step inside bonded tree."
+    }
+  },
+  {
+    "slug": "gargoyle",
+    "name": "Gargoyle",
+    "level": 4,
+    "ac": "16",
+    "hp": "20",
+    "attack": "2 claw +3 (1d6)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+1",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 claw +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Only damaged by magical sources.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Gargoyle",
+    "**AC**": "16",
+    "**HP**": "20",
+    "**ATK**": "2 claw +3 (1d6)",
+    "**MV**": "near (fly)",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+1",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Impervious**": "Only damaged by magical sources."
+    }
+  },
+  {
+    "slug": "ghast",
+    "name": "Ghast",
+    "level": 4,
+    "ac": "11",
+    "hp": "20",
+    "attack": "2 claw +4 (1d8 + paralyze)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 claw +4 (1d8 + paralyze)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Undead",
+        "text": "Immune to morale checks.",
+        "damage": []
+      },
+      {
+        "name": "Carrion Stench",
+        "text": "Living creatures DC 12 CON the first time within near or DISADV on attacks and spellcasting for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Paralyze",
+        "text": "DC 12 CON or paralyzed 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 12 CON or paralyzed 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Ghast",
+    "**AC**": "11",
+    "**HP**": "20",
+    "**ATK**": "2 claw +4 (1d8 + paralyze)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+2",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Undead**": "Immune to morale checks.",
+      "**Carrion Stench**": "Living creatures DC 12 CON the first time within near or DISADV on attacks and spellcasting for 5 rounds.",
+      "**Paralyze**": "DC 12 CON or paralyzed 1d4 rounds."
+    }
+  },
+  {
+    "slug": "gibbering-mouther",
+    "name": "Gibbering Mouther",
+    "level": 4,
+    "ac": "8",
+    "hp": "21",
+    "attack": "2 bite +3 (1d8 + latch)",
+    "movement": "near (climb swim)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "-2",
+      "CON": "+3",
+      "INT": "-3",
+      "WIS": "+0",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 bite +3 (1d8 + latch)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Gibbering",
+        "text": "Creatures within near DC 12 WIS on turn or take a random action (d8): 1-3. do nothing, 4-5. move in random direction, 6-7. attack nearest creature, 8. flee.",
+        "damage": [
+          {
+            "expression": "1d8",
+            "display": "1d8",
+            "context": "Creatures within near DC 12 WIS on turn or take a random action (d8): 1-3."
+          }
+        ]
+      },
+      {
+        "name": "Latch",
+        "text": "Attach to bitten target; bites auto-hit next round. DC 12 STR on turn to tear off.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Gibbering Mouther",
+    "**AC**": "8",
+    "**HP**": "21",
+    "**ATK**": "2 bite +3 (1d8 + latch)",
+    "**MV**": "near (climb swim)",
+    "**S**": "+2",
+    "**D**": "-2",
+    "**C**": "+3",
+    "**I**": "-3",
+    "**W**": "+0",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Gibbering**": "Creatures within near DC 12 WIS on turn or take a random action (d8): 1-3. do nothing, 4-5. move in random direction, 6-7. attack nearest creature, 8. flee.",
+      "**Latch**": "Attach to bitten target; bites auto-hit next round. DC 12 STR on turn to tear off."
+    }
+  },
+  {
+    "slug": "goblin-boss",
+    "name": "Goblin, Boss",
+    "level": 4,
+    "ac": "14 (chainmail)",
+    "hp": "20",
+    "attack": "1 spear (close/near) +3 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "-1",
+      "WIS": "+0",
+      "CHA": "+1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 spear (close/near) +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Keen Senses",
+        "text": "Can't be surprised.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Goblin, Boss",
+    "**AC**": "14 (chainmail)",
+    "**HP**": "20",
+    "**ATK**": "1 spear (close/near) +3 (1d6)",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "-1",
+    "**W**": "+0",
+    "**CH**": "+1",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Keen Senses**": "Can't be surprised."
+    }
+  },
+  {
+    "slug": "goblin-shaman",
+    "name": "Goblin, Shaman",
+    "level": 4,
+    "ac": "12 (leather)",
+    "hp": "19",
+    "attack": "1 staff +0 (1d4) or 1 spell +3",
+    "movement": "near",
+    "stats": {
+      "STR": "+0",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "+0",
+      "WIS": "+2",
+      "CHA": "+1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 staff +0 (1d4) or 1 spell +3"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Keen Senses",
+        "text": "Can't be surprised.",
+        "damage": []
+      },
+      {
+        "name": "Bug Brain (WIS Spell)",
+        "text": "DC 13.",
+        "damage": []
+      },
+      {
+        "name": "Near range, one target",
+        "text": "Target's INT drops to 1 for 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Target's INT drops to 1 for 1d4 rounds."
+          }
+        ]
+      },
+      {
+        "name": "Skitter (WIS Spell)",
+        "text": "DC 12. Self. Climb like a spider for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Stink Bomb (WIS Spell)",
+        "text": "DC 12. One target within far 2d4 damage and DC 12 CON or DISADV on next check/attack.",
+        "damage": [
+          {
+            "expression": "2d4",
+            "display": "2d4",
+            "context": "One target within far 2d4 damage and DC 12 CON or DISADV on next check/attack."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Goblin, Shaman",
+    "**AC**": "12 (leather)",
+    "**HP**": "19",
+    "**ATK**": "1 staff +0 (1d4) or 1 spell +3",
+    "**MV**": "near",
+    "**S**": "+0",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "+0",
+    "**W**": "+2",
+    "**CH**": "+1",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Keen Senses**": "Can't be surprised.",
+      "**Bug Brain (WIS Spell)**": "DC 13.",
+      "**Near range, one target**": "Target's INT drops to 1 for 1d4 rounds.",
+      "**Skitter (WIS Spell)**": "DC 12. Self. Climb like a spider for 5 rounds.",
+      "**Stink Bomb (WIS Spell)**": "DC 12. One target within far 2d4 damage and DC 12 CON or DISADV on next check/attack."
+    }
+  },
+  {
+    "slug": "gorilla",
+    "name": "Gorilla",
+    "level": 4,
+    "ac": "12",
+    "hp": "20",
+    "attack": "2 rend +5 (2d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "-1",
+      "WIS": "+1",
+      "CHA": "-1"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "2 rend +5 (2d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Gorilla",
+    "**AC**": "12",
+    "**HP**": "20",
+    "**ATK**": "2 rend +5 (2d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+4",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "-1",
+    "**W**": "+1",
+    "**CH**": "-1",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {}
+  },
+  {
+    "slug": "grick",
+    "name": "Grick",
+    "level": 4,
+    "ac": "14",
+    "hp": "19",
+    "attack": "1 beak +3 (1d8) and 1 tentacle +3 (1d6 + grab)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "1 beak +3 (1d8) and 1 tentacle +3 (1d6 + grab)"
+      },
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 beak +3 (1d8) and 1 tentacle +3 (1d6 + grab)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Camouflage",
+        "text": "Hard to see in cave terrain or rocks.",
+        "damage": []
+      },
+      {
+        "name": "Grab",
+        "text": "Target is immobilized. DC 15 Strength check on turn to break free.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Grick",
+    "**AC**": "14",
+    "**HP**": "19",
+    "**ATK**": "1 beak +3 (1d8) and 1 tentacle +3 (1d6 + grab)",
+    "**MV**": "near (climb)",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Camouflage**": "Hard to see in cave terrain or rocks.",
+      "**Grab**": "Target is immobilized. DC 15 Strength check on turn to break free."
+    }
+  },
+  {
+    "slug": "griffon",
+    "name": "Griffon",
+    "level": 4,
+    "ac": "12",
+    "hp": "19",
+    "attack": "2 rend +4 (1d10)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-1"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 rend +4 (1d10)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Griffon",
+    "**AC**": "12",
+    "**HP**": "19",
+    "**ATK**": "2 rend +4 (1d10)",
+    "**MV**": "double near (fly)",
+    "**S**": "+4",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-1",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {}
+  },
+  {
+    "slug": "hell-hound",
+    "name": "Hell Hound",
+    "level": 4,
+    "ac": "13",
+    "hp": "19",
+    "attack": "2 bite +4 (1d8) or 1 fire breath",
+    "movement": "double near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 bite +4 (1d8) or 1 fire breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Fire immune.",
+        "damage": []
+      },
+      {
+        "name": "Fire Breath",
+        "text": "Fills a near-sized cube extending from hell hound. DC 15 DEX or 3d8 damage. Cannot use again for 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "3d8",
+            "display": "3d8",
+            "context": "DC 15 DEX or 3d8 damage."
+          },
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Cannot use again for 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Hell Hound",
+    "**AC**": "13",
+    "**HP**": "19",
+    "**ATK**": "2 bite +4 (1d8) or 1 fire breath",
+    "**MV**": "double near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Impervious**": "Fire immune.",
+      "**Fire Breath**": "Fills a near-sized cube extending from hell hound. DC 15 DEX or 3d8 damage. Cannot use again for 1d4 rounds."
+    }
+  },
+  {
+    "slug": "leprechaun",
+    "name": "Leprechaun",
+    "level": 4,
+    "ac": "13",
+    "hp": "19",
+    "attack": "1 spell +4",
+    "movement": "near",
+    "stats": {
+      "STR": "+1",
+      "DEX": "+3",
+      "CON": "+1",
+      "INT": "+2",
+      "WIS": "+1",
+      "CHA": "+3"
+    },
+    "alignment": "N",
+    "damage": [],
+    "abilityDetails": [
+      {
+        "name": "Alert",
+        "text": "Cannot be surprised.",
+        "damage": []
+      },
+      {
+        "name": "Slippery",
+        "text": "Hostile spells targeting the leprechaun are DC 15 to cast.",
+        "damage": []
+      },
+      {
+        "name": "Fool's Gold (CHA Spell)",
+        "text": "DC 12. Close. One small object or small group of similar objects. Turn objects into silver or gold pieces. Lasts 1 day.",
+        "damage": []
+      },
+      {
+        "name": "Illusion (CHA Spell)",
+        "text": "DC 11. Create a convincing visual and/ or auditory illusion within near. Lasts until dismissed.",
+        "damage": []
+      },
+      {
+        "name": "Invisibility (CHA Spell)",
+        "text": "DC 12. Self. Become invisible for 2d4 rounds.",
+        "damage": [
+          {
+            "expression": "2d4",
+            "display": "2d4",
+            "context": "Become invisible for 2d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Leprechaun",
+    "**AC**": "13",
+    "**HP**": "19",
+    "**ATK**": "1 spell +4",
+    "**MV**": "near",
+    "**S**": "+1",
+    "**D**": "+3",
+    "**C**": "+1",
+    "**I**": "+2",
+    "**W**": "+1",
+    "**CH**": "+3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Alert**": "Cannot be surprised.",
+      "**Slippery**": "Hostile spells targeting the leprechaun are DC 15 to cast.",
+      "**Fool's Gold (CHA Spell)**": "DC 12. Close. One small object or small group of similar objects. Turn objects into silver or gold pieces. Lasts 1 day.",
+      "**Illusion (CHA Spell)**": "DC 11. Create a convincing visual and/ or auditory illusion within near. Lasts until dismissed.",
+      "**Invisibility (CHA Spell)**": "DC 12. Self. Become invisible for 2d4 rounds."
+    }
+  },
+  {
+    "slug": "moose",
+    "name": "Moose",
+    "level": 4,
+    "ac": "11",
+    "hp": "19",
+    "attack": "2 antler +3 (1d6)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+0",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+0",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 antler +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Legendary Undead",
+        "text": "Immune to morale checks. Only damaged by magical sources. Hostile spells targeting Mordanticus are DC 18 to cast.",
+        "damage": []
+      },
+      {
+        "name": "Crown of Gehemna",
+        "text": "3/day, cause a spell being cast within far to fail.",
+        "damage": []
+      },
+      {
+        "name": "Necrosis",
+        "text": "DC 15 CON or go to 0 HP. Healing spells are DC 15 to cast on target while at 0 HP due to this effect.",
+        "damage": []
+      },
+      {
+        "name": "Phylactery",
+        "text": "Cannot be killed while spirit vessel (a diamond) is intact.",
+        "damage": []
+      },
+      {
+        "name": "Absorb (INT Spell)",
+        "text": "DC 13. Near, one target. Target loses the ability to cast one random spell until completing a rest, and Mordanticus regains a lost spell of the same tier or less.",
+        "damage": []
+      },
+      {
+        "name": "Banish (INT Spell)",
+        "text": "DC 14. All extradimensional creatures within near DC 15 CHA or sent back to their home planes.",
+        "damage": []
+      },
+      {
+        "name": "Bind (INT Spell)",
+        "text": "DC 12. One humanoid in far paralyzed 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "One humanoid in far paralyzed 1d4 rounds."
+          }
+        ]
+      },
+      {
+        "name": "Blast (INT Spell)",
+        "text": "DC 14. One creature in near takes 5d8 damage.",
+        "damage": [
+          {
+            "expression": "5d8",
+            "display": "5d8",
+            "context": "One creature in near takes 5d8 damage."
+          }
+        ]
+      },
+      {
+        "name": "Phase (INT Spell)",
+        "text": "DC 13. Self. Teleport up to one mile.",
+        "damage": []
+      },
+      {
+        "name": "True Name (INT Spell)",
+        "text": "DC 15. Near. Learn the True Name of target.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Moose",
+    "**AC**": "11",
+    "**HP**": "19",
+    "**ATK**": "2 antler +3 (1d6)",
+    "**MV**": "double near",
+    "**S**": "+3",
+    "**D**": "+0",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+0",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Legendary Undead**": "Immune to morale checks. Only damaged by magical sources. Hostile spells targeting Mordanticus are DC 18 to cast.",
+      "**Crown of Gehemna**": "3/day, cause a spell being cast within far to fail.",
+      "**Necrosis**": "DC 15 CON or go to 0 HP. Healing spells are DC 15 to cast on target while at 0 HP due to this effect.",
+      "**Phylactery**": "Cannot be killed while spirit vessel (a diamond) is intact.",
+      "**Absorb (INT Spell)**": "DC 13. Near, one target. Target loses the ability to cast one random spell until completing a rest, and Mordanticus regains a lost spell of the same tier or less.",
+      "**Banish (INT Spell)**": "DC 14. All extradimensional creatures within near DC 15 CHA or sent back to their home planes.",
+      "**Bind (INT Spell)**": "DC 12. One humanoid in far paralyzed 1d4 rounds.",
+      "**Blast (INT Spell)**": "DC 14. One creature in near takes 5d8 damage.",
+      "**Phase (INT Spell)**": "DC 13. Self. Teleport up to one mile.",
+      "**True Name (INT Spell)**": "DC 15. Near. Learn the True Name of target."
+    }
+  },
+  {
+    "slug": "ochre-jelly",
+    "name": "Ochre Jelly",
+    "level": 4,
+    "ac": "9",
+    "hp": "20",
+    "attack": "2 tentacle +3 (1d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "-1",
+      "CON": "+2",
+      "INT": "-4",
+      "WIS": "-3",
+      "CHA": "-4"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 tentacle +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Split",
+        "text": "If cut or chopped, split into two smaller oozes (divide remaining HP between both). Can split up to four times.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Ochre Jelly",
+    "**AC**": "9",
+    "**HP**": "20",
+    "**ATK**": "2 tentacle +3 (1d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+2",
+    "**D**": "-1",
+    "**C**": "+2",
+    "**I**": "-4",
+    "**W**": "-3",
+    "**CH**": "-4",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Split**": "If cut or chopped, split into two smaller oozes (divide remaining HP between both). Can split up to four times."
+    }
+  },
+  {
+    "slug": "orc-chieftain",
+    "name": "Orc, Chieftain",
+    "level": 4,
+    "ac": "14 (chainmail)",
+    "hp": "19",
+    "attack": "2 greataxe +4 (1d10)",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "-1",
+      "WIS": "+0",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 greataxe +4 (1d10)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Rage",
+        "text": "1/day, immune to morale checks, +1d4 damage (3 rounds).",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "1/day, immune to morale checks, +1d4 damage (3 rounds)."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Orc, Chieftain",
+    "**AC**": "14 (chainmail)",
+    "**HP**": "19",
+    "**ATK**": "2 greataxe +4 (1d10)",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "-1",
+    "**W**": "+0",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Rage**": "1/day, immune to morale checks, +1d4 damage (3 rounds)."
+    }
+  },
+  {
+    "slug": "pterodactyl",
+    "name": "Pterodactyl",
+    "level": 4,
+    "ac": "14",
+    "hp": "20",
+    "attack": "2 beak +4 (1d8 + grab)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+4",
+      "CON": "+2",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 beak +4 (1d8 + grab)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Grab",
+        "text": "DC 15 STR or held. DC 15 STR on turn to break free.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Pterodactyl",
+    "**AC**": "14",
+    "**HP**": "20",
+    "**ATK**": "2 beak +4 (1d8 + grab)",
+    "**MV**": "double near (fly)",
+    "**S**": "+2",
+    "**D**": "+4",
+    "**C**": "+2",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Grab**": "DC 15 STR or held. DC 15 STR on turn to break free."
+    }
+  },
+  {
+    "slug": "rust-monster",
+    "name": "Rust Monster",
+    "level": 4,
+    "ac": "13",
+    "hp": "19",
+    "attack": "2 claw +3 (1d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+3",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 claw +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Corrosive",
+        "text": "Metal that touches the rust monster is destroyed on a d6 roll of 1-3.",
+        "damage": [
+          {
+            "expression": "1d6",
+            "display": "1d6",
+            "context": "Metal that touches the rust monster is destroyed on a d6 roll of 1-3."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Rust Monster",
+    "**AC**": "13",
+    "**HP**": "19",
+    "**ATK**": "2 claw +3 (1d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+2",
+    "**D**": "+3",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Corrosive**": "Metal that touches the rust monster is destroyed on a d6 roll of 1-3."
+    }
+  },
+  {
+    "slug": "shambling-mound",
+    "name": "Shambling Mound",
+    "level": 4,
+    "ac": "14",
+    "hp": "20",
+    "attack": "2 slam +3 (1d6 + engulf)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "-2",
+      "CON": "+2",
+      "INT": "-3",
+      "WIS": "+0",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 slam +3 (1d6 + engulf)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Fire immune. Healed by electricity.",
+        "damage": []
+      },
+      {
+        "name": "Engulf",
+        "text": "If a target is hit by both slams in same round, it is pulled into shambling mound's body and suffocates in 2d4 rounds. DC 15 STR on turn to escape.",
+        "damage": [
+          {
+            "expression": "2d4",
+            "display": "2d4",
+            "context": "If a target is hit by both slams in same round, it is pulled into shambling mound's body and suffocates in 2d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Shambling Mound",
+    "**AC**": "14",
+    "**HP**": "20",
+    "**ATK**": "2 slam +3 (1d6 + engulf)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "-2",
+    "**C**": "+2",
+    "**I**": "-3",
+    "**W**": "+0",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Impervious**": "Fire immune. Healed by electricity.",
+      "**Engulf**": "If a target is hit by both slams in same round, it is pulled into shambling mound's body and suffocates in 2d4 rounds. DC 15 STR on turn to escape."
+    }
+  },
+  {
+    "slug": "siren",
+    "name": "Siren",
+    "level": 4,
+    "ac": "12",
+    "hp": "18",
+    "attack": "2 claw +2 (1d6) or 1 song",
+    "movement": "near (swim fly)",
+    "stats": {
+      "STR": "+0",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "+2",
+      "WIS": "+2",
+      "CHA": "+4"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 claw +2 (1d6) or 1 song"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Song",
+        "text": "Enemies who can hear within double near DC 15 CHA or paralyzed 1d4 rounds. Immune for 1 day if passed check.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Enemies who can hear within double near DC 15 CHA or paralyzed 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Siren",
+    "**AC**": "12",
+    "**HP**": "18",
+    "**ATK**": "2 claw +2 (1d6) or 1 song",
+    "**MV**": "near (swim fly)",
+    "**S**": "+0",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "+2",
+    "**W**": "+2",
+    "**CH**": "+4",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Song**": "Enemies who can hear within double near DC 15 CHA or paralyzed 1d4 rounds. Immune for 1 day if passed check."
+    }
+  },
+  {
+    "slug": "snake-swarm",
+    "name": "Snake, Swarm",
+    "level": 4,
+    "ac": "12",
+    "hp": "19",
+    "attack": "3 bite +2 (1d4 + poison)",
+    "movement": "near",
+    "stats": {
+      "STR": "-3",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+0",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "3 bite +2 (1d4 + poison)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Poison",
+        "text": "DC 12 CON or go to 0 HP in 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 12 CON or go to 0 HP in 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Snake, Swarm",
+    "**AC**": "12",
+    "**HP**": "19",
+    "**ATK**": "3 bite +2 (1d4 + poison)",
+    "**MV**": "near",
+    "**S**": "-3",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+0",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Poison**": "DC 12 CON or go to 0 HP in 1d4 rounds."
+    }
+  },
+  {
+    "slug": "unicorn",
+    "name": "Unicorn",
+    "level": 4,
+    "ac": "12",
+    "hp": "20",
+    "attack": "1 hooves +3 (1d6)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "+1",
+      "WIS": "+2",
+      "CHA": "+3"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 hooves +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Healing Horn",
+        "text": "A touch heals 2d6 HP or ends one curse or disease.",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "A touch heals 2d6 HP or ends one curse or disease."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Unicorn",
+    "**AC**": "12",
+    "**HP**": "20",
+    "**ATK**": "1 hooves +3 (1d6)",
+    "**MV**": "double near",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "+1",
+    "**W**": "+2",
+    "**CH**": "+3",
+    "**AL**": "L",
+    "**LV**": "4",
+    "abilities": {
+      "**Healing Horn**": "A touch heals 2d6 HP or ends one curse or disease."
+    }
+  },
+  {
+    "slug": "werewolf",
+    "name": "Werewolf",
+    "level": 4,
+    "ac": "12",
+    "hp": "20",
+    "attack": "2 rend +3 (1d6)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 rend +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Only damaged by silver or magic sources.",
+        "damage": []
+      },
+      {
+        "name": "Lycanthropy",
+        "text": "If 12 or more damage from the same werewolf, contract lycanthropy.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Werewolf",
+    "**AC**": "12",
+    "**HP**": "20",
+    "**ATK**": "2 rend +3 (1d6)",
+    "**MV**": "double near",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "C",
+    "**LV**": "4",
+    "abilities": {
+      "**Impervious**": "Only damaged by silver or magic sources.",
+      "**Lycanthropy**": "If 12 or more damage from the same werewolf, contract lycanthropy."
+    }
+  },
+  {
+    "slug": "wolf-dire",
+    "name": "Wolf, Dire",
+    "level": 4,
+    "ac": "12",
+    "hp": "19",
+    "attack": "2 bite +4 (1d8)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-1",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 bite +4 (1d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Pack Hunter",
+        "text": "Deals +1 damage while an ally is close.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Wolf, Dire",
+    "**AC**": "12",
+    "**HP**": "19",
+    "**ATK**": "2 bite +4 (1d8)",
+    "**MV**": "double near",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-1",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "N",
+    "**LV**": "4",
+    "abilities": {
+      "**Pack Hunter**": "Deals +1 damage while an ally is close."
+    }
+  }
+]

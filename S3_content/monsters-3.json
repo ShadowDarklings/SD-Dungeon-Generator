@@ -1,0 +1,1674 @@
+[
+  {
+    "slug": "angel-seraph",
+    "name": "Angel, Seraph",
+    "level": 3,
+    "ac": "14 (chainmail)",
+    "hp": "14",
+    "attack": "2 longsword +3 (1d8)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "+2",
+      "WIS": "+3",
+      "CHA": "+3"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 longsword +3 (1d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Bless",
+        "text": "3/day, touch one target to give it a luck token.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Angel, Seraph",
+    "**AC**": "14 (chainmail)",
+    "**HP**": "14",
+    "**ATK**": "2 longsword +3 (1d8)",
+    "**MV**": "near (fly)",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "+2",
+    "**W**": "+3",
+    "**CH**": "+3",
+    "**AL**": "L",
+    "**LV**": "3",
+    "abilities": {
+      "**Bless**": "3/day, touch one target to give it a luck token."
+    }
+  },
+  {
+    "slug": "ankheg",
+    "name": "Ankheg",
+    "level": 3,
+    "ac": "14",
+    "hp": "14",
+    "attack": "1 bite +4 (1d6) or 1 acid spray (near) +4 (2d6)",
+    "movement": "near (burrow)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 bite +4 (1d6) or 1 acid spray (near) +4 (2d6)"
+      },
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "1 bite +4 (1d6) or 1 acid spray (near) +4 (2d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Ankheg",
+    "**AC**": "14",
+    "**HP**": "14",
+    "**ATK**": "1 bite +4 (1d6) or 1 acid spray (near) +4 (2d6)",
+    "**MV**": "near (burrow)",
+    "**S**": "+2",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "azer",
+    "name": "Azer",
+    "level": 3,
+    "ac": "15",
+    "hp": "15",
+    "attack": "2 flaming warhammer +3 (1d10 ignites flammables) or 1 crossbow (far) +0 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+0",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+0"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 flaming warhammer +3 (1d10 ignites flammables) or 1 crossbow (far) +0 (1d6)"
+      },
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 flaming warhammer +3 (1d10 ignites flammables) or 1 crossbow (far) +0 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Fire immune.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Azer",
+    "**AC**": "15",
+    "**HP**": "15",
+    "**ATK**": "2 flaming warhammer +3 (1d10 ignites flammables) or 1 crossbow (far) +0 (1d6)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+0",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+0",
+    "**AL**": "L",
+    "**LV**": "3",
+    "abilities": {
+      "**Impervious**": "Fire immune."
+    }
+  },
+  {
+    "slug": "boar",
+    "name": "Boar",
+    "level": 3,
+    "ac": "12",
+    "hp": "14",
+    "attack": "2 tusk +3 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+0",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 tusk +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Gore",
+        "text": "Deals an extra die of damage if it hits the same target with both tusks.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Boar",
+    "**AC**": "12",
+    "**HP**": "14",
+    "**ATK**": "2 tusk +3 (1d6)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+0",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Gore**": "Deals an extra die of damage if it hits the same target with both tusks."
+    }
+  },
+  {
+    "slug": "bugbear",
+    "name": "Bugbear",
+    "level": 3,
+    "ac": "13 (leather + shield)",
+    "hp": "14",
+    "attack": "2 spiked mace +3 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+0",
+      "CON": "+1",
+      "INT": "-1",
+      "WIS": "+0",
+      "CHA": "-2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 spiked mace +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Stealthy",
+        "text": "ADV on checks to sneak and hide.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Bugbear",
+    "**AC**": "13 (leather + shield)",
+    "**HP**": "14",
+    "**ATK**": "2 spiked mace +3 (1d6)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+0",
+    "**C**": "+1",
+    "**I**": "-1",
+    "**W**": "+0",
+    "**CH**": "-2",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Stealthy**": "ADV on checks to sneak and hide."
+    }
+  },
+  {
+    "slug": "centaur",
+    "name": "Centaur",
+    "level": 3,
+    "ac": "12 (leather)",
+    "hp": "14",
+    "attack": "2 spear (close/near) +2 (1d6) or 1 longbow (far) +1 (1d8)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "+0",
+      "WIS": "+2",
+      "CHA": "+1"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 spear (close/near) +2 (1d6) or 1 longbow (far) +1 (1d8)"
+      },
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 spear (close/near) +2 (1d6) or 1 longbow (far) +1 (1d8)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Centaur",
+    "**AC**": "12 (leather)",
+    "**HP**": "14",
+    "**ATK**": "2 spear (close/near) +2 (1d6) or 1 longbow (far) +1 (1d8)",
+    "**MV**": "double near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "+0",
+    "**W**": "+2",
+    "**CH**": "+1",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "cockatrice",
+    "name": "Cockatrice",
+    "level": 3,
+    "ac": "11",
+    "hp": "14",
+    "attack": "1 bite +1 (1d4 + petrify)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "-2",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 bite +1 (1d4 + petrify)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Petrify",
+        "text": "DC 12 CON or petrified.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Cockatrice",
+    "**AC**": "11",
+    "**HP**": "14",
+    "**ATK**": "1 bite +1 (1d4 + petrify)",
+    "**MV**": "near (fly)",
+    "**S**": "-2",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Petrify**": "DC 12 CON or petrified."
+    }
+  },
+  {
+    "slug": "devil-barbed",
+    "name": "Devil, Barbed",
+    "level": 3,
+    "ac": "13",
+    "hp": "14",
+    "attack": "2 spine (near) +3 (1d6 + barb) or 1 fire blast (far) +3 (1d8)",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+3",
+      "CON": "+1",
+      "INT": "+1",
+      "WIS": "+1",
+      "CHA": "+1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 spine (near) +3 (1d6 + barb) or 1 fire blast (far) +3 (1d8)"
+      },
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 spine (near) +3 (1d6 + barb) or 1 fire blast (far) +3 (1d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Barb",
+        "text": "Each spine sticks, dealing 1d4 damage each round. DC 12 STR check on turn to remove.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Each spine sticks, dealing 1d4 damage each round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Devil, Barbed",
+    "**AC**": "13",
+    "**HP**": "14",
+    "**ATK**": "2 spine (near) +3 (1d6 + barb) or 1 fire blast (far) +3 (1d8)",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "+3",
+    "**C**": "+1",
+    "**I**": "+1",
+    "**W**": "+1",
+    "**CH**": "+1",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Barb**": "Each spine sticks, dealing 1d4 damage each round. DC 12 STR check on turn to remove."
+    }
+  },
+  {
+    "slug": "ettercap",
+    "name": "Ettercap",
+    "level": 3,
+    "ac": "12",
+    "hp": "14",
+    "attack": "2 bite +2 (1d6) or 1 poison web (near) +2",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+0",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 bite +2 (1d6) or 1 poison web (near) +2"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Poison Web",
+        "text": "One target stuck in place and 1d4 damage/round. DC 12 DEX on turn to escape.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "One target stuck in place and 1d4 damage/round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Ettercap",
+    "**AC**": "12",
+    "**HP**": "14",
+    "**ATK**": "2 bite +2 (1d6) or 1 poison web (near) +2",
+    "**MV**": "near (climb)",
+    "**S**": "+0",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Poison Web**": "One target stuck in place and 1d4 damage/round. DC 12 DEX on turn to escape."
+    }
+  },
+  {
+    "slug": "gladiator",
+    "name": "Gladiator",
+    "level": 3,
+    "ac": "16 (chainmail + shield)",
+    "hp": "15",
+    "attack": "2 longsword +3 (1d8) or 1 spear (close/near) +3 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+1"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 longsword +3 (1d8) or 1 spear (close/near) +3 (1d6)"
+      },
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 longsword +3 (1d8) or 1 spear (close/near) +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Gladiator",
+    "**AC**": "16 (chainmail + shield)",
+    "**HP**": "15",
+    "**ATK**": "2 longsword +3 (1d8) or 1 spear (close/near) +3 (1d6)",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+1",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "gnome-deep",
+    "name": "Gnome, Deep",
+    "level": 3,
+    "ac": "14 (leather + shield)",
+    "hp": "14",
+    "attack": "1 pick +3 (1d6) or 1 dart (near) +2 (1d4)",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "+1",
+      "WIS": "+1",
+      "CHA": "+1"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 pick +3 (1d6) or 1 dart (near) +2 (1d4)"
+      },
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 pick +3 (1d6) or 1 dart (near) +2 (1d4)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Stone Meld",
+        "text": "2/day, underground only. Turn invisible for 3 rounds.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Gnome, Deep",
+    "**AC**": "14 (leather + shield)",
+    "**HP**": "14",
+    "**ATK**": "1 pick +3 (1d6) or 1 dart (near) +2 (1d4)",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "+1",
+    "**W**": "+1",
+    "**CH**": "+1",
+    "**AL**": "L",
+    "**LV**": "3",
+    "abilities": {
+      "**Stone Meld**": "2/day, underground only. Turn invisible for 3 rounds."
+    }
+  },
+  {
+    "slug": "harpy",
+    "name": "Harpy",
+    "level": 3,
+    "ac": "13",
+    "hp": "14",
+    "attack": "2 claw +3 (1d6) or 1 song",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "+1",
+      "DEX": "+3",
+      "CON": "+1",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 claw +3 (1d6) or 1 song"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Song",
+        "text": "Enemies who can hear within double near DC 12 CHA or dazed and drawn to harpy for 1d4 rounds. Immune for 1 day if passed check.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Enemies who can hear within double near DC 12 CHA or dazed and drawn to harpy for 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Harpy",
+    "**AC**": "13",
+    "**HP**": "14",
+    "**ATK**": "2 claw +3 (1d6) or 1 song",
+    "**MV**": "near (fly)",
+    "**S**": "+1",
+    "**D**": "+3",
+    "**C**": "+1",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+1",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Song**": "Enemies who can hear within double near DC 12 CHA or dazed and drawn to harpy for 1d4 rounds. Immune for 1 day if passed check."
+    }
+  },
+  {
+    "slug": "hippogriff",
+    "name": "Hippogriff",
+    "level": 3,
+    "ac": "13",
+    "hp": "14",
+    "attack": "2 rend +3 (1d8)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+3",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 rend +3 (1d8)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Hippogriff",
+    "**AC**": "13",
+    "**HP**": "14",
+    "**ATK**": "2 rend +3 (1d8)",
+    "**MV**": "double near (fly)",
+    "**S**": "+3",
+    "**D**": "+3",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "knight",
+    "name": "Knight",
+    "level": 3,
+    "ac": "17 (plate mail + shield)",
+    "hp": "14",
+    "attack": "2 bastard sword +3 (1d8)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+0",
+      "CON": "+1",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+1"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 bastard sword +3 (1d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Oath",
+        "text": "3/day, ADV on a roll made in service of knight's order.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Knight",
+    "**AC**": "17 (plate mail + shield)",
+    "**HP**": "14",
+    "**ATK**": "2 bastard sword +3 (1d8)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+0",
+    "**C**": "+1",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+1",
+    "**AL**": "L",
+    "**LV**": "3",
+    "abilities": {
+      "**Oath**": "3/day, ADV on a roll made in service of knight's order."
+    }
+  },
+  {
+    "slug": "kobold-sorcerer",
+    "name": "Kobold, Sorcerer",
+    "level": 3,
+    "ac": "13 (leather)",
+    "hp": "13",
+    "attack": "1 club +1 (1d4) or 1 spell +2",
+    "movement": "near",
+    "stats": {
+      "STR": "-2",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "-1",
+      "WIS": "+1",
+      "CHA": "+2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 club +1 (1d4) or 1 spell +2"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Dodge",
+        "text": "1/day, an attack that would hit misses instead.",
+        "damage": []
+      },
+      {
+        "name": "Scorpion Sting (CHA Spell)",
+        "text": "DC 11. Near range, one target. 1d6 damage and target has DISADV on next attack roll or check. Spider Swarm (CHA Spell). DC 12. A spider swarm appears within near. Stays 1d4 rounds. Follows sorcerer's commands.",
+        "damage": [
+          {
+            "expression": "1d6",
+            "display": "1d6",
+            "context": "1d6 damage and target has DISADV on next attack roll or check."
+          },
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Stays 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Kobold, Sorcerer",
+    "**AC**": "13 (leather)",
+    "**HP**": "13",
+    "**ATK**": "1 club +1 (1d4) or 1 spell +2",
+    "**MV**": "near",
+    "**S**": "-2",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "-1",
+    "**W**": "+1",
+    "**CH**": "+2",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Dodge**": "1/day, an attack that would hit misses instead.",
+      "**Scorpion Sting (CHA Spell)**": "DC 11. Near range, one target. 1d6 damage and target has DISADV on next attack roll or check. Spider Swarm (CHA Spell). DC 12. A spider swarm appears within near. Stays 1d4 rounds. Follows sorcerer's commands."
+    }
+  },
+  {
+    "slug": "lion",
+    "name": "Lion",
+    "level": 3,
+    "ac": "12",
+    "hp": "15",
+    "attack": "2 rend +4 (1d8)",
+    "movement": "near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 rend +4 (1d8)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Lion",
+    "**AC**": "12",
+    "**HP**": "15",
+    "**ATK**": "2 rend +4 (1d8)",
+    "**MV**": "near",
+    "**S**": "+4",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "mushroomfolk",
+    "name": "Mushroomfolk",
+    "level": 3,
+    "ac": "13",
+    "hp": "15",
+    "attack": "2 slam +2 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "-1",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 slam +2 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Sunblind",
+        "text": "Blinded in bright light.",
+        "damage": []
+      },
+      {
+        "name": "Telepathic",
+        "text": "Speak mentally with creatures within double near.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Mushroomfolk",
+    "**AC**": "13",
+    "**HP**": "15",
+    "**ATK**": "2 slam +2 (1d6)",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "-1",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Sunblind**": "Blinded in bright light.",
+      "**Telepathic**": "Speak mentally with creatures within double near."
+    }
+  },
+  {
+    "slug": "panther",
+    "name": "Panther",
+    "level": 3,
+    "ac": "14",
+    "hp": "14",
+    "attack": "2 rend +3 (1d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+4",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 rend +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Panther",
+    "**AC**": "14",
+    "**HP**": "14",
+    "**ATK**": "2 rend +3 (1d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+3",
+    "**D**": "+4",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "pegasus",
+    "name": "Pegasus",
+    "level": 3,
+    "ac": "12",
+    "hp": "15",
+    "attack": "2 hooves +3 (1d6)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 hooves +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Pegasus",
+    "**AC**": "12",
+    "**HP**": "15",
+    "**ATK**": "2 hooves +3 (1d6)",
+    "**MV**": "double near (fly)",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "piranha-swarm",
+    "name": "Piranha, Swarm",
+    "level": 3,
+    "ac": "12",
+    "hp": "13",
+    "attack": "2 bite +2 (1d6)",
+    "movement": "near (swim)",
+    "stats": {
+      "STR": "-2",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "-3",
+      "WIS": "+0",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 bite +2 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Savage",
+        "text": "ADV on attacks against creatures below half their HP.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Piranha, Swarm",
+    "**AC**": "12",
+    "**HP**": "13",
+    "**ATK**": "2 bite +2 (1d6)",
+    "**MV**": "near (swim)",
+    "**S**": "-2",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "-3",
+    "**W**": "+0",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Savage**": "ADV on attacks against creatures below half their HP."
+    }
+  },
+  {
+    "slug": "scarab-swarm",
+    "name": "Scarab, Swarm",
+    "level": 3,
+    "ac": "13",
+    "hp": "14",
+    "attack": "2 bite +3 (1d6)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "-1",
+      "DEX": "+3",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+0",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 bite +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Scarab, Swarm",
+    "**AC**": "13",
+    "**HP**": "14",
+    "**ATK**": "2 bite +3 (1d6)",
+    "**MV**": "near (fly)",
+    "**S**": "-1",
+    "**D**": "+3",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+0",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "scarecrow",
+    "name": "Scarecrow",
+    "level": 3,
+    "ac": "12",
+    "hp": "15",
+    "attack": "2 claws +2 (1d6) or 1 scream",
+    "movement": "near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 claws +2 (1d6) or 1 scream"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Scream",
+        "text": "Creatures who hear in double near DC 12 CHA or paralyzed for 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Creatures who hear in double near DC 12 CHA or paralyzed for 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Scarecrow",
+    "**AC**": "12",
+    "**HP**": "15",
+    "**ATK**": "2 claws +2 (1d6) or 1 scream",
+    "**MV**": "near",
+    "**S**": "+2",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+2",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Scream**": "Creatures who hear in double near DC 12 CHA or paralyzed for 1d4 rounds."
+    }
+  },
+  {
+    "slug": "scorpion-giant",
+    "name": "Scorpion, Giant",
+    "level": 3,
+    "ac": "14",
+    "hp": "13",
+    "attack": "1 claw +2 (1d6 + grab) and 1 sting +2 (1d4 + poison)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "-4",
+      "WIS": "+0",
+      "CHA": "-4"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 claw +2 (1d6 + grab) and 1 sting +2 (1d4 + poison)"
+      },
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 claw +2 (1d6 + grab) and 1 sting +2 (1d4 + poison)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Grab",
+        "text": "DC 12 STR or target held. DC 12 STR on turn to break free.",
+        "damage": []
+      },
+      {
+        "name": "Poison",
+        "text": "DC 12 CON or go to 0 HP.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Scorpion, Giant",
+    "**AC**": "14",
+    "**HP**": "13",
+    "**ATK**": "1 claw +2 (1d6 + grab) and 1 sting +2 (1d4 + poison)",
+    "**MV**": "near (climb)",
+    "**S**": "+2",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "-4",
+    "**W**": "+0",
+    "**CH**": "-4",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Grab**": "DC 12 STR or target held. DC 12 STR on turn to break free.",
+      "**Poison**": "DC 12 CON or go to 0 HP."
+    }
+  },
+  {
+    "slug": "shadow",
+    "name": "Shadow",
+    "level": 3,
+    "ac": "12",
+    "hp": "15",
+    "attack": "2 touch +2 (1d4 + drain)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "-4",
+      "DEX": "+2",
+      "CON": "+2",
+      "INT": "-2",
+      "WIS": "+0",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "2 touch +2 (1d4 + drain)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Drain",
+        "text": "Target takes 1 STR damage. At 0 STR, target dies and becomes a shadow.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Shadow",
+    "**AC**": "12",
+    "**HP**": "15",
+    "**ATK**": "2 touch +2 (1d4 + drain)",
+    "**MV**": "near (fly)",
+    "**S**": "-4",
+    "**D**": "+2",
+    "**C**": "+2",
+    "**I**": "-2",
+    "**W**": "+0",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Drain**": "Target takes 1 STR damage. At 0 STR, target dies and becomes a shadow."
+    }
+  },
+  {
+    "slug": "shark",
+    "name": "Shark",
+    "level": 3,
+    "ac": "11",
+    "hp": "15",
+    "attack": "1 bite +3 (1d10)",
+    "movement": "near (swim)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "1 bite +3 (1d10)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Shark",
+    "**AC**": "11",
+    "**HP**": "15",
+    "**ATK**": "1 bite +3 (1d10)",
+    "**MV**": "near (swim)",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "smilodon",
+    "name": "Smilodon",
+    "level": 3,
+    "ac": "12",
+    "hp": "14",
+    "attack": "2 bite +3 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 bite +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Smilodon",
+    "**AC**": "12",
+    "**HP**": "14",
+    "**ATK**": "2 bite +3 (1d6)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "spider-giant",
+    "name": "Spider, Giant",
+    "level": 3,
+    "ac": "13",
+    "hp": "13",
+    "attack": "1 bite +3 (1d4 + poison)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+3",
+      "CON": "+0",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 bite +3 (1d4 + poison)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Poison",
+        "text": "DC 12 CON or paralyzed 1d4 hours.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 12 CON or paralyzed 1d4 hours."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Spider, Giant",
+    "**AC**": "13",
+    "**HP**": "13",
+    "**ATK**": "1 bite +3 (1d4 + poison)",
+    "**MV**": "near (climb)",
+    "**S**": "+2",
+    "**D**": "+3",
+    "**C**": "+0",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Poison**": "DC 12 CON or paralyzed 1d4 hours."
+    }
+  },
+  {
+    "slug": "strangler",
+    "name": "Strangler",
+    "level": 3,
+    "ac": "12",
+    "hp": "14",
+    "attack": "2 claws +2 (1d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "-2",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+0",
+      "CHA": "-2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 claws +2 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Stealthy",
+        "text": "ADV on DEX checks to sneak and hide.",
+        "damage": []
+      },
+      {
+        "name": "Strangle",
+        "text": "Deals x2 damage against surprised creatures.",
+        "damage": []
+      },
+      {
+        "name": "A floating mass of rubbery skin crusted with barnacles",
+        "text": "Its ten eyestalks writhe like snakes, and a deep, circular scar mars its central body, blinding what was once a large eye above a lipless maw. The Ten-Eyed Oracle stalks the Shadowdark, burbling mad prophesies and somehow moving freely between the lightless fathoms of the earth. The keepers of the deep lore suspect The Ten-Eyed Oracle was once a benevolent ally of mankind, but an unknown calamity drove it to insanity and reckless hatred. AC 17, HP 85, ATK 2d4 eyestalk ray, MV near (fly), S +4, D +5, C +4, I +5, W +4, Ch +4, AL C, LV 18",
+        "damage": [
+          {
+            "expression": "2d4",
+            "display": "2d4",
+            "context": "AC 17, HP 85, ATK 2d4 eyestalk ray, MV near (fly), S +4, D +5, C +4, I +5, W +4, Ch +4, AL C, LV 18"
+          }
+        ]
+      },
+      {
+        "name": "Legendary",
+        "text": "Only damaged by magical sources. Hostile spells targeting The Ten-Eyed Oracle are DC 18 to cast.",
+        "damage": []
+      },
+      {
+        "name": "Eyestalk Ray",
+        "text": "Each ray can shoot once per round and target one creature or an object up to 1,000 pounds (up to four on same target). 1. Charm. DC 15 CHA or become ally for 1d4 rounds. 2. Hold. DC 15 STR or paralyzed 1d4 rounds. 3. Sleep. DC 15 WIS or asleep 1d4 rounds. 4. Polymorph. DC 15 INT or turned into vermin for 1d4 rounds. 5. Cancel. DC 15 DEX or all magical effects on target end. 6. Confusion. DC 15 WIS or attack a random ally within near. 7. Telekinesis. DC 15 STR or hover target up to double near. 8. Disintegrate. DC 15 DEX or 5d8 damage (object destroyed). 9. Petrify. DC 15 CON or petrified. 10. Death. DC 15 CON or drop to 0 HP with a death timer of 1.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 15 CHA or become ally for 1d4 rounds."
+          },
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 15 STR or paralyzed 1d4 rounds."
+          },
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 15 WIS or asleep 1d4 rounds."
+          },
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 15 INT or turned into vermin for 1d4 rounds."
+          },
+          {
+            "expression": "5d8",
+            "display": "5d8",
+            "context": "DC 15 DEX or 5d8 damage (object destroyed)."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Strangler",
+    "**AC**": "12",
+    "**HP**": "14",
+    "**ATK**": "2 claws +2 (1d6)",
+    "**MV**": "near (climb)",
+    "**S**": "-2",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+0",
+    "**CH**": "-2",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Stealthy**": "ADV on DEX checks to sneak and hide.",
+      "**Strangle**": "Deals x2 damage against surprised creatures.",
+      "**A floating mass of rubbery skin crusted with barnacles**": "Its ten eyestalks writhe like snakes, and a deep, circular scar mars its central body, blinding what was once a large eye above a lipless maw. The Ten-Eyed Oracle stalks the Shadowdark, burbling mad prophesies and somehow moving freely between the lightless fathoms of the earth. The keepers of the deep lore suspect The Ten-Eyed Oracle was once a benevolent ally of mankind, but an unknown calamity drove it to insanity and reckless hatred. AC 17, HP 85, ATK 2d4 eyestalk ray, MV near (fly), S +4, D +5, C +4, I +5, W +4, Ch +4, AL C, LV 18",
+      "**Legendary**": "Only damaged by magical sources. Hostile spells targeting The Ten-Eyed Oracle are DC 18 to cast.",
+      "**Eyestalk Ray**": "Each ray can shoot once per round and target one creature or an object up to 1,000 pounds (up to four on same target). 1. Charm. DC 15 CHA or become ally for 1d4 rounds. 2. Hold. DC 15 STR or paralyzed 1d4 rounds. 3. Sleep. DC 15 WIS or asleep 1d4 rounds. 4. Polymorph. DC 15 INT or turned into vermin for 1d4 rounds. 5. Cancel. DC 15 DEX or all magical effects on target end. 6. Confusion. DC 15 WIS or attack a random ally within near. 7. Telekinesis. DC 15 STR or hover target up to double near. 8. Disintegrate. DC 15 DEX or 5d8 damage (object destroyed). 9. Petrify. DC 15 CON or petrified. 10. Death. DC 15 CON or drop to 0 HP with a death timer of 1."
+    }
+  },
+  {
+    "slug": "thief",
+    "name": "Thief",
+    "level": 3,
+    "ac": "13 (leather)",
+    "hp": "13",
+    "attack": "1 dagger (close/near) +2 (1d4) or 1 shortsword +0 (1d6)",
+    "movement": "near",
+    "stats": {
+      "STR": "+0",
+      "DEX": "+2",
+      "CON": "+0",
+      "INT": "+0",
+      "WIS": "+0",
+      "CHA": "+1"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 dagger (close/near) +2 (1d4) or 1 shortsword +0 (1d6)"
+      },
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 dagger (close/near) +2 (1d4) or 1 shortsword +0 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Stealthy",
+        "text": "ADV on DEX checks to sneak and hide.",
+        "damage": []
+      },
+      {
+        "name": "Backstab",
+        "text": "Deal x2 damage against surprised creatures.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Thief",
+    "**AC**": "13 (leather)",
+    "**HP**": "13",
+    "**ATK**": "1 dagger (close/near) +2 (1d4) or 1 shortsword +0 (1d6)",
+    "**MV**": "near",
+    "**S**": "+0",
+    "**D**": "+2",
+    "**C**": "+0",
+    "**I**": "+0",
+    "**W**": "+0",
+    "**CH**": "+1",
+    "**AL**": "N",
+    "**LV**": "3",
+    "abilities": {
+      "**Stealthy**": "ADV on DEX checks to sneak and hide.",
+      "**Backstab**": "Deal x2 damage against surprised creatures."
+    }
+  },
+  {
+    "slug": "viperian",
+    "name": "Viperian",
+    "level": 3,
+    "ac": "13",
+    "hp": "13",
+    "attack": "2 scimitar +2 (1d6) or 1 javelin (close/far) +2 (1d4)",
+    "movement": "near",
+    "stats": {
+      "STR": "+1",
+      "DEX": "+1",
+      "CON": "+0",
+      "INT": "+0",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 scimitar +2 (1d6) or 1 javelin (close/far) +2 (1d4)"
+      },
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "2 scimitar +2 (1d6) or 1 javelin (close/far) +2 (1d4)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Viperian",
+    "**AC**": "13",
+    "**HP**": "13",
+    "**ATK**": "2 scimitar +2 (1d6) or 1 javelin (close/far) +2 (1d4)",
+    "**MV**": "near",
+    "**S**": "+1",
+    "**D**": "+1",
+    "**C**": "+0",
+    "**I**": "+0",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {}
+  },
+  {
+    "slug": "wererat",
+    "name": "Wererat",
+    "level": 3,
+    "ac": "13 (leather)",
+    "hp": "14",
+    "attack": "2 bite +2 (1d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+1",
+      "DEX": "+2",
+      "CON": "+1",
+      "INT": "-1",
+      "WIS": "+1",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "2 bite +2 (1d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Only damaged by silver or magic sources.",
+        "damage": []
+      },
+      {
+        "name": "Lycanthropy",
+        "text": "If 12 or more damage from the same wererat, contract lycanthropy.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Wererat",
+    "**AC**": "13 (leather)",
+    "**HP**": "14",
+    "**ATK**": "2 bite +2 (1d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+1",
+    "**D**": "+2",
+    "**C**": "+1",
+    "**I**": "-1",
+    "**W**": "+1",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Impervious**": "Only damaged by silver or magic sources.",
+      "**Lycanthropy**": "If 12 or more damage from the same wererat, contract lycanthropy."
+    }
+  },
+  {
+    "slug": "wight",
+    "name": "Wight",
+    "level": 3,
+    "ac": "14 (chainmail)",
+    "hp": "15",
+    "attack": "1 bastard sword +3 (1d10) and 1 life drain +3",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "+1",
+      "WIS": "+0",
+      "CHA": "+3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "1 bastard sword +3 (1d10) and 1 life drain +3"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Greater Undead",
+        "text": "Immune to morale checks. Only damaged by silver or magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Life Drain",
+        "text": "1d4 CON damage. Death if reduced to 0 CON.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "1d4 CON damage."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Wight",
+    "**AC**": "14 (chainmail)",
+    "**HP**": "15",
+    "**ATK**": "1 bastard sword +3 (1d10) and 1 life drain +3",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "+1",
+    "**W**": "+0",
+    "**CH**": "+3",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {
+      "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
+      "**Life Drain**": "1d4 CON damage. Death if reduced to 0 CON."
+    }
+  },
+  {
+    "slug": "worg",
+    "name": "Worg",
+    "level": 3,
+    "ac": "11",
+    "hp": "14",
+    "attack": "1 bite +3 (1d6)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+2",
+      "DEX": "+1",
+      "CON": "+1",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "1 bite +3 (1d6)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Worg",
+    "**AC**": "11",
+    "**HP**": "14",
+    "**ATK**": "1 bite +3 (1d6)",
+    "**MV**": "double near",
+    "**S**": "+2",
+    "**D**": "+1",
+    "**C**": "+1",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "C",
+    "**LV**": "3",
+    "abilities": {}
+  }
+]

@@ -58,6 +58,17 @@
           </div>
           <p>Search result: <span id="search-result" title="">none</span></p>
 
+          <h2>Damage</h2>
+          <section class="damage-panel" aria-live="polite">
+            <div class="damage-result-row">
+              <span class="damage-result-label">DAMAGE:</span>
+              <span id="damage-result" class="damage-result-value">none</span>
+              <button id="damage-expand-btn" type="button" hidden>expand</button>
+            </div>
+            <p id="damage-context" class="damage-context">Click a damage value from a spell, attack, monster, or trap.</p>
+            <div id="damage-detail" class="damage-detail" hidden></div>
+          </section>
+
           <h2>Carried treasure</h2>
           <p id="inventory-slots" class="inventory-slots">0 / 10 slots</p>
           <ul id="loot-list"></ul>
@@ -137,7 +148,7 @@
     <div id="character-import-modal" class="modal-backdrop" hidden>
       <section class="modal-card character-import-card" role="dialog" aria-modal="true" aria-labelledby="character-import-title">
         <h2 id="character-import-title">Import ShadowDarklings Character</h2>
-        <p>Paste ShadowDarklings JSON for one character or a list of characters.</p>
+        <p>Paste ShadowDarklings JSON for one character or a list of characters. This static import works from AWS S3.</p>
         <textarea id="character-import-input" class="character-import-input" rows="12" spellcheck="false"></textarea>
         <p id="character-import-status" class="modal-status"></p>
         <div class="modal-actions">
@@ -154,6 +165,21 @@
           <button id="character-sheet-close" type="button">Close</button>
         </div>
         <div id="character-sheet-content" class="character-sheet-content"></div>
+      </section>
+    </div>
+
+    <div id="spell-detail-modal" class="modal-backdrop" hidden>
+      <section class="modal-card spell-detail-modal" role="dialog" aria-modal="true" aria-labelledby="spell-detail-title">
+        <div class="spell-detail-header">
+          <h2 id="spell-detail-title">SPELL</h2>
+          <button id="spell-detail-close" type="button">Close</button>
+        </div>
+        <div class="spell-detail-body">
+          <p id="spell-detail-meta" class="spell-detail-meta"></p>
+          <p class="spell-detail-field"><strong>Duration:</strong> <span id="spell-detail-duration"></span></p>
+          <p class="spell-detail-field"><strong>Range:</strong> <span id="spell-detail-range"></span></p>
+          <div id="spell-detail-body" class="spell-detail-copy"></div>
+        </div>
       </section>
     </div>
 
