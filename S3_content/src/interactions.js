@@ -409,7 +409,10 @@ export function clickEntity(state, x, y) {
     return { message: "That tile is hidden by darkness." };
   }
 
-  const entity = clickedDoor || findEntityAt(state, x, y);
+  const clickedEntity = findEntityAt(state, x, y);
+  const entity = clickedEntity?.subtype === "door"
+    ? clickedEntity
+    : clickedEntity || clickedDoor;
   if (!entity) {
     return { message: "No interactive token on that tile." };
   }
