@@ -1,0 +1,321 @@
+[
+  {
+    "slug": "antimagic-shell",
+    "name": "Antimagic Shell",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "An invisible, near-sized cube of null-magic appears centered on you.\n\nWithin the cube, no spells can be cast. Magic items and spells have no effect in the zone, and no magic can enter.\n\nThe cube moves with you. Spells such as dispel magic have no effect on it.\n\nAnother antimagic shell does not affect this one.",
+    "paragraphs": [
+      "An invisible, near-sized cube of null-magic appears centered on you.",
+      "Within the cube, no spells can be cast. Magic items and spells have no effect in the zone, and no magic can enter.",
+      "The cube moves with you. Spells such as dispel magic have no effect on it.",
+      "Another antimagic shell does not affect this one."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "create-undead",
+    "name": "Create Undead",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "1 day",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You conjure a vengeful undead creature to do your bidding.\n\nWhen you cast this spell, you choose to summon either a wight or wraith. It appears next to you and is under your control.\n\nThe undead creature acts on your turn. After 1 day, it melts away into smoke.",
+    "paragraphs": [
+      "You conjure a vengeful undead creature to do your bidding.",
+      "When you cast this spell, you choose to summon either a wight or wraith. It appears next to you and is under your control.",
+      "The undead creature acts on your turn. After 1 day, it melts away into smoke."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "disintegrate",
+    "name": "Disintegrate",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "A green ray shoots from your finger and turns a creature or object into ash.\n\nA target creature of LV 5 or less instantly dies. If it is LV 6+, it takes 3d8 damage instead.\n\nA non-magical object up to the size of a large tree is destroyed.",
+    "paragraphs": [
+      "A green ray shoots from your finger and turns a creature or object into ash.",
+      "A target creature of LV 5 or less instantly dies. If it is LV 6+, it takes 3d8 damage instead.",
+      "A non-magical object up to the size of a large tree is destroyed."
+    ],
+    "damage": [
+      {
+        "expression": "3d8",
+        "display": "Death / 3d8",
+        "context": "If it is LV 6+, it takes 3d8 damage instead."
+      }
+    ]
+  },
+  {
+    "slug": "divine-vengeance",
+    "name": "Divine Vengeance",
+    "tier": 5,
+    "classes": [
+      "priest"
+    ],
+    "duration": "10 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You become the divine avatar of your god's wrath, wreathed in holy flames or a black aura of smoldering corruption.\n\nFor the spell's duration, you can fly a near distance, your weapons are magical, and you have a +4 bonus to your weapon attacks and damage.",
+    "paragraphs": [
+      "You become the divine avatar of your god's wrath, wreathed in holy flames or a black aura of smoldering corruption.",
+      "For the spell's duration, you can fly a near distance, your weapons are magical, and you have a +4 bonus to your weapon attacks and damage."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "dominion",
+    "name": "Dominion",
+    "tier": 5,
+    "classes": [
+      "priest"
+    ],
+    "duration": "10 rounds",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "Mighty beings come to your aid.\n\nThe beings must have a combined total of 16 levels or less. Chaotic PCs summon demons/devils, and lawful or neutral PCs summon angels.\n\nThe beings act of free will to aid you on your turn. After 10 rounds, they return to their realms.\n\nYou cannot cast this spell again until you complete penance.",
+    "paragraphs": [
+      "Mighty beings come to your aid.",
+      "The beings must have a combined total of 16 levels or less. Chaotic PCs summon demons/devils, and lawful or neutral PCs summon angels.",
+      "The beings act of free will to aid you on your turn. After 10 rounds, they return to their realms.",
+      "You cannot cast this spell again until you complete penance."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "extraplanar",
+    "name": "Extraplanar",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You reach into the outer planes, summoning forth a creature.\n\nYou summon an elemental or outsider of LV 7 or less. The creature is under your control and acts on your turn.\n\nIf you lose focus on this spell, you lose control of the creature and it becomes hostile toward you and your allies.\n\nYou must pass a spellcasting check on your turn to return the creature to the outer planes.",
+    "paragraphs": [
+      "You reach into the outer planes, summoning forth a creature.",
+      "You summon an elemental or outsider of LV 7 or less. The creature is under your control and acts on your turn.",
+      "If you lose focus on this spell, you lose control of the creature and it becomes hostile toward you and your allies.",
+      "You must pass a spellcasting check on your turn to return the creature to the outer planes."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "heal",
+    "name": "Heal",
+    "tier": 5,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "One creature you touch is healed to full hit points.\n\nYou cannot cast this spell again until you complete a rest.",
+    "paragraphs": [
+      "One creature you touch is healed to full hit points.",
+      "You cannot cast this spell again until you complete a rest."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "hold-monster",
+    "name": "Hold Monster",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You paralyze one creature you can see within range.\n\nIf the target is LV 9+, it may make a STR check vs. your last spellcasting check at the start of its turn to end the spell.",
+    "paragraphs": [
+      "You paralyze one creature you can see within range.",
+      "If the target is LV 9+, it may make a STR check vs. your last spellcasting check at the start of its turn to end the spell."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "judgment",
+    "name": "Judgment",
+    "tier": 5,
+    "classes": [
+      "priest"
+    ],
+    "duration": "5 rounds",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You instantly banish a creature you touch, sending it and all possessions it carries to face the judgment of your god.\n\nYou can banish an intelligent creature of LV 10 or less.\n\nWhen the creature returns in 5 rounds, it has been healed to full hit points if its deeds pleased your god. It has been reduced to 1 hit point if its deeds angered your god. If your god can't judge its actions, it is unchanged.",
+    "paragraphs": [
+      "You instantly banish a creature you touch, sending it and all possessions it carries to face the judgment of your god.",
+      "You can banish an intelligent creature of LV 10 or less.",
+      "When the creature returns in 5 rounds, it has been healed to full hit points if its deeds pleased your god. It has been reduced to 1 hit point if its deeds angered your god. If your god can't judge its actions, it is unchanged."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "plane-shift",
+    "name": "Plane Shift",
+    "tier": 5,
+    "classes": [
+      "priest",
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You fold space and time, transporting yourself and all willing creatures within close range to a location on another plane of your choice.\n\nUnless you have been to your intended location before, you appear in a random place on the destination plane.",
+    "paragraphs": [
+      "You fold space and time, transporting yourself and all willing creatures within close range to a location on another plane of your choice.",
+      "Unless you have been to your intended location before, you appear in a random place on the destination plane."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "power-word-kill",
+    "name": "Power Word Kill",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You utter the Word of Doom.\n\nOne creature you target of LV 9 or less dies if it hears you.\n\nTreat a failed spellcasting check for this spell as a critical failure, and roll the mishap with disadvantage.",
+    "paragraphs": [
+      "You utter the Word of Doom.",
+      "One creature you target of LV 9 or less dies if it hears you.",
+      "Treat a failed spellcasting check for this spell as a critical failure, and roll the mishap with disadvantage."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "prismatic-orb",
+    "name": "Prismatic Orb",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You send a strobing orb of energy streaking toward a target within range.\n\nChoose an energy type from fire, cold, or electricity. The orb deals 3d8 damage and delivers a concussive blast of the chosen energy type.\n\nIf the energy type is anathema to the target's existence (for example, cold energy against a fire elemental), the orb deals double damage to it instead.",
+    "paragraphs": [
+      "You send a strobing orb of energy streaking toward a target within range.",
+      "Choose an energy type from fire, cold, or electricity. The orb deals 3d8 damage and delivers a concussive blast of the chosen energy type.",
+      "If the energy type is anathema to the target's existence (for example, cold energy against a fire elemental), the orb deals double damage to it instead."
+    ],
+    "damage": [
+      {
+        "expression": "3d8",
+        "display": "3d8",
+        "context": "The orb deals 3d8 damage and delivers a concussive blast of the chosen energy type."
+      }
+    ]
+  },
+  {
+    "slug": "prophecy",
+    "name": "Prophecy",
+    "tier": 5,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You commune directly with your god for guidance.\n\nAsk the GM one question.\n\nThe GM answers the question truthfully using the knowledge your god possesses. Deities are mighty, but not omniscient.\n\nYou cannot cast this spell again until you complete penance.",
+    "paragraphs": [
+      "You commune directly with your god for guidance.",
+      "Ask the GM one question.",
+      "The GM answers the question truthfully using the knowledge your god possesses. Deities are mighty, but not omniscient.",
+      "You cannot cast this spell again until you complete penance."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "scrying",
+    "name": "Scrying",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You look into a crystal ball or reflecting pool, calling up images of a distant place.\n\nFor the spell's duration, you can see and hear a creature or location you choose that is on the same plane.\n\nThis spell is DC 18 to cast if you try to scry on a creature or location that is unfamiliar to you.\n\nEach round, creatures you view may make a Wisdom check vs.\n\nyour last spellcasting check. On a success, they become aware of your magical observation.",
+    "paragraphs": [
+      "You look into a crystal ball or reflecting pool, calling up images of a distant place.",
+      "For the spell's duration, you can see and hear a creature or location you choose that is on the same plane.",
+      "This spell is DC 18 to cast if you try to scry on a creature or location that is unfamiliar to you.",
+      "Each round, creatures you view may make a Wisdom check vs.",
+      "your last spellcasting check. On a success, they become aware of your magical observation."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "shapechange",
+    "name": "Shapechange",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You transform yourself and any gear you carry into another natural creature you've seen of level 10 or less. You assume the creature's physical stats and features, but you retain your non-physical stats and features (including INT, WIS, and CHA).\n\nIf you go to 0 HP while under the effects of this spell, you revert to your true form at 1 HP.",
+    "paragraphs": [
+      "You transform yourself and any gear you carry into another natural creature you've seen of level 10 or less. You assume the creature's physical stats and features, but you retain your non-physical stats and features (including INT, WIS, and CHA).",
+      "If you go to 0 HP while under the effects of this spell, you revert to your true form at 1 HP."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "teleport",
+    "name": "Teleport",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You and any willing creatures you choose within close range teleport to a location you specify on your same plane.\n\nYou can travel to a known teleportation sigil or to a location you've been before. Otherwise, you have a 50% chance of arriving off-target.",
+    "paragraphs": [
+      "You and any willing creatures you choose within close range teleport to a location you specify on your same plane.",
+      "You can travel to a known teleportation sigil or to a location you've been before. Otherwise, you have a 50% chance of arriving off-target."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "wish",
+    "name": "Wish",
+    "tier": 5,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "This mighty spell alters reality.\n\nMake a single wish, stating it as exactly as possible. Your wish occurs, as interpreted by the GM.\n\nTreat a failed spellcasting check for this spell as a critical failure, and roll the mishap with disadvantage.",
+    "paragraphs": [
+      "This mighty spell alters reality.",
+      "Make a single wish, stating it as exactly as possible. Your wish occurs, as interpreted by the GM.",
+      "Treat a failed spellcasting check for this spell as a critical failure, and roll the mishap with disadvantage."
+    ],
+    "damage": []
+  }
+]
