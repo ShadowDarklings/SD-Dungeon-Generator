@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}My Saved Runs{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">My Saved Runs</h1>
+        <a href="{{ url_for('site_home') }}" class="btn btn-primary">▶ Play New Dungeon</a>
+    </div>
+
+    {% if runs %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Level</th>
+                    <th>Seed</th>
+                    <th>Created</th>
+                    <th>Last Updated</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.id }}</td>
+                    <td><span class="badge bg-secondary">Lv {{ run.level }}</span></td>
+                    <td><code>{{ run.seed }}</code></td>
+                    <td>{{ run.created_at.strftime('%b %d, %Y %H:%M') if run.created_at else '—' }}</td>
+                    <td>{{ run.updated_at.strftime('%b %d, %Y %H:%M') if run.updated_at else '—' }}</td>
+                    <td>
+                        <a href="{{ url_for('site_home') }}?loadRun={{ run.id }}" class="btn btn-sm btn-outline-primary">Load</a>
+                        <button class="btn btn-sm btn-outline-danger delete-run-btn" data-run-id="{{ run.id }}">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <h5 class="text-muted mb-3">No saved runs yet</h5>
+            <p class="text-muted">Generate a dungeon and save your progress to see it here.</p>
+            <a href="{{ url_for('site_home') }}" class="btn btn-primary">▶ Start Your First Dungeon</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# Inline scripts are blocked by the CSP (script-src 'self') — keep JS in static files. #}
+<script src="{{ url_for('static', filename='js/runs.js') }}"></script>
+{% endblock %}
