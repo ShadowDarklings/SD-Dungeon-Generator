@@ -23,6 +23,10 @@ from app import app, engine, User, Session
 @pytest.fixture
 def client():
     app.config["TESTING"] = True
+    # CSRF is enforced on the form routes (CONTRACTS.md §9.3). These tests
+    # exercise auth logic, not token handling, so disable token checks here;
+    # enforcement itself is covered by test_csrf_rejects_tokenless_post.
+    app.config["WTF_CSRF_ENABLED"] = False
 
     # Reset schema for each test — drop and recreate.
     SQLModel.metadata.drop_all(engine)
@@ -30,6 +34,21 @@ def client():
 
     with app.test_client() as client:
         yield client
+
+    app.config["WTF_CSRF_ENABLED"] = True
+
+
+def test_csrf_rejects_tokenless_post(client):
+    """Contract §9.3: a POST without a valid CSRF token returns 400 csrf_invalid."""
+    app.config["WTF_CSRF_ENABLED"] = True
+    try:
+        response = client.post(
+            "/register", data={"username": "eve", "password": "secret123"}
+        )
+        assert response.status_code == 400
+        assert response.get_json()["error"] == "csrf_invalid"
+    finally:
+        app.config["WTF_CSRF_ENABLED"] = False
 
 
 def test_home_page_loads(client):
