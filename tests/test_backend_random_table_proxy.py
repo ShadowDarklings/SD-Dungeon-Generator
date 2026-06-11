@@ -46,14 +46,15 @@ def test_backend_proxy_rejects_invalid_level(client):
         assert response.get_json()["error"] == "invalid_level"
 
 @responses.activate
-def test_backend_proxy_maps_levels_2_to_10_to_table_2(client):
-    """Contract §3a: level 1 → monsters-1.json, levels 2-10 → monsters-2.json."""
-    target_url = "http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/monsters-2.json"
-    responses.add(responses.GET, target_url, json=[{"name": "Gnoll"}], status=200)
+def test_backend_proxy_serves_per_level_tables(client):
+    """Contract §3a (Final Project): level N → monsters-N.json."""
+    for level in (1, 7, 10):
+        target_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/monsters-{level}.json"
+        responses.add(responses.GET, target_url, json=[{"name": f"Lv{level} Gnoll"}], status=200)
 
-    response = client.get("/api/random-tables?level=7&type=monsters")
+        response = client.get(f"/api/random-tables?level={level}&type=monsters")
 
-    assert response.status_code == 200
-    json_data = response.get_json()
-    assert json_data["source"].endswith("monsters-2.json")
-    assert json_data["results"] == [{"name": "Gnoll"}]
+        assert response.status_code == 200
+        json_data = response.get_json()
+        assert json_data["source"].endswith(f"monsters-{level}.json")
+        assert json_data["results"] == [{"name": f"Lv{level} Gnoll"}]

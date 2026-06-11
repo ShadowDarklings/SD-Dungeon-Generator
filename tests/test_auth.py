@@ -130,3 +130,28 @@ def test_login_redirects_home_with_session(client):
     # Session is set
     with client.session_transaction() as sess:
         assert "_user_id" in sess
+
+
+def test_login_remember_me_sets_remember_cookie(client):
+    """§9.2: checking 'remember me' sets Flask-Login's remember_token cookie."""
+    client.post("/register", data={"username": "remy", "password": "secret"})
+    client.post("/logout")
+
+    # Without the checkbox: no remember_token.
+    response = client.post("/login", data={"username": "remy", "password": "secret"})
+    assert not any(
+        c.startswith("remember_token=") and "Expires" not in c.split(";")[0]
+        and len(c.split("=", 1)[1].split(";")[0]) > 1
+        for c in response.headers.getlist("Set-Cookie")
+    )
+    client.post("/logout")
+
+    # With the checkbox: remember_token is set.
+    response = client.post(
+        "/login", data={"username": "remy", "password": "secret", "remember": "1"}
+    )
+    cookies = response.headers.getlist("Set-Cookie")
+    assert any(
+        c.startswith("remember_token=") and len(c.split("=", 1)[1].split(";")[0]) > 1
+        for c in cookies
+    )
