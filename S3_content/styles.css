@@ -1691,6 +1691,19 @@ body {
   width: min(680px, 100%);
 }
 
+.multiplayer-modal h2,
+.multiplayer-section h3 {
+  font-family: "Times New Roman", Georgia, serif;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.multiplayer-modal h2 {
+  font-size: 1.45rem;
+}
+
 .multiplayer-section {
   display: grid;
   gap: 10px;
@@ -1705,11 +1718,7 @@ body {
 
 .multiplayer-section h3 {
   margin: 0;
-  font-family: "JBlack", "Impact", "Haettenschweiler", "Arial Black", sans-serif;
   font-size: 1rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #fff;
 }
 
 .multiplayer-copy {

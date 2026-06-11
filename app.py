@@ -17,13 +17,13 @@ from flask import (
     Flask, render_template, request, redirect, url_for, session, flash, g,
     send_from_directory, abort, jsonify,
 )
-from sqlmodel import SQLModel, Field, Session, create_engine, select
+from sqlmodel import SQLModel, Field, Session, create_engine, select, delete
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 )
 from sqlalchemy import (
-    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint, text
+    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint
 )
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
@@ -213,6 +213,9 @@ class LootEntry(SQLModel, table=True):
     origin_tile: dict = Field(sa_column=Column(JSON, nullable=False))
 
 
+# Create tables AFTER every model class is defined. Calling this earlier
+# (the pre-fix position was between OAuthIdentity and SavedRun) meant a fresh
+# database only got `users` and `oauth_identities` - the first save would 500.
 bootstrap_database()
 
 
@@ -291,7 +294,6 @@ def serve_s3_content(filename):
 # Routes — authentication (Flask-rendered, not static)
 # ---------------------------------------------------------------------------
 
-@csrf.exempt
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":
@@ -324,7 +326,6 @@ def register():
     return redirect(url_for("home"))
 
 
-@csrf.exempt
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
@@ -350,7 +351,6 @@ def login():
     return redirect(url_for("home"))
 
 
-@csrf.exempt
 @app.route("/logout", methods=["POST"])
 @login_required
 def logout():
@@ -482,8 +482,11 @@ def about():
 
 
 @app.route("/api/shadowdarklings/import", methods=["POST"])
+@login_required
 @csrf.exempt
 def import_shadowdarklings_character():
+    # login_required: this endpoint launches a headless browser server-side —
+    # anonymous access would be a trivial resource-exhaustion (DoS) vector.
     try:
         data = request.get_json(silent=True) or {}
         base_classes_only = bool(data.get("base_classes_only", False))
@@ -505,12 +508,11 @@ def import_shadowdarklings_character():
 
 def populate_child_tables(db, run, state):
     """Refreshes all relational tables matching the saved run's JSON state snapshot."""
-    # Delete any existing child rows for this run
-    db.exec(text(f"DELETE FROM tiles WHERE saved_run_id = {run.id}"))
-    db.exec(text(f"DELETE FROM rooms WHERE saved_run_id = {run.id}"))
-    db.exec(text(f"DELETE FROM halls WHERE saved_run_id = {run.id}"))
-    db.exec(text(f"DELETE FROM entities WHERE saved_run_id = {run.id}"))
-    db.exec(text(f"DELETE FROM loot_entries WHERE saved_run_id = {run.id}"))
+    # Delete any existing child rows for this run. ORM delete statements keep
+    # all SQL parametrized — no string interpolation at the persistence
+    # boundary (CONTRACTS.md extensibility / "no raw SQL" rule).
+    for model in (Tile, Room, Hall, Entity, LootEntry):
+        db.exec(delete(model).where(model.saved_run_id == run.id))
     db.commit()
 
     tiles_data = state.get("tiles", [])
@@ -605,7 +607,7 @@ def list_runs_page():
         .order_by(SavedRun.updated_at.desc())
         .limit(limit)
     ).all()
-    return render_template("placeholder.html", runs=runs)
+    return render_template("runs.html", runs=runs)
 
 
 @app.route("/api/runs", methods=["POST"])
@@ -638,8 +640,11 @@ def create_run():
     try:
         populate_child_tables(db, run, state_json)
     except Exception:
-        pass
-        
+        # The JSON state in saved_runs is the source of truth for load (§1);
+        # a failed snapshot must not fail the save — but it must be visible.
+        app.logger.exception("Child-table snapshot failed for run %s", run.id)
+        db.rollback()
+
     return {
         "id": run.id,
         "seed": run.seed,
@@ -739,8 +744,10 @@ def update_run(run_id):
     try:
         populate_child_tables(db, run, state_json)
     except Exception:
-        pass
-        
+        # See create_run: snapshot failure is logged, never silently dropped.
+        app.logger.exception("Child-table snapshot failed for run %s", run.id)
+        db.rollback()
+
     return {
         "id": run.id,
         "seed": run.seed,
@@ -770,15 +777,24 @@ def delete_run(run_id):
 @app.route("/api/random-tables", methods=["GET"])
 def get_random_tables():
     """Proxies requests to the team's external S3 bucket to fetch random dungeon tables."""
-    level = request.args.get("level", default="1")
     table_type = request.args.get("type", default="monsters")
 
     if table_type not in ["monsters", "traps"]:
         return jsonify({"error": "invalid_table", "message": "Invalid table type."}), 400
 
-    s3_bucket_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/{table_type}-{level}.json"
     if table_type == "traps":
         s3_bucket_url = "http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/traps.json"
+    else:
+        # Contract §2/§3a: level is required for monsters, must be 1-10, and
+        # maps to the available tables (level 1 → table 1, levels 2-10 → table 2).
+        try:
+            level = int(request.args.get("level", default="1"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}), 400
+        if not (1 <= level <= 10):
+            return jsonify({"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}), 400
+        table_number = 1 if level == 1 else 2
+        s3_bucket_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/monsters-{table_number}.json"
 
     try:
         response = requests.get(s3_bucket_url, timeout=3.0)

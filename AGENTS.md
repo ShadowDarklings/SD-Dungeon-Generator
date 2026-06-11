@@ -11,6 +11,21 @@ The dungeon UI is at `/site/`. Do not stop at `http://127.0.0.1:5000/`.
 
 ---
 
+## Front-End Typography Rule
+
+Do not use the ShadowSpawner title font (`JBlack`) for new UI text unless the
+user explicitly asks for that title/display font.
+
+Default UI text and headings should use the same serif family as the character
+sheet `GEAR` heading:
+
+`"Times New Roman", Georgia, serif`
+
+This is especially important for modal titles, section headings, character
+sheet text, importer controls, and multiplayer controls.
+
+---
+
 ## Fast Path For Agents
 
 When the user says something like **"launch the SD site locally"**, do this:
