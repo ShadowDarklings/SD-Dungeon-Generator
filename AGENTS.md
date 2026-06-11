@@ -1,188 +1,219 @@
-# Agent guide: run the SD site locally (Windows)
+# Agent guide: launch the SD site locally on Windows
 
-Use this file when asked to **start, load, or inspect the ShadowDarklings SD Dungeon Generator locally**.
+Use this file when the user asks to **launch**, **start**, **open**, **load**, or
+**inspect** the ShadowDarklings SD Dungeon Generator locally.
 
-The repo root for all commands below is:
+The goal is simple: get the full Flask site running at:
 
-`SD-Dungeon-Generator/` (inside the `SD-website` workspace)
+`http://127.0.0.1:5000/site/`
 
----
-
-## Quick start (preferred for humans)
-
-From PowerShell:
-
-```powershell
-cd "c:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD-Dungeon-Generator"
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\run-assignment.ps1"
-```
-
-Leave that terminal open. Press **Ctrl+C** to stop the server.
+The dungeon UI is at `/site/`. Do not stop at `http://127.0.0.1:5000/`.
 
 ---
 
-## Agent-safe launch (Codex, VS Code, Cursor)
+## Fast Path For Agents
 
-When an LLM agent is asked to launch the site, use a real long-lived PowerShell
-window. Do not use `Start-Job`, hidden `cmd /B`, or a foreground tool command
-with a timeout; those can briefly return 200 and then die when the agent command
-ends.
+When the user says something like **"launch the SD site locally"**, do this:
 
-From the `SD-website` workspace root, run:
+1. Use the active repo/worktree that contains this `AGENTS.md`.
+2. Stop anything already using port `5000`.
+3. Start Flask in a real long-lived PowerShell window.
+4. Verify `http://127.0.0.1:5000/site/` returns `200`.
+5. Tell the user the URL.
+
+Do not use `Start-Job`, hidden `cmd /B`, or a foreground command with a timeout
+as the server. Those often start briefly, pass one probe, and then die before
+Firefox or the Codex browser can connect.
+
+---
+
+## One-Command Agent Launch
+
+From the directory containing this `AGENTS.md`, run this PowerShell command.
+It works from the hardening worktree and uses the shared `SD-website\.venv`.
 
 ```powershell
-$dir = "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD-Dungeon-Generator"
+$repo = (Get-Location).Path
+$python = "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe"
+$launcher = Join-Path $env:TEMP "sd-local-launch.ps1"
 
 Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue |
   Where-Object { $_.OwningProcess -gt 0 } |
   Select-Object -ExpandProperty OwningProcess -Unique |
   ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
 
+@"
+Set-Location '$repo'
+`$env:SECRET_KEY = 'dev-secret-not-for-production'
+`$env:DATABASE_URL = 'sqlite:///dev.db'
+`$env:OAUTH_CLIENT_ID = 'dev-client-id'
+`$env:OAUTH_CLIENT_SECRET = 'dev-client-secret'
+& '$python' -u -c "from app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
+"@ | Set-Content -Path $launcher -Encoding UTF8
+
 Start-Process -FilePath "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" `
-  -ArgumentList @(
-    "-NoExit",
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-Command",
-    "Set-Location '$dir'; .\scripts\run-assignment.ps1"
-  ) `
-  -WorkingDirectory $dir `
+  -ArgumentList @("-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $launcher) `
+  -WorkingDirectory $repo `
+  -WindowStyle Normal `
   -PassThru
-```
 
-Then verify from the agent shell:
-
-```powershell
+Start-Sleep 6
 Invoke-WebRequest -Uri "http://127.0.0.1:5000/site/" -UseBasicParsing -TimeoutSec 10
 ```
 
-Expect status **200** and a listener like:
+Expected result: `StatusCode` is `200`.
+
+If the first probe fails, wait five more seconds and try the same
+`Invoke-WebRequest` again. If it still fails, read the visible PowerShell window;
+it should show the Flask startup error.
+
+---
+
+## Human Quick Start
+
+If a human is starting the site manually, open PowerShell and run:
 
 ```powershell
-Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue
+cd "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD_week_8_hardening\sd-charles-worktree"
+$env:SECRET_KEY = "dev-secret-not-for-production"
+$env:DATABASE_URL = "sqlite:///dev.db"
+$env:OAUTH_CLIENT_ID = "dev-client-id"
+$env:OAUTH_CLIENT_SECRET = "dev-client-secret"
+& "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe" -u -c "from app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
 ```
 
-If the in-app browser still shows an old connection-refused page, open a fresh
-tab to `http://127.0.0.1:5000/site/` instead of relying on the stale error tab.
+Leave that terminal open. Press `Ctrl+C` to stop the server.
 
-### URLs after start
+---
+
+## URLs After Start
 
 | Page | URL |
 |------|-----|
+| Dungeon generator | http://127.0.0.1:5000/site/ |
 | Home | http://127.0.0.1:5000/ |
 | Login | http://127.0.0.1:5000/login |
+| Register | http://127.0.0.1:5000/register |
 | About | http://127.0.0.1:5000/about |
-| Dungeon generator (main client) | http://127.0.0.1:5000/site/ |
 
-**Important:** The dungeon UI and interactive buttons are at **`/site/`**, not the Flask home page alone.
-
----
-
-## What `run-assignment.ps1` does
-
-The script:
-
-1. `cd`s to `SD-Dungeon-Generator`
-2. Uses `.venv\Scripts\python.exe` (falls back to `..\ .venv` in `SD-website` if needed)
-3. Sets required dev environment variables:
-   - `SECRET_KEY=dev-secret-not-for-production`
-   - `DATABASE_URL=sqlite:///dev.db`
-   - `OAUTH_CLIENT_ID=dev-client-id`
-   - `OAUTH_CLIENT_SECRET=dev-client-secret`
-4. Runs `python app.py` (Flask, port **5000**, debug mode)
-
-No Docker is required for this local workflow.
+If Firefox or the in-app browser shows an old connection-refused page, open a
+brand-new tab to `http://127.0.0.1:5000/site/`. You can also try
+`http://localhost:5000/site/`.
 
 ---
 
-## First-time setup (only if venv is missing)
+## Verify The Server
+
+Use both checks:
 
 ```powershell
-cd "c:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD-Dungeon-Generator"
-python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt
+netstat -ano | findstr :5000
+Invoke-WebRequest -Uri "http://127.0.0.1:5000/site/" -UseBasicParsing -TimeoutSec 10
 ```
 
-If `.venv` already exists at `SD-website\.venv`, the run script will use that instead.
+The first should show `LISTENING`. The second should return status `200`.
 
----
-
-## Verify the server is up
-
-```powershell
-Invoke-WebRequest -Uri "http://127.0.0.1:5000/site/" -UseBasicParsing -TimeoutSec 5
-```
-
-Expect status **200**. Also check:
+To verify all key pages:
 
 ```powershell
 @(
   "http://127.0.0.1:5000/",
   "http://127.0.0.1:5000/login",
+  "http://127.0.0.1:5000/register",
   "http://127.0.0.1:5000/about",
   "http://127.0.0.1:5000/site/"
 ) | ForEach-Object {
   try { "$_ -> $((Invoke-WebRequest -Uri $_ -UseBasicParsing -TimeoutSec 5).StatusCode)" }
-  catch { "$_ -> FAIL" }
+  catch { "$_ -> FAIL: $($_.Exception.Message)" }
 }
 ```
 
 ---
 
-## Manual start (if the script fails)
+## If You Are In A Different Folder
+
+Prefer the active worktree the user is editing. In this thread that is usually:
+
+`C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD_week_8_hardening\sd-charles-worktree`
+
+The older main project copy may also exist here:
+
+`C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD-Dungeon-Generator`
+
+If unsure, locate the active copy with:
 
 ```powershell
-cd "c:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD-Dungeon-Generator"
-$env:SECRET_KEY = "dev-secret-not-for-production"
-$env:DATABASE_URL = "sqlite:///dev.db"
-$env:OAUTH_CLIENT_ID = "dev-client-id"
-$env:OAUTH_CLIENT_SECRET = "dev-client-secret"
-& "c:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe" app.py
+Get-ChildItem "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website" -Recurse -Filter AGENTS.md
 ```
 
-All four env vars are **required** — `app.py` reads them with `os.environ[...]` and crashes on startup if any are missing.
+Then start the copy that contains the files the user wants to edit.
 
 ---
 
-## Project layout (for agents)
+## Existing Script
 
-| Path | Purpose |
-|------|---------|
-| `app.py` | Flask app: auth, about, API, serves static dungeon at `/site/` |
-| `S3_content/` | Dungeon frontend (`index.html`, `src/*.js`, JSON data) |
-| `templates/` | Flask Jinja templates (home, login, register, about) |
-| `static/` | Flask CSS/assets for auth pages |
-| `scripts/run-assignment.ps1` | **Use this** to run full site locally |
-| `scripts/run-mvp.ps1` | Alternate frontend folder (`S3_content_mvp`) — not the default |
+There is a script at:
+
+`scripts\run-assignment.ps1`
+
+It is useful for humans when `.venv` is visible from the repo folder. Some
+worktrees only have the shared venv at `SD-website\.venv`, so the one-command
+agent launch above is safer for Codex.
+
+The script sets:
+
+- `SECRET_KEY=dev-secret-not-for-production`
+- `DATABASE_URL=sqlite:///dev.db`
+- `OAUTH_CLIENT_ID=dev-client-id`
+- `OAUTH_CLIENT_SECRET=dev-client-secret`
+- `S3_CONTENT_DIR=S3_content`
+
+All four main env vars are required because [app.py](./app.py) reads them with
+`os.environ[...]`.
 
 ---
 
 ## Troubleshooting
 
-### Agent shell "stalled" or server not running
+### Browser says connection refused
 
-Background agent shells often exit before Flask finishes starting. Prefer:
+The server is not listening anymore. Do not keep refreshing blindly. Run:
 
-1. Run `.\scripts\run-assignment.ps1` in the **user's own terminal**, or
-2. Run the manual start command above in foreground and wait for `Running on http://127.0.0.1:5000`
+```powershell
+netstat -ano | findstr :5000
+```
 
-Then verify with `Invoke-WebRequest` as above.
+If there is no `LISTENING` line, restart with **One-Command Agent Launch**.
 
-### Buttons don't work; only "Back to About" / GitHub links work
+### Command returns 200 once, then browser fails
 
-Those links are plain HTML. Everything else needs JavaScript modules.
+The server process probably died after the agent shell ended or the Flask
+debug reloader spawned a child process that did not survive. Restart with the
+one-command launch above, which uses `use_reloader=False` and a real PowerShell
+window.
 
-Checklist:
+### Missing venv
 
-1. User must be on **http://127.0.0.1:5000/site/** (not `file://`)
-2. Hard refresh: **Ctrl+Shift+R**
-3. Open browser DevTools → Console for JS errors
-4. Confirm modules load: http://127.0.0.1:5000/site/src/main.js should return **200**
+Use the shared venv first:
 
-### Dungeon map is blank but page loads
+`C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe`
 
-Hand-drawn assets under `S3_content/assets/` may be missing locally. The app falls back to a flat renderer; gameplay should still work. Click **Generate Dungeon**.
+If it is missing, create one:
+
+```powershell
+cd "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD_week_8_hardening\sd-charles-worktree"
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
+```
+
+### Buttons do not work
+
+Make sure the user is on `http://127.0.0.1:5000/site/`, not `file://` and not
+only `http://127.0.0.1:5000/`.
+
+Confirm JavaScript modules load:
+
+`http://127.0.0.1:5000/site/src/main.js`
 
 ### Port already in use
 
@@ -193,32 +224,31 @@ Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue |
   ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
 ```
 
-Then restart with `.\scripts\run-assignment.ps1`.
-
-### Docker
-
-Docker is **optional** for local dev. The team’s routine Windows workflow is Flask + SQLite via `run-assignment.ps1`. Use `docker compose up` only when Postgres/container parity is explicitly needed.
+Then restart with **One-Command Agent Launch**.
 
 ---
 
-## Frontend-only smoke test (optional)
+## How To Ask An Agent Next Time
 
-For **dungeon client only** (no Flask login/about), some sessions used a static server:
+Best prompt:
 
-```powershell
-cd "c:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\SD-Dungeon-Generator\S3_content"
-& "c:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe" -m http.server 8000
-```
+> Launch the SD site locally from the active worktree using `AGENTS.md`. Use a
+> long-lived visible PowerShell process, disable the Flask reloader, verify
+> `http://127.0.0.1:5000/site/` returns `200`, and give me the URL.
 
-Open: http://127.0.0.1:8000/index.html
+Short prompt that should also work:
 
-Save/load API calls will not work on port 8000. Use the Flask workflow above to inspect login, about, and full integration.
+> Launch the SD site locally so I can edit it.
+
+If the agent only starts the Flask home page, remind it that the dungeon UI is
+at `/site/`.
 
 ---
 
-## Do not
+## Do Not
 
-- Open `S3_content/index.html` via `file://` — ES modules and fetches will break
-- Assume the dungeon lives at `/` — it is at **`/site/`**
-- Commit `.env` or real OAuth secrets
-- Skip env vars when starting `app.py` manually
+- Do not open `S3_content/index.html` via `file://`; ES modules and fetches will break.
+- Do not assume the dungeon lives at `/`; it lives at `/site/`.
+- Do not skip the required env vars.
+- Do not use Docker unless the user explicitly asks for container parity.
+- Do not declare success until `/site/` returns `200` after the server has been running for a few seconds.

@@ -300,6 +300,9 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     gearSlotsTotal,
     gearSlotsUsed,
     spellsKnown: raw.spellsKnown || "",
+    failedSpellKeys: Array.isArray(raw.failedSpellKeys) ? clonePlain(raw.failedSpellKeys) : [],
+    lightSource: raw.lightSource || "",
+    lightRadius: Number.isFinite(Number(raw.lightRadius)) ? Number(raw.lightRadius) : 0,
     languages: languageString,
     gold: money.gold,
     silver: money.silver,
@@ -523,7 +526,7 @@ export function normalizeCharacterState(state) {
   if (!state.inventory) {
     state.inventory = { baseSlots: 10, bonusSlots: 0, usedSlots: 0 };
   }
-  state.inventory.baseSlots = characters.length ? Math.max(0, livingFreeSlots) : 10;
+  state.inventory.baseSlots = characters.length ? Math.max(0, livingFreeSlots) : 0;
   return state;
 }
 

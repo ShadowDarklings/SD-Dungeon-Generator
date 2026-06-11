@@ -94,6 +94,12 @@ export function hydrateDungeonState(raw) {
   state.darkness = {
     pendingDoorKey: state.darkness?.pendingDoorKey || null
   };
+  state.player = {
+    ...state.player,
+    lightSource: state.player?.lightSource || (state.player?.torchLit ? "torch" : ""),
+    lightRadius: Math.max(1, Number(state.player?.lightRadius) || 6),
+    torchLit: state.player?.torchLit !== false
+  };
   state.lockedDoorAction = state.lockedDoorAction?.doorId ? state.lockedDoorAction : null;
   state.visibility = {
     visibleNow,
@@ -204,10 +210,14 @@ export async function updateRun(runId, name, state) {
   return parseJsonResponse(response);
 }
 
-export async function importShadowdarklingsCharacter() {
+export async function importShadowdarklingsCharacter(options = {}) {
   const response = await fetch("/api/shadowdarklings/import", {
     method: "POST",
-    credentials: "same-origin"
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      base_classes_only: options.baseClassesOnly === true
+    })
   });
   const data = await parseJsonResponse(response);
   return typeof data.character_json === "string" ? data.character_json : "";

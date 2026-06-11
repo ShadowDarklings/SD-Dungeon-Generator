@@ -27,7 +27,7 @@ def test_shadowdarklings_import_endpoint_returns_copied_json(client, monkeypatch
 
     monkeypatch.setattr(
         "app.fetch_shadowdarklings_character_json",
-        lambda: '{"name":"Glazkhar","className":"Basilisk Warrior"}'
+        lambda base_classes_only=False: '{"name":"Glazkhar","className":"Basilisk Warrior"}'
     )
 
     response = client.post("/api/shadowdarklings/import")
