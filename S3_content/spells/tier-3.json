@@ -1,0 +1,294 @@
+[
+  {
+    "slug": "animate-dead",
+    "name": "Animate Dead",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "1 day",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You touch one humanoid’s remains, and it rises as a zombie or skeleton under your control.\n\nThe remains must have at least three limbs and its head intact.\n\nThe undead creature acts on your turn. After 1 day, the creature collapses into grave dust.",
+    "paragraphs": [
+      "You touch one humanoid’s remains, and it rises as a zombie or skeleton under your control.",
+      "The remains must have at least three limbs and its head intact.",
+      "The undead creature acts on your turn. After 1 day, the creature collapses into grave dust."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "command",
+    "name": "Command",
+    "tier": 3,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Focus",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You issue a verbal command to one creature in range who can understand you. The command must be one word, such as “kneel.” The target obeys the command for as long as you focus.\n\nIf your command is ever directly harmful to the creature, it may make a Charisma check vs. your last spellcasting check. On a success, the spell ends.",
+    "paragraphs": [
+      "You issue a verbal command to one creature in range who can understand you. The command must be one word, such as “kneel.” The target obeys the command for as long as you focus.",
+      "If your command is ever directly harmful to the creature, it may make a Charisma check vs. your last spellcasting check. On a success, the spell ends."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "dispel-magic",
+    "name": "Dispel Magic",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "End one spell that affects one target you can see in range.",
+    "paragraphs": [
+      "End one spell that affects one target you can see in range."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "fabricate",
+    "name": "Fabricate",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "This spell can't target creatures.\n\nYou turn a tree-sized collection of raw materials into a finished work. For example, you convert a pile of bricks or rocks into a bridge. The finished work converts back to raw materials when the spell ends.",
+    "paragraphs": [
+      "This spell can't target creatures.",
+      "You turn a tree-sized collection of raw materials into a finished work. For example, you convert a pile of bricks or rocks into a bridge. The finished work converts back to raw materials when the spell ends."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "fireball",
+    "name": "Fireball",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You hurl a small flame that erupts into a fiery blast. All creatures in a near-sized cube around where the flame lands take 4d6 damage.",
+    "paragraphs": [
+      "You hurl a small flame that erupts into a fiery blast. All creatures in a near-sized cube around where the flame lands take 4d6 damage."
+    ],
+    "damage": [
+      {
+        "expression": "4d6",
+        "display": "4d6",
+        "context": "All creatures in a near-sized cube around where the flame lands take 4d6 damage."
+      }
+    ]
+  },
+  {
+    "slug": "fly",
+    "name": "Fly",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "5 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "Your feet lift from the ground, and you take to the air like a hummingbird. You can fly near for the spell's duration and are able to hover in place.",
+    "paragraphs": [
+      "Your feet lift from the ground, and you take to the air like a hummingbird. You can fly near for the spell's duration and are able to hover in place."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "gaseous-form",
+    "name": "Gaseous Form",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You and your gear turn into a cloud of smoke for the spell's duration.\n\nYou can fly and pass through any gap that smoke could. You can sense the terrain and any movement around you out to a near distance.\n\nYou can't cast spells while in this form.",
+    "paragraphs": [
+      "You and your gear turn into a cloud of smoke for the spell's duration.",
+      "You can fly and pass through any gap that smoke could. You can sense the terrain and any movement around you out to a near distance.",
+      "You can't cast spells while in this form."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "illusion",
+    "name": "Illusion",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You create a convincing visible and audible illusion that fills up to a near-sized cube in range.\n\nThe illusion cannot cause harm, but creatures who believe the illusion is real react to it as though it were.\n\nA creature who inspects the illusion from afar must pass a Wisdom check vs. your last spellcasting check to perceive the false nature of the illusion.\n\nTouching the illusion also reveals its false nature.",
+    "paragraphs": [
+      "You create a convincing visible and audible illusion that fills up to a near-sized cube in range.",
+      "The illusion cannot cause harm, but creatures who believe the illusion is real react to it as though it were.",
+      "A creature who inspects the illusion from afar must pass a Wisdom check vs. your last spellcasting check to perceive the false nature of the illusion.",
+      "Touching the illusion also reveals its false nature."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "lay-to-rest",
+    "name": "Lay To Rest",
+    "tier": 3,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You instantly send an undead creature you touch to its final afterlife, destroying it utterly.\n\nYou can target an undead creature of LV 9 or less.",
+    "paragraphs": [
+      "You instantly send an undead creature you touch to its final afterlife, destroying it utterly.",
+      "You can target an undead creature of LV 9 or less."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "lightning-bolt",
+    "name": "Lightning Bolt",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You shoot a blue-white ray of lightning from your hands, hitting all creatures in a straight line out to a far distance.\n\nCreatures struck by the lightning take 3d6 damage.",
+    "paragraphs": [
+      "You shoot a blue-white ray of lightning from your hands, hitting all creatures in a straight line out to a far distance.",
+      "Creatures struck by the lightning take 3d6 damage."
+    ],
+    "damage": [
+      {
+        "expression": "3d6",
+        "display": "3d6",
+        "context": "Creatures struck by the lightning take 3d6 damage."
+      }
+    ]
+  },
+  {
+    "slug": "magic-circle",
+    "name": "Magic Circle",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You conjure a circle of runes out to near-sized cube centered on yourself and name a type of creature (for example, demons).\n\nFor the spell's duration, creatures of the chosen type cannot attack or cast a hostile spell on anyone inside the circle.\n\nThe chosen creatures also can’t possess, compel, or beguile anyone inside the circle.",
+    "paragraphs": [
+      "You conjure a circle of runes out to near-sized cube centered on yourself and name a type of creature (for example, demons).",
+      "For the spell's duration, creatures of the chosen type cannot attack or cast a hostile spell on anyone inside the circle.",
+      "The chosen creatures also can’t possess, compel, or beguile anyone inside the circle."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "mass-cure",
+    "name": "Mass Cure",
+    "tier": 3,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "All allies within near range of you regain 2d6 hit points.",
+    "paragraphs": [
+      "All allies within near range of you regain 2d6 hit points."
+    ],
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "All allies within near range of you regain 2d6 hit points."
+      }
+    ]
+  },
+  {
+    "slug": "rebuke-unholy",
+    "name": "Rebuke Unholy",
+    "tier": 3,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You rebuke creatures who oppose your alignment, forcing them to flee. You must present a holy symbol to cast this spell.\n\nIf you are lawful or neutral, this spell affects demons, devils, and outsiders. If you are chaotic, this spell affects angels and natural creatures of the wild.\n\nAffected creatures within near of you must make a CHA check vs. your spellcasting check. If a creature fails by 10+ points and is equal to or less than your level, it is destroyed. Otherwise, on a fail, it flees from you for 5 rounds.",
+    "paragraphs": [
+      "You rebuke creatures who oppose your alignment, forcing them to flee. You must present a holy symbol to cast this spell.",
+      "If you are lawful or neutral, this spell affects demons, devils, and outsiders. If you are chaotic, this spell affects angels and natural creatures of the wild.",
+      "Affected creatures within near of you must make a CHA check vs. your spellcasting check. If a creature fails by 10+ points and is equal to or less than your level, it is destroyed. Otherwise, on a fail, it flees from you for 5 rounds."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "restoration",
+    "name": "Restoration",
+    "tier": 3,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "With the touch of your hands, you expunge curses and illnesses. One curse, illness, or affliction of your choice affecting the target creature ends.",
+    "paragraphs": [
+      "With the touch of your hands, you expunge curses and illnesses. One curse, illness, or affliction of your choice affecting the target creature ends."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "sending",
+    "name": "Sending",
+    "tier": 3,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Unlimited",
+    "rangeBand": "unlimited",
+    "description": "You send a brief mental message to any creature with whom you are familiar who is on the same plane.",
+    "paragraphs": [
+      "You send a brief mental message to any creature with whom you are familiar who is on the same plane."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "speak-with-dead",
+    "name": "Speak With Dead",
+    "tier": 3,
+    "classes": [
+      "priest",
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "A dead body you touch answers your questions in a distant, wheezing voice.\n\nYou can ask the dead body up to three yes or no questions (one at a time). The GM truthfully answers \"yes\" or \"no\" to each.\n\nIf you cast this spell more than once in 24 hours, treat a failed spellcasting check for it as a critical failure instead.",
+    "paragraphs": [
+      "A dead body you touch answers your questions in a distant, wheezing voice.",
+      "You can ask the dead body up to three yes or no questions (one at a time). The GM truthfully answers \"yes\" or \"no\" to each.",
+      "If you cast this spell more than once in 24 hours, treat a failed spellcasting check for it as a critical failure instead."
+    ],
+    "damage": []
+  }
+]

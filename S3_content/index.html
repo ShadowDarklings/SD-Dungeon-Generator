@@ -10,67 +10,53 @@
     <main class="layout">
       <section class="controls-panel">
         <h1 class="site-title">ShadowSpawner</h1>
-        <section id="character-summary-panel" class="character-summary-panel" aria-label="Imported characters summary">
-          <button id="import-character-btn" type="button">Import ShadowDarklings Character</button>
-          <div id="characters-empty" class="characters-empty">No characters imported yet.</div>
-          <div id="characters-list" class="characters-list"></div>
-        </section>
         <section id="dungeon-tab-panel" class="tab-panel" role="tabpanel">
-          <label>
-            Level (1-10)
-            <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
-          </label>
-          <label>
-            Seed
-            <input id="seed-input" type="number" value="50631" />
-          </label>
-          <button id="generate-btn" type="button">Generate Dungeon</button>
           <div class="save-load-controls" aria-label="Saved runs">
             <button id="save-btn" type="button">Save</button>
             <button id="load-btn" type="button">Load</button>
+            <button id="multiplayer-btn" type="button">Invite Players</button>
           </div>
-          <button id="light-torch-btn" type="button">Light New Torch</button>
-          <button id="torch-out-btn" type="button">Torch went out!</button>
-          <section id="wandering-section" class="wandering-section">
-            <h2>Wandering Monsters</h2>
-            <div class="wandering-controls">
-              <input id="wandering-numerator" type="number" min="0" max="99" value="1" aria-label="Wandering monster chance numerator" data-autosize-field data-size-chars="2" />
-              <span>in</span>
-              <input id="wandering-denominator" type="number" min="0" max="99" value="6" aria-label="Wandering monster chance denominator" data-autosize-field data-size-chars="2" />
-            </div>
-          </section>
-          <button id="torch-btn" type="button">Toggle Torch</button>
+          <div class="sidebar-row sidebar-row--wrap">
+            <button id="generate-btn" type="button">Generate Dungeon</button>
+            <label>
+              Seed
+              <input id="seed-input" type="number" value="50631" />
+            </label>
+          </div>
+          <label>
+            Dungeon Level
+            <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
+          </label>
+          <div class="sidebar-row sidebar-row--wrap">
+            <button id="torch-out-btn" type="button">Torch went out!</button>
+            <button id="light-torch-btn" type="button">Light New Torch</button>
+            <button id="light-lantern-btn" type="button" hidden>Light Lantern</button>
+          </div>
+          <button id="torch-btn" type="button">Hide Torch</button>
           <label class="toggle">
             <input id="blackout-toggle" type="checkbox" checked />
             Full blackout when torch is out
           </label>
-          <p>Status: <span id="status-text">Ready.</span></p>
-          <div id="locked-door-actions" class="locked-door-actions" hidden>
-            <button id="pick-lock-btn" type="button">Pick Lock DC 8</button>
-            <button id="break-door-btn" type="button">Break DC 8</button>
-          </div>
-          <p>Connectivity check: <strong id="connectivity-text">unknown</strong></p>
-
-          <h2>Search</h2>
-          <div class="search-controls">
-            <input id="search-modifier-input" type="number" min="-99" max="99" value="0" data-autosize-field data-size-chars="3" />
-            <button id="search-btn" type="button">Search</button>
-          </div>
-          <p>Search result: <span id="search-result" title="">none</span></p>
+          <section id="character-summary-panel" class="character-summary-panel" aria-label="Imported characters summary">
+            <div class="character-import-toolbar">
+              <button id="import-character-btn" type="button">Import from ShadowDarklings</button>
+              <label class="base-classes-toggle" title="Use only ShadowDark core sources">
+                <input id="base-classes-only-toggle" type="checkbox" />
+                <span>Base Classes Only</span>
+              </label>
+            </div>
+            <div id="characters-empty" class="characters-empty">No characters imported yet.</div>
+            <div id="characters-list" class="characters-list"></div>
+          </section>
 
           <h2>Carried treasure</h2>
           <p id="inventory-slots" class="inventory-slots">0 / 10 slots</p>
           <ul id="loot-list"></ul>
           <p>Total Value: <span id="total-value">0</span> gp</p>
 
-          <h2>Loot</h2>
+          <h2>Dungeon Features</h2>
           <div id="room-loot-panel" class="room-loot-panel">
-            No loot in this room.
-          </div>
-
-          <h2>Monsters</h2>
-          <div id="monster-panel" class="monster-panel">
-            No monsters in this room.
+            No revealed dungeon features in this room.
           </div>
 
           <h2>Revealed Traps</h2>
@@ -78,10 +64,46 @@
             No revealed traps in this room.
           </div>
 
+          <h2>Search</h2>
+          <div class="search-controls">
+            <input id="search-modifier-input" type="number" min="-99" max="99" value="0" data-autosize-field data-size-chars="3" />
+            <button id="search-btn" type="button">Search</button>
+            <span id="locked-door-actions" class="locked-door-actions" hidden>
+              <button id="pick-lock-btn" type="button">Pick Lock DC 8</button>
+              <button id="break-door-btn" type="button">Smash DC 8</button>
+            </span>
+          </div>
+
+          <h2>Wandering Monsters</h2>
+          <section id="wandering-section" class="wandering-section">
+            <div class="wandering-controls">
+              <input id="wandering-numerator" type="number" min="0" max="99" value="1" aria-label="Wandering monster chance numerator" data-autosize-field data-size-chars="2" />
+              <span>in</span>
+              <input id="wandering-denominator" type="number" min="0" max="99" value="6" aria-label="Wandering monster chance denominator" data-autosize-field data-size-chars="2" />
+            </div>
+          </section>
+
+          <h2>Monsters</h2>
+          <div id="monster-panel" class="monster-panel">
+            No monsters in this room.
+          </div>
+
+          <h2>Dice Roller</h2>
+          <section class="damage-panel" aria-live="polite">
+            <div class="damage-result-row">
+              <span id="damage-result" class="damage-result-value">none</span>
+              <button id="damage-expand-btn" type="button" hidden>expand</button>
+            </div>
+            <p id="damage-context" class="damage-context">Click a damage value from a spell, attack, monster, or trap.</p>
+            <div id="damage-detail" class="damage-detail" hidden></div>
+          </section>
+
+          <p>Status: <span id="status-text">Ready.</span></p>
+
           <p class="hint">
             Controls: arrow keys move player, S searches, G gets treasure, L leaves carried treasure,
-            and D disarms a revealed trap. Click map tokens to interact with monsters, doors, features,
-            and traps. Left-click and drag the map to pan; use the mouse wheel to zoom.
+            and click a revealed trap's Disarm? button to disarm it. Click map tokens to interact with
+            monsters, doors, features, and traps. Left-click and drag the map to pan; use the mouse wheel to zoom.
           </p>
           <nav class="site-links" aria-label="Project links">
             <a href="about.html">Back to About</a>
@@ -126,24 +148,63 @@
       </section>
     </div>
 
+    <div id="multiplayer-modal" class="modal-backdrop" hidden>
+      <section class="modal-card multiplayer-modal" role="dialog" aria-modal="true" aria-labelledby="multiplayer-title">
+        <h2 id="multiplayer-title">Invite Players</h2>
+        <p id="multiplayer-status" class="modal-status">Create a host link, or paste a friend's code to join their dungeon.</p>
+
+        <section class="multiplayer-section" aria-labelledby="multiplayer-host-heading">
+          <h3 id="multiplayer-host-heading">Host This Dungeon</h3>
+          <p class="multiplayer-copy">Creates a shared session from the current dungeon state. Backend sync will own the live state once connected.</p>
+          <button id="multiplayer-create-host-btn" type="button">Create Host Link</button>
+          <label id="multiplayer-invite-row" hidden>
+            Invite link
+            <div class="multiplayer-link-row">
+              <input id="multiplayer-invite-link" type="text" readonly />
+              <button id="multiplayer-copy-link-btn" type="button">Copy</button>
+            </div>
+          </label>
+        </section>
+
+        <section class="multiplayer-section" aria-labelledby="multiplayer-join-heading">
+          <h3 id="multiplayer-join-heading">Join A Host</h3>
+          <label>
+            Invite code or link
+            <input id="multiplayer-join-code" type="text" placeholder="Paste code or host link" autocomplete="off" />
+          </label>
+          <button id="multiplayer-join-btn" type="button">Join Host</button>
+        </section>
+
+        <section class="multiplayer-section" aria-labelledby="multiplayer-party-heading">
+          <h3 id="multiplayer-party-heading">Party Control</h3>
+          <div id="multiplayer-presence-list" class="multiplayer-presence-list" data-testid="multiplayer-presence-list">
+            No connected players yet.
+          </div>
+          <div class="multiplayer-assignment-grid">
+            <label>
+              Player
+              <select id="multiplayer-player-select"></select>
+            </label>
+            <label>
+              Dot
+              <select id="multiplayer-character-select"></select>
+            </label>
+            <button id="multiplayer-assign-btn" type="button">Assign Dot</button>
+          </div>
+        </section>
+
+        <div class="modal-actions">
+          <button id="multiplayer-refresh-btn" type="button">Refresh</button>
+          <button id="multiplayer-close" type="button">Close</button>
+        </div>
+      </section>
+    </div>
+
     <div id="loot-complete-modal" class="modal-backdrop" hidden>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="loot-complete-title">
         <h2 id="loot-complete-title">Dungeon fully Looted!</h2>
         <p>Every treasure currently in this dungeon has been collected.</p>
         <button id="loot-complete-close" type="button">Close</button>
-      </section>
-    </div>
-
-    <div id="character-import-modal" class="modal-backdrop" hidden>
-      <section class="modal-card character-import-card" role="dialog" aria-modal="true" aria-labelledby="character-import-title">
-        <h2 id="character-import-title">Import ShadowDarklings Character</h2>
-        <p>Paste ShadowDarklings JSON for one character or a list of characters.</p>
-        <textarea id="character-import-input" class="character-import-input" rows="12" spellcheck="false"></textarea>
-        <p id="character-import-status" class="modal-status"></p>
-        <div class="modal-actions">
-          <button id="character-import-submit" type="button">Import</button>
-          <button id="character-import-close" type="button">Close</button>
-        </div>
       </section>
     </div>
 
@@ -154,6 +215,21 @@
           <button id="character-sheet-close" type="button">Close</button>
         </div>
         <div id="character-sheet-content" class="character-sheet-content"></div>
+      </section>
+    </div>
+
+    <div id="spell-detail-modal" class="modal-backdrop" hidden>
+      <section class="modal-card spell-detail-modal" role="dialog" aria-modal="true" aria-labelledby="spell-detail-title">
+        <div class="spell-detail-header">
+          <h2 id="spell-detail-title">SPELL</h2>
+          <button id="spell-detail-close" type="button">Close</button>
+        </div>
+        <div class="spell-detail-body">
+          <p id="spell-detail-meta" class="spell-detail-meta"></p>
+          <p class="spell-detail-field"><strong>Duration:</strong> <span id="spell-detail-duration"></span></p>
+          <p class="spell-detail-field"><strong>Range:</strong> <span id="spell-detail-range"></span></p>
+          <div id="spell-detail-body" class="spell-detail-copy"></div>
+        </div>
       </section>
     </div>
 

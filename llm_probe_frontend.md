@@ -1,16 +1,17 @@
-# LLM Security Probe — Frontend Layer (Charles)
+﻿# LLM Security Probe - Frontend Layer
 
-This document contains the conversation from the LLM security probe of our frontend/nginx security headers and CSP, followed by my engineering reflections.
+**Name:** Charles
+**Role:** Frontend
+**Project:** ShadowSpawner / SD Dungeon Generator
 
-## Part 1: The Audit Prompt & Input
+This is a cleaned-up local draft of the frontend LLM probe. It corrects the earlier claim that `S3_content/index.html` had an inline `onclick` handler. I checked the current branch and did not find inline event-handler attributes in the main dungeon page.
 
-### Prompt Supplied:
+## Prompt
 
-"I'm hardening the frontend of a Flask app — a procedural dungeon generator with a canvas-based map UI. Here's our nginx security header config and CSP. Evaluate against best practices: (a) what's missing for our case, (b) what's too strict and would break us, (c) what an attacker could still do. Tell me what you'd change and why."
+I am hardening the frontend of a Flask app. The app is a Shadowdark-inspired procedural dungeon generator. The browser-facing app includes Flask-rendered login/register/about pages and a canvas-heavy dungeon UI under `/site/`.
 
-### Input Configuration:
+Here is our nginx security header config:
 
-**nginx security headers (from `nginx/nginx.conf`):**
 ```nginx
 add_header Strict-Transport-Security "max-age=31536000" always;
 add_header X-Frame-Options "DENY" always;
@@ -19,77 +20,74 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Content-Security-Policy "default-src 'self'" always;
 ```
 
-**Frontend structure:**
-- `S3_content/index.html` — main dungeon UI (canvas-based map, character import modal)
-- `S3_content/styles.css` — 975 lines of dungeon UI styling (external file, no inline styles)
-- `S3_content/src/` — 12 external JavaScript modules (main.js, render.js, characters.js, interactions.js, visibility.js, etc.)
-- All JS is loaded via `<script>` tags referencing external files, no inline `<script>` blocks
-- One inline `onclick` attribute on a button element
-- Flask templates: login, register, base templates use Jinja2
+Here is what loads in the browser:
 
----
+- Flask templates use `/static/css/styles.css` and `/static/js/forms.js`.
+- `templates/base.html` loads Bootstrap CSS from `https://cdn.jsdelivr.net`.
+- `/site/` serves `S3_content/index.html`, `S3_content/styles.css`, `S3_content/src/main.js`, local JSON data, fonts, and image assets.
+- `S3_content/index.html` uses an external module script, not inline scripts.
+- The dungeon client uses `addEventListener()` in JavaScript rather than inline `onclick` attributes.
+- `S3_content/about.html` has an inline `<style>` block.
+- The frontend calls same-origin API routes such as `/api/runs` and `/api/shadowdarklings/import`.
 
-## Part 2: LLM Audit Response
+Evaluate against frontend security best practices:
 
-### (a) What's missing for our case
+(a) What is missing for our case?
+(b) What is too strict and would break us?
+(c) What could an attacker still do despite these headers?
+Tell me what you would change and why.
 
-1. **`Permissions-Policy` header is absent.** Your dungeon generator doesn't use the camera, microphone, geolocation, or payment APIs, but without `Permissions-Policy` (formerly `Feature-Policy`), a cross-origin iframe (if framing were ever allowed) could request these permissions. Adding `Permissions-Policy: camera=(), microphone=(), geolocation=()` explicitly denies these capabilities.
+## LLM Response Summary
 
-2. **CSP is incomplete for your actual frontend.** `default-src 'self'` is a strong baseline but you should break it out:
-   - `script-src 'self'` — blocks inline scripts (good, since you use external JS files)
-   - `style-src 'self'` — blocks inline styles (safe since your CSS is external)
-   - `img-src 'self' data:` — your canvas likely uses `toDataURL()` for image export, which generates `data:` URIs
-   - `connect-src 'self'` — allows `fetch()`/`XMLHttpRequest` to your own API only
-   - `font-src 'self'` — if you use web fonts
-   - `frame-ancestors 'none'` — CSP equivalent of `X-Frame-Options: DENY` (more modern)
+The LLM said the existing headers are a reasonable start, especially HSTS, `X-Frame-Options`, `nosniff`, and `Referrer-Policy`. It recommended making the CSP more explicit instead of relying on `default-src` for every resource type.
 
-3. **No `X-Permitted-Cross-Domain-Policies` header.** Prevents Adobe Flash/PDF from loading cross-domain content. Low priority (Flash is dead), but a free defense-in-depth header.
+Missing or useful additions:
 
-4. **HSTS is missing `includeSubDomains`.** If you ever deploy on a real domain, subdomains without HSTS could be used for cookie injection attacks. For localhost this doesn't matter, but it's best practice to include it.
+- Add `frame-ancestors 'none'` to CSP as the modern CSP equivalent of `X-Frame-Options: DENY`.
+- Add `base-uri 'self'` to reduce the impact of injected `<base>` tags.
+- Add `form-action 'self'` so injected forms cannot submit credentials or CSRF tokens to another origin.
+- Add `connect-src 'self'` because the client fetches same-origin JSON and API routes.
+- Add `Permissions-Policy` to disable browser APIs the app does not use, such as camera, microphone, geolocation, and payment.
 
-### (b) What's too strict and would break us
+Things that were too strict before the fix:
 
-1. **`default-src 'self'` will break inline event handlers.** You mentioned one inline `onclick` attribute on a button. CSP's `script-src 'self'` (inherited from `default-src 'self'`) blocks all inline JavaScript, including `onclick`, `oninput`, `onchange` attributes. The fix is either:
-   - Refactor: move the handler to an `addEventListener()` call in your external JS (recommended)
-   - Add a `'unsafe-hashes'` directive with the specific hash of the inline handler (partial fix)
-   - Add `'unsafe-inline'` to `script-src` (defeats the purpose of CSP)
+- `default-src 'self'` blocked Bootstrap CSS from `cdn.jsdelivr.net`.
+- `default-src 'self'` also blocked inline styles in `S3_content/about.html` because `style-src` fell back to `default-src`.
+- A strict `style-src 'self'` would work only after Bootstrap is vendored locally and inline styles are moved into external CSS.
 
-2. **`Referrer-Policy: strict-origin-when-cross-origin` may over-share on same-origin navigations.** For your dungeon app this is fine — same-origin requests send the full URL (including `/api/runs/123`), but cross-origin requests (like the OAuth redirect to GitHub) only send the origin (`https://localhost`). This is actually the right policy for your OAuth flow.
+What attackers could still do:
 
-### (c) What an attacker could still do
+- CSP does not prevent CSRF by itself. Our forms and API routes still need CSRF/session protections.
+- CSP does not prevent broken access control, such as a user requesting another user's saved run.
+- CSP does not automatically make saved dungeon data safe. If the frontend renders attacker-controlled data with `innerHTML`, same-origin JavaScript can still create DOM-based XSS.
+- HSTS does not protect the very first HTTP visit before the browser has learned the HSTS rule.
+- Headers do not protect against compromised dependencies or a malicious collaborator changing nginx, compose, or JavaScript code.
 
-1. **XSS through stored dungeon data.** If a user's `state_json` (saved dungeon state) contains malicious content and your frontend renders any of it as HTML (monster names, loot descriptions), CSP won't prevent DOM-based XSS where the script is constructed from trusted `'self'` JavaScript manipulating attacker-controlled data. The fix is output encoding in your rendering code.
+## What I Would Change
 
-2. **Clickjacking via browser extensions.** `X-Frame-Options: DENY` prevents iframe embedding, but a malicious browser extension has full access to the page DOM and can overlay UI elements. No header protects against this.
+My preferred production fix is to keep the policy strict and make the frontend match it:
 
-3. **Session fixation on first visit.** Your HTTP→HTTPS redirect on port 80 briefly exposes the user to an unencrypted connection. An attacker on the same network could inject a session cookie during that brief HTTP window. HSTS mitigates this after the first visit, but the very first request is still vulnerable.
+```nginx
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+```
 
-4. **OAuth token theft via open redirect.** If your `/login` or `/register` page accepts a `?next=` parameter for post-login redirect without validating the destination, an attacker could craft a URL like `/login?next=http://evil.com` that steals the OAuth code. CSP and headers don't prevent this — it's an application-layer issue.
+To make that work, I would vendor Bootstrap locally or replace it with local CSS, and move the inline styles from `S3_content/about.html` into an external stylesheet.
 
----
+For this branch, I implemented the smallest assignment-safe change first and kept the rest explicit:
 
-## Part 3: Engineering Reflection
+```nginx
+default-src 'self'; script-src 'self'; style-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+```
 
-### What I'm acting on
+I also moved the `S3_content/about.html` inline styles into `S3_content/about.css`, which let the site work without adding `'unsafe-inline'`.
 
-1. **Refactoring the inline `onclick` handler.** There's only one inline handler in `index.html`. Moving it to an `addEventListener()` in the appropriate JS module is trivial and lets us keep strict CSP without `'unsafe-inline'`. This is the right fix.
+## What I Would Push Back On
 
-2. **Breaking out the CSP directive.** Instead of just `default-src 'self'`, I'd expand to:
-   ```
-   default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'
-   ```
-   The `img-src 'self' data:` is important because our canvas renderer might use `toDataURL()` for map screenshots, and a strict `img-src 'self'` would block those.
+I would not add HSTS preload for this assignment. We are using `localhost` and a self-signed certificate. Preload belongs to a real public domain with stable HTTPS and a certificate renewal plan.
 
-3. **Adding `Permissions-Policy`.** Free header, no downside. Our dungeon generator has zero reason to access the camera or microphone.
+I also would not add inline event handlers. The current dungeon UI already uses external JavaScript event listeners, which is better for CSP and easier to audit.
 
-### What I'm pushing back on
+## What Surprised Me
 
-1. **`includeSubDomains` on HSTS.** We're on `localhost` with a self-signed cert. Adding `includeSubDomains` has no effect and could confuse future developers who test on subdomains. Not worth the risk for our scope.
-
-2. **`X-Permitted-Cross-Domain-Policies`.** Flash is dead. Adding legacy headers for Flash/PDF cross-domain policies is noise in our config. I'd skip it.
-
-### What surprised me
-
-The XSS-through-stored-data attack was eye-opening. I'd been focused on headers and CSP as the security surface, but the LLM pointed out that our `state_json` travels from user input → API → Postgres → API → frontend rendering. If any of our rendering code uses `innerHTML` with data from `state_json` (like monster names or loot descriptions), CSP doesn't help because the executing script is our own `main.js` — it's "self" and trusted. The attack comes from the data, not the script source. I checked our rendering code and we use `textContent` for most labels, but there are a few places where monster stat blocks build HTML strings. Those need review.
-
-The composition problem between my CSP and the rest of the stack is also clearer now. Mario's nginx sets the headers, but whether `script-src 'self'` works depends entirely on how I write my JavaScript. If I add one `onclick` handler in the HTML, the whole CSP breaks. The header is infrastructure but the constraint is on my code.
+The surprising part was that `default-src 'self'` looks simple and safe, but it quietly breaks real browser assets unless the frontend inventory is accurate. In our case, the main dungeon page was close to CSP-friendly, but the Flask shell still depended on Bootstrap from a CDN and the static about page used inline CSS. The header is set by nginx, but whether it works is very much frontend work, which is why I verified it against the live Docker stack before finalizing the fix.

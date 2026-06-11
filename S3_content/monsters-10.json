@@ -1,0 +1,1860 @@
+[
+  {
+    "slug": "archmage",
+    "name": "Archmage",
+    "level": 10,
+    "ac": "12",
+    "hp": "44",
+    "attack": "2 spell +7",
+    "movement": "near",
+    "stats": {
+      "STR": "-1",
+      "DEX": "+2",
+      "CON": "-1",
+      "INT": "+4",
+      "WIS": "+2",
+      "CHA": "+1"
+    },
+    "alignment": "L",
+    "damage": [],
+    "abilityDetails": [
+      {
+        "name": "Death Bolt (INT Spell)",
+        "text": "DC 15. One target of LV 9 or less within near DC 15 CON or go to 0 HP.",
+        "damage": []
+      },
+      {
+        "name": "Enervate (INT Spell)",
+        "text": "DC 14. Focus. One target within near is stupefied for the duration.",
+        "damage": []
+      },
+      {
+        "name": "Fireblast (INT Spell)",
+        "text": "DC 14. 4d6 damage to all within a near- sized cube within far.",
+        "damage": [
+          {
+            "expression": "4d6",
+            "display": "4d6",
+            "context": "4d6 damage to all within a near- sized cube within far."
+          }
+        ]
+      },
+      {
+        "name": "Float (INT Spell)",
+        "text": "Self. DC 14. Fly double near for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Mithralskin (INT Spell)",
+        "text": "Self. DC 14. AC becomes 18 for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Void Step (INT Spell)",
+        "text": "Self and up to 4 willing targets. DC 15. Teleport up to 100 miles.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Archmage",
+    "**AC**": "12",
+    "**HP**": "44",
+    "**ATK**": "2 spell +7",
+    "**MV**": "near",
+    "**S**": "-1",
+    "**D**": "+2",
+    "**C**": "-1",
+    "**I**": "+4",
+    "**W**": "+2",
+    "**CH**": "+1",
+    "**AL**": "L",
+    "**LV**": "10",
+    "abilities": {
+      "**Death Bolt (INT Spell)**": "DC 15. One target of LV 9 or less within near DC 15 CON or go to 0 HP.",
+      "**Enervate (INT Spell)**": "DC 14. Focus. One target within near is stupefied for the duration.",
+      "**Fireblast (INT Spell)**": "DC 14. 4d6 damage to all within a near- sized cube within far.",
+      "**Float (INT Spell)**": "Self. DC 14. Fly double near for 5 rounds.",
+      "**Mithralskin (INT Spell)**": "Self. DC 14. AC becomes 18 for 5 rounds.",
+      "**Void Step (INT Spell)**": "Self and up to 4 willing targets. DC 15. Teleport up to 100 miles."
+    }
+  },
+  {
+    "slug": "chimera",
+    "name": "Chimera",
+    "level": 10,
+    "ac": "16",
+    "hp": "49",
+    "attack": "4 rend +7 (2d8) and 1 fire breath",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+4",
+      "CON": "+4",
+      "INT": "-3",
+      "WIS": "+2",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "4 rend +7 (2d8) and 1 fire breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Fire Breath",
+        "text": "Fills a near-sized cube extending from chimera. DC 15 DEX or 4d6 damage.",
+        "damage": [
+          {
+            "expression": "4d6",
+            "display": "4d6",
+            "context": "DC 15 DEX or 4d6 damage."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Chimera",
+    "**AC**": "16",
+    "**HP**": "49",
+    "**ATK**": "4 rend +7 (2d8) and 1 fire breath",
+    "**MV**": "double near (fly)",
+    "**S**": "+5",
+    "**D**": "+4",
+    "**C**": "+4",
+    "**I**": "-3",
+    "**W**": "+2",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "10",
+    "abilities": {
+      "**Fire Breath**": "Fills a near-sized cube extending from chimera. DC 15 DEX or 4d6 damage."
+    }
+  },
+  {
+    "slug": "djinni",
+    "name": "Djinni",
+    "level": 10,
+    "ac": "14",
+    "hp": "48",
+    "attack": "3 scimitar +7 (1d12) or 1 whirlwind",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+4",
+      "CON": "+3",
+      "INT": "+4",
+      "WIS": "+3",
+      "CHA": "+3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d12",
+        "display": "1d12",
+        "context": "3 scimitar +7 (1d12) or 1 whirlwind"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Whirlwind",
+        "text": "Transform into a lashing tornado. All enemies within near DC 18 DEX or thrown 2d100 feet in a random direction.",
+        "damage": [
+          {
+            "expression": "2d100",
+            "display": "2d100",
+            "context": "All enemies within near DC 18 DEX or thrown 2d100 feet in a random direction."
+          }
+        ]
+      },
+      {
+        "name": "Wish",
+        "text": "Cast wish once a week for a mortal, no spellcasting check.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Djinni",
+    "**AC**": "14",
+    "**HP**": "48",
+    "**ATK**": "3 scimitar +7 (1d12) or 1 whirlwind",
+    "**MV**": "double near (fly)",
+    "**S**": "+4",
+    "**D**": "+4",
+    "**C**": "+3",
+    "**I**": "+4",
+    "**W**": "+3",
+    "**CH**": "+3",
+    "**AL**": "N",
+    "**LV**": "10",
+    "abilities": {
+      "**Impervious**": "Only damaged by magical sources.",
+      "**Whirlwind**": "Transform into a lashing tornado. All enemies within near DC 18 DEX or thrown 2d100 feet in a random direction.",
+      "**Wish**": "Cast wish once a week for a mortal, no spellcasting check."
+    }
+  },
+  {
+    "slug": "giant-cloud",
+    "name": "Giant, Cloud",
+    "level": 10,
+    "ac": "15 (leather)",
+    "hp": "48",
+    "attack": "3 morningstar +9 (2d10)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+4",
+      "CON": "+3",
+      "INT": "+3",
+      "WIS": "+3",
+      "CHA": "+3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "3 morningstar +9 (2d10)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Alert",
+        "text": "ADV on checks to detect sneaking or hiding creatures.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Giant, Cloud",
+    "**AC**": "15 (leather)",
+    "**HP**": "48",
+    "**ATK**": "3 morningstar +9 (2d10)",
+    "**MV**": "double near",
+    "**S**": "+5",
+    "**D**": "+4",
+    "**C**": "+3",
+    "**I**": "+3",
+    "**W**": "+3",
+    "**CH**": "+3",
+    "**AL**": "N",
+    "**LV**": "10",
+    "abilities": {
+      "**Alert**": "ADV on checks to detect sneaking or hiding creatures."
+    }
+  },
+  {
+    "slug": "golem-iron",
+    "name": "Golem, Iron",
+    "level": 10,
+    "ac": "19",
+    "hp": "49",
+    "attack": "3 slam +8 (2d8) or 1 poison breath",
+    "movement": "near",
+    "stats": {
+      "STR": "+5",
+      "DEX": "-1",
+      "CON": "+4",
+      "INT": "-2",
+      "WIS": "+0",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "3 slam +8 (2d8) or 1 poison breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Golem",
+        "text": "Immune to damage from cold or non-magical sources. Healed by fire.",
+        "damage": []
+      },
+      {
+        "name": "Poison Breath",
+        "text": "All within near, DC 15 CON or 8d6 damage.",
+        "damage": [
+          {
+            "expression": "8d6",
+            "display": "8d6",
+            "context": "All within near, DC 15 CON or 8d6 damage."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Golem, Iron",
+    "**AC**": "19",
+    "**HP**": "49",
+    "**ATK**": "3 slam +8 (2d8) or 1 poison breath",
+    "**MV**": "near",
+    "**S**": "+5",
+    "**D**": "-1",
+    "**C**": "+4",
+    "**I**": "-2",
+    "**W**": "+0",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "10",
+    "abilities": {
+      "**Golem**": "Immune to damage from cold or non-magical sources. Healed by fire.",
+      "**Poison Breath**": "All within near, DC 15 CON or 8d6 damage."
+    }
+  },
+  {
+    "slug": "mummy",
+    "name": "Mummy",
+    "level": 10,
+    "ac": "13",
+    "hp": "47",
+    "attack": "3 rot touch +8 (1d10 + necrosis)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+0",
+      "CON": "+2",
+      "INT": "+3",
+      "WIS": "+2",
+      "CHA": "+3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "3 rot touch +8 (1d10 + necrosis)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Supreme Undead",
+        "text": "Immune to morale checks. Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Desiccated",
+        "text": "Can be damaged by fire. Takes x2 damage from it.",
+        "damage": []
+      },
+      {
+        "name": "Necrosis",
+        "text": "DC 15 CON or drop to 0 HP. Healing spells are DC 15 to cast on target while at 0 HP due to this effect.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Mummy",
+    "**AC**": "13",
+    "**HP**": "47",
+    "**ATK**": "3 rot touch +8 (1d10 + necrosis)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+0",
+    "**C**": "+2",
+    "**I**": "+3",
+    "**W**": "+2",
+    "**CH**": "+3",
+    "**AL**": "C",
+    "**LV**": "10",
+    "abilities": {
+      "**Supreme Undead**": "Immune to morale checks. Only damaged by magical sources.",
+      "**Desiccated**": "Can be damaged by fire. Takes x2 damage from it.",
+      "**Necrosis**": "DC 15 CON or drop to 0 HP. Healing spells are DC 15 to cast on target while at 0 HP due to this effect."
+    }
+  },
+  {
+    "slug": "remorhaz",
+    "name": "Remorhaz",
+    "level": 10,
+    "ac": "16",
+    "hp": "47",
+    "attack": "3 bite +7 (2d6 + swallow)",
+    "movement": "near (burrow)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "3 bite +7 (2d6 + swallow)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Immune to cold and fire.",
+        "damage": []
+      },
+      {
+        "name": "Melt",
+        "text": "Non-magical metal objects that touch the remorhaz melt on a d6 roll of 1-3.",
+        "damage": [
+          {
+            "expression": "1d6",
+            "display": "1d6",
+            "context": "Non-magical metal objects that touch the remorhaz melt on a d6 roll of 1-3."
+          }
+        ]
+      },
+      {
+        "name": "Swallow",
+        "text": "On a natural attack roll of 18-20, target is swallowed. Total darkness inside and 2d10 damage per round. Remorhaz regurgitates all swallowed if dealt at least 20 damage in one round to the inside of its gullet.",
+        "damage": [
+          {
+            "expression": "2d10",
+            "display": "2d10",
+            "context": "Total darkness inside and 2d10 damage per round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Remorhaz",
+    "**AC**": "16",
+    "**HP**": "47",
+    "**ATK**": "3 bite +7 (2d6 + swallow)",
+    "**MV**": "near (burrow)",
+    "**S**": "+5",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "10",
+    "abilities": {
+      "**Impervious**": "Immune to cold and fire.",
+      "**Melt**": "Non-magical metal objects that touch the remorhaz melt on a d6 roll of 1-3.",
+      "**Swallow**": "On a natural attack roll of 18-20, target is swallowed. Total darkness inside and 2d10 damage per round. Remorhaz regurgitates all swallowed if dealt at least 20 damage in one round to the inside of its gullet."
+    }
+  },
+  {
+    "slug": "angel-principi",
+    "name": "Angel, Principi",
+    "level": 11,
+    "ac": "16 (+1 plate mail)",
+    "hp": "53",
+    "attack": "3 silvered bastard sword +9 (1d10)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+2",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+4",
+      "CHA": "+4"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "3 silvered bastard sword +9 (1d10)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Moonlight Aura",
+        "text": "Hostile spells targeting the principi are DC 15.",
+        "damage": []
+      },
+      {
+        "name": "Truesight",
+        "text": "Can see all invisible creatures and objects.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Angel, Principi",
+    "**AC**": "16 (+1 plate mail)",
+    "**HP**": "53",
+    "**ATK**": "3 silvered bastard sword +9 (1d10)",
+    "**MV**": "double near (fly)",
+    "**S**": "+4",
+    "**D**": "+2",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+4",
+    "**CH**": "+4",
+    "**AL**": "L",
+    "**LV**": "11",
+    "abilities": {
+      "**Moonlight Aura**": "Hostile spells targeting the principi are DC 15.",
+      "**Truesight**": "Can see all invisible creatures and objects."
+    }
+  },
+  {
+    "slug": "vampire",
+    "name": "Vampire",
+    "level": 11,
+    "ac": "15",
+    "hp": "52",
+    "attack": "3 bite +7 (1d8 + blood drain) or 1 charm",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+3",
+      "CON": "+3",
+      "INT": "+1",
+      "WIS": "+3",
+      "CHA": "+4"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "3 bite +7 (1d8 + blood drain) or 1 charm"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Supreme Undead",
+        "text": "Immune to morale checks. Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Blood Drain",
+        "text": "Vampire heals 2d6 HP and target permanently loses 1d4 CON. At 0 CON, target dies and rises as vampire or vampire spawn (vampire chooses).",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "Vampire heals 2d6 HP and target permanently loses 1d4 CON."
+          },
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Vampire heals 2d6 HP and target permanently loses 1d4 CON."
+          }
+        ]
+      },
+      {
+        "name": "Charm",
+        "text": "One humanoid target who can see vampire within near, DC 15 CHA or under vampire's control for 1d4 days.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "One humanoid target who can see vampire within near, DC 15 CHA or under vampire's control for 1d4 days."
+          }
+        ]
+      },
+      {
+        "name": "Shapechange",
+        "text": "In place of attacks, turn into a bat, wolf, or back into regular form.",
+        "damage": []
+      },
+      {
+        "name": "Vampire",
+        "text": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart with a wooden stake while at 0 HP.",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin."
+          },
+          {
+            "expression": "3d8",
+            "display": "3d8",
+            "context": "Takes 3d8 damage each round while in direct sunlight."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Vampire",
+    "**AC**": "15",
+    "**HP**": "52",
+    "**ATK**": "3 bite +7 (1d8 + blood drain) or 1 charm",
+    "**MV**": "near (climb)",
+    "**S**": "+4",
+    "**D**": "+3",
+    "**C**": "+3",
+    "**I**": "+1",
+    "**W**": "+3",
+    "**CH**": "+4",
+    "**AL**": "C",
+    "**LV**": "11",
+    "abilities": {
+      "**Supreme Undead**": "Immune to morale checks. Only damaged by magical sources.",
+      "**Blood Drain**": "Vampire heals 2d6 HP and target permanently loses 1d4 CON. At 0 CON, target dies and rises as vampire or vampire spawn (vampire chooses).",
+      "**Charm**": "One humanoid target who can see vampire within near, DC 15 CHA or under vampire's control for 1d4 days.",
+      "**Shapechange**": "In place of attacks, turn into a bat, wolf, or back into regular form.",
+      "**Vampire**": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart with a wooden stake while at 0 HP."
+    }
+  },
+  {
+    "slug": "brachiosaurus",
+    "name": "Brachiosaurus",
+    "level": 12,
+    "ac": "13",
+    "hp": "57",
+    "attack": "3 stomp +7 (2d10)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+6",
+      "DEX": "-1",
+      "CON": "+3",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "3 stomp +7 (2d10)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Brachiosaurus",
+    "**AC**": "13",
+    "**HP**": "57",
+    "**ATK**": "3 stomp +7 (2d10)",
+    "**MV**": "double near",
+    "**S**": "+6",
+    "**D**": "-1",
+    "**C**": "+3",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "12",
+    "abilities": {}
+  },
+  {
+    "slug": "dragon-forest",
+    "name": "Dragon, Forest",
+    "level": 12,
+    "ac": "16",
+    "hp": "58",
+    "attack": "3 rend +8 (2d8) or 1 poison breath",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+3",
+      "CON": "+4",
+      "INT": "+3",
+      "WIS": "+3",
+      "CHA": "+4"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "3 rend +8 (2d8) or 1 poison breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Animate Plants",
+        "text": "1/day, in place of attacks. Vines grab at all enemies within double near of dragon. DC 15 DEX or unable to move 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 15 DEX or unable to move 1d4 rounds."
+          }
+        ]
+      },
+      {
+        "name": "Poison Breath",
+        "text": "Fills a near-sized cube extending from dragon. DC 15 CON or 3d8 damage.",
+        "damage": [
+          {
+            "expression": "3d8",
+            "display": "3d8",
+            "context": "DC 15 CON or 3d8 damage."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Dragon, Forest",
+    "**AC**": "16",
+    "**HP**": "58",
+    "**ATK**": "3 rend +8 (2d8) or 1 poison breath",
+    "**MV**": "double near (fly)",
+    "**S**": "+4",
+    "**D**": "+3",
+    "**C**": "+4",
+    "**I**": "+3",
+    "**W**": "+3",
+    "**CH**": "+4",
+    "**AL**": "N",
+    "**LV**": "12",
+    "abilities": {
+      "**Animate Plants**": "1/day, in place of attacks. Vines grab at all enemies within double near of dragon. DC 15 DEX or unable to move 1d4 rounds.",
+      "**Poison Breath**": "Fills a near-sized cube extending from dragon. DC 15 CON or 3d8 damage."
+    }
+  },
+  {
+    "slug": "dragon-swamp",
+    "name": "Dragon, Swamp",
+    "level": 12,
+    "ac": "16",
+    "hp": "58",
+    "attack": "3 rend +8 (2d10) or 1 smog breath",
+    "movement": "double near (burrow swim)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+3",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+3",
+      "CHA": "+3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "3 rend +8 (2d10) or 1 smog breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Smog Breath",
+        "text": "Fills a near-sized cube extending from dragon. DC 15 CON or 2d10 damage and blinded for 1 round.",
+        "damage": [
+          {
+            "expression": "2d10",
+            "display": "2d10",
+            "context": "DC 15 CON or 2d10 damage and blinded for 1 round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Dragon, Swamp",
+    "**AC**": "16",
+    "**HP**": "58",
+    "**ATK**": "3 rend +8 (2d10) or 1 smog breath",
+    "**MV**": "double near (burrow swim)",
+    "**S**": "+5",
+    "**D**": "+3",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+3",
+    "**CH**": "+3",
+    "**AL**": "C",
+    "**LV**": "12",
+    "abilities": {
+      "**Smog Breath**": "Fills a near-sized cube extending from dragon. DC 15 CON or 2d10 damage and blinded for 1 round."
+    }
+  },
+  {
+    "slug": "giant-storm",
+    "name": "Giant, Storm",
+    "level": 12,
+    "ac": "15 (mithral chainmail)",
+    "hp": "58",
+    "attack": "3 greatsword +10 (2d12) or 1 lightning bolt",
+    "movement": "double near (swim)",
+    "stats": {
+      "STR": "+6",
+      "DEX": "+2",
+      "CON": "+4",
+      "INT": "+3",
+      "WIS": "+4",
+      "CHA": "+4"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "3 greatsword +10 (2d12) or 1 lightning bolt"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Stormblood",
+        "text": "Electricity immune.",
+        "damage": []
+      },
+      {
+        "name": "Lightning Bolt",
+        "text": "3/day, 5' wide line extending far from giant. All creatures in line DC 15 DEX or 5d10 damage. DISADV on check if in water.",
+        "damage": [
+          {
+            "expression": "5d10",
+            "display": "5d10",
+            "context": "All creatures in line DC 15 DEX or 5d10 damage."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Giant, Storm",
+    "**AC**": "15 (mithral chainmail)",
+    "**HP**": "58",
+    "**ATK**": "3 greatsword +10 (2d12) or 1 lightning bolt",
+    "**MV**": "double near (swim)",
+    "**S**": "+6",
+    "**D**": "+2",
+    "**C**": "+4",
+    "**I**": "+3",
+    "**W**": "+4",
+    "**CH**": "+4",
+    "**AL**": "L",
+    "**LV**": "12",
+    "abilities": {
+      "**Stormblood**": "Electricity immune.",
+      "**Lightning Bolt**": "3/day, 5' wide line extending far from giant. All creatures in line DC 15 DEX or 5d10 damage. DISADV on check if in water."
+    }
+  },
+  {
+    "slug": "purple-worm",
+    "name": "Purple Worm",
+    "level": 12,
+    "ac": "18",
+    "hp": "57",
+    "attack": "2 bite +9 (2d12 + swallow) and 1 sting +9 (1d10 + poison)",
+    "movement": "double near (burrow)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+1",
+      "CON": "+3",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "2 bite +9 (2d12 + swallow) and 1 sting +9 (1d10 + poison)"
+      },
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 bite +9 (2d12 + swallow) and 1 sting +9 (1d10 + poison)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Poison",
+        "text": "DC 15 CON or go to 0 HP.",
+        "damage": []
+      },
+      {
+        "name": "Swallow",
+        "text": "On a natural attack roll of 18-20, target is swallowed. Total darkness inside and 2d10 damage per round. Worm regurgitates all swallowed if dealt at least 20 damage in one round to the inside of its gullet.",
+        "damage": [
+          {
+            "expression": "2d10",
+            "display": "2d10",
+            "context": "Total darkness inside and 2d10 damage per round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Purple Worm",
+    "**AC**": "18",
+    "**HP**": "57",
+    "**ATK**": "2 bite +9 (2d12 + swallow) and 1 sting +9 (1d10 + poison)",
+    "**MV**": "double near (burrow)",
+    "**S**": "+5",
+    "**D**": "+1",
+    "**C**": "+3",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "12",
+    "abilities": {
+      "**Poison**": "DC 15 CON or go to 0 HP.",
+      "**Swallow**": "On a natural attack roll of 18-20, target is swallowed. Total darkness inside and 2d10 damage per round. Worm regurgitates all swallowed if dealt at least 20 damage in one round to the inside of its gullet."
+    }
+  },
+  {
+    "slug": "dragon-desert",
+    "name": "Dragon, Desert",
+    "level": 13,
+    "ac": "17",
+    "hp": "61",
+    "attack": "3 rend +9 (2d10) or 1 lightning breath",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+3",
+      "CON": "+3",
+      "INT": "+4",
+      "WIS": "+5",
+      "CHA": "+5"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "3 rend +9 (2d10) or 1 lightning breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Stormblood",
+        "text": "Electricity immune.",
+        "damage": []
+      },
+      {
+        "name": "Lightning Breath",
+        "text": "A straight line (5' wide) extending double near from dragon. DC 15 DEX or 4d8 damage (DISADV on check if wearing metal armor).",
+        "damage": [
+          {
+            "expression": "4d8",
+            "display": "4d8",
+            "context": "DC 15 DEX or 4d8 damage (DISADV on check if wearing metal armor)."
+          }
+        ]
+      },
+      {
+        "name": "Mirage",
+        "text": "1/day, in place of attacks. Create 3 illusory duplicates that disappear when hit. Determine randomly if an attack hits dragon or illusions.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Dragon, Desert",
+    "**AC**": "17",
+    "**HP**": "61",
+    "**ATK**": "3 rend +9 (2d10) or 1 lightning breath",
+    "**MV**": "double near (fly)",
+    "**S**": "+5",
+    "**D**": "+3",
+    "**C**": "+3",
+    "**I**": "+4",
+    "**W**": "+5",
+    "**CH**": "+5",
+    "**AL**": "L",
+    "**LV**": "13",
+    "abilities": {
+      "**Stormblood**": "Electricity immune.",
+      "**Lightning Breath**": "A straight line (5' wide) extending double near from dragon. DC 15 DEX or 4d8 damage (DISADV on check if wearing metal armor).",
+      "**Mirage**": "1/day, in place of attacks. Create 3 illusory duplicates that disappear when hit. Determine randomly if an attack hits dragon or illusions."
+    }
+  },
+  {
+    "slug": "lich",
+    "name": "Lich",
+    "level": 13,
+    "ac": "16",
+    "hp": "62",
+    "attack": "2 touch +6 (2d8 + paralysis) and 2 spell +7",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+1",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+3",
+      "CHA": "+3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "2 touch +6 (2d8 + paralysis) and 2 spell +7"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Supreme Undead",
+        "text": "Immune to morale checks. Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Phylactery",
+        "text": "Can't be killed while spirit vessel (an object) is intact.",
+        "damage": []
+      },
+      {
+        "name": "Paralysis",
+        "text": "DC 15 CON or paralyzed 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 15 CON or paralyzed 1d4 rounds."
+          }
+        ]
+      },
+      {
+        "name": "Flight (INT Spell)",
+        "text": "Self. DC 13. Fly double near for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Null (INT Spell)",
+        "text": "Self. DC 14. Hostile spells targeting lich are DC 18 to cast. Lasts 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Lasts 1d4 rounds."
+          }
+        ]
+      },
+      {
+        "name": "Shadow Leap (INT Spell)",
+        "text": "Self. DC 14. Teleport up to 100 miles.",
+        "damage": []
+      },
+      {
+        "name": "Sigil of Doom (INT Spell)",
+        "text": "DC 15. One target of LV 9 or less within near DC 15 CON or go to 0 HP.",
+        "damage": []
+      },
+      {
+        "name": "Wither (INT Spell)",
+        "text": "DC 14. 4d8 damage to enemies within a near-sized cube centered on lich.",
+        "damage": [
+          {
+            "expression": "4d8",
+            "display": "4d8",
+            "context": "4d8 damage to enemies within a near-sized cube centered on lich."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Lich",
+    "**AC**": "16",
+    "**HP**": "62",
+    "**ATK**": "2 touch +6 (2d8 + paralysis) and 2 spell +7",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+1",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+3",
+    "**CH**": "+3",
+    "**AL**": "C",
+    "**LV**": "13",
+    "abilities": {
+      "**Supreme Undead**": "Immune to morale checks. Only damaged by magical sources.",
+      "**Phylactery**": "Can't be killed while spirit vessel (an object) is intact.",
+      "**Paralysis**": "DC 15 CON or paralyzed 1d4 rounds.",
+      "**Flight (INT Spell)**": "Self. DC 13. Fly double near for 5 rounds.",
+      "**Null (INT Spell)**": "Self. DC 14. Hostile spells targeting lich are DC 18 to cast. Lasts 1d4 rounds.",
+      "**Shadow Leap (INT Spell)**": "Self. DC 14. Teleport up to 100 miles.",
+      "**Sigil of Doom (INT Spell)**": "DC 15. One target of LV 9 or less within near DC 15 CON or go to 0 HP.",
+      "**Wither (INT Spell)**": "DC 14. 4d8 damage to enemies within a near-sized cube centered on lich."
+    }
+  },
+  {
+    "slug": "phoenix",
+    "name": "Phoenix",
+    "level": 13,
+    "ac": "16",
+    "hp": "60",
+    "attack": "4 rend +8 (2d12)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+4",
+      "CON": "+2",
+      "INT": "+3",
+      "WIS": "+3",
+      "CHA": "+3"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "4 rend +8 (2d12)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Immune to fire. Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Explosion",
+        "text": "Upon death, creatures within double near of phoenix DC 18 DEX or 10d6 damage.",
+        "damage": [
+          {
+            "expression": "10d6",
+            "display": "10d6",
+            "context": "Upon death, creatures within double near of phoenix DC 18 DEX or 10d6 damage."
+          }
+        ]
+      },
+      {
+        "name": "Heat Aura",
+        "text": "Creatures within near of phoenix at start of turn DC 15 CON or 2d6 damage.",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "Creatures within near of phoenix at start of turn DC 15 CON or 2d6 damage."
+          }
+        ]
+      },
+      {
+        "name": "Rebirth",
+        "text": "A red-hot egg remains after death. Phoenix hatches from it in 1d4 days.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Phoenix hatches from it in 1d4 days."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Phoenix",
+    "**AC**": "16",
+    "**HP**": "60",
+    "**ATK**": "4 rend +8 (2d12)",
+    "**MV**": "double near (fly)",
+    "**S**": "+3",
+    "**D**": "+4",
+    "**C**": "+2",
+    "**I**": "+3",
+    "**W**": "+3",
+    "**CH**": "+3",
+    "**AL**": "L",
+    "**LV**": "13",
+    "abilities": {
+      "**Impervious**": "Immune to fire. Only damaged by magical sources.",
+      "**Explosion**": "Upon death, creatures within double near of phoenix DC 18 DEX or 10d6 damage.",
+      "**Heat Aura**": "Creatures within near of phoenix at start of turn DC 15 CON or 2d6 damage.",
+      "**Rebirth**": "A red-hot egg remains after death. Phoenix hatches from it in 1d4 days."
+    }
+  },
+  {
+    "slug": "dragon-frost",
+    "name": "Dragon, Frost",
+    "level": 14,
+    "ac": "17",
+    "hp": "68",
+    "attack": "4 rend +9 (2d10) or 1 ice breath",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+3",
+      "CON": "+5",
+      "INT": "+3",
+      "WIS": "+4",
+      "CHA": "+3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "4 rend +9 (2d10) or 1 ice breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Frostblood",
+        "text": "Cold immune.",
+        "damage": []
+      },
+      {
+        "name": "Ice Breath",
+        "text": "Fills a double near- sized cube extending from dragon. DC 15 DEX or 4d8 damage and frozen for 1 round.",
+        "damage": [
+          {
+            "expression": "4d8",
+            "display": "4d8",
+            "context": "DC 15 DEX or 4d8 damage and frozen for 1 round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Dragon, Frost",
+    "**AC**": "17",
+    "**HP**": "68",
+    "**ATK**": "4 rend +9 (2d10) or 1 ice breath",
+    "**MV**": "double near (fly)",
+    "**S**": "+4",
+    "**D**": "+3",
+    "**C**": "+5",
+    "**I**": "+3",
+    "**W**": "+4",
+    "**CH**": "+3",
+    "**AL**": "N",
+    "**LV**": "14",
+    "abilities": {
+      "**Frostblood**": "Cold immune.",
+      "**Ice Breath**": "Fills a double near- sized cube extending from dragon. DC 15 DEX or 4d8 damage and frozen for 1 round."
+    }
+  },
+  {
+    "slug": "roc",
+    "name": "Roc",
+    "level": 15,
+    "ac": "15",
+    "hp": "69",
+    "attack": "4 rend +9 (2d10 + grab)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+3",
+      "CON": "+2",
+      "INT": "-2",
+      "WIS": "+2",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "4 rend +9 (2d10 + grab)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Grab",
+        "text": "DC 18 STR or target held. DC 18 STR on turn to break free.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Roc",
+    "**AC**": "15",
+    "**HP**": "69",
+    "**ATK**": "4 rend +9 (2d10 + grab)",
+    "**MV**": "double near (fly)",
+    "**S**": "+5",
+    "**D**": "+3",
+    "**C**": "+2",
+    "**I**": "-2",
+    "**W**": "+2",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "15",
+    "abilities": {
+      "**Grab**": "DC 18 STR or target held. DC 18 STR on turn to break free."
+    }
+  },
+  {
+    "slug": "the-tarrasque",
+    "name": "The Tarrasque",
+    "level": 15,
+    "ac": "16 (mithral chainmail)",
+    "hp": "71",
+    "attack": "4 +3 vorpal bastard sword +9 (1d10 + lop)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+3",
+      "CON": "+4",
+      "INT": "+3",
+      "WIS": "+4",
+      "CHA": "+5"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "4 +3 vorpal bastard sword +9 (1d10 + lop)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Legendary",
+        "text": "Only damaged by magical sources. Hostile spells targeting The Wandering Merchant are DC 18 to cast.",
+        "damage": []
+      },
+      {
+        "name": "Amulet of Rahm-Hotep",
+        "text": "In place of attacks, teleport to a random location in the multiverse.",
+        "damage": []
+      },
+      {
+        "name": "Bottomless Bag",
+        "text": "Contains 200 gear slots in magical sub-pockets.",
+        "damage": []
+      },
+      {
+        "name": "Weighs as much as a normal backpack",
+        "text": "The Wandering Merchant can summon it to himself from anywhere by snapping his fingers.",
+        "damage": []
+      },
+      {
+        "name": "Dice of Truth",
+        "text": "A set of three six-sided dice whose rolls cannot be magically or mundanely altered in any way.",
+        "damage": []
+      },
+      {
+        "name": "Lop",
+        "text": "On a natural attack roll of 18-20, behead the target.",
+        "damage": []
+      },
+      {
+        "name": "Reckoning",
+        "text": "Any creature who steals from The Wandering Merchant develops a curse. Over the next 2d8 days, that creature turns into a cockatrice. This curse can only be lifted by a wish spell or by returning the stolen goods.",
+        "damage": [
+          {
+            "expression": "2d8",
+            "display": "2d8",
+            "context": "Over the next 2d8 days, that creature turns into a cockatrice."
+          }
+        ]
+      },
+      {
+        "name": "Strange Lands",
+        "text": "The Wandering Merchant does not suffer any ill effects from the natural environment he does not wish to suffer.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "The Tarrasque",
+    "**AC**": "16 (mithral chainmail)",
+    "**HP**": "71",
+    "**ATK**": "4 +3 vorpal bastard sword +9 (1d10 + lop)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+3",
+    "**C**": "+4",
+    "**I**": "+3",
+    "**W**": "+4",
+    "**CH**": "+5",
+    "**AL**": "L",
+    "**LV**": "15",
+    "abilities": {
+      "**Legendary**": "Only damaged by magical sources. Hostile spells targeting The Wandering Merchant are DC 18 to cast.",
+      "**Amulet of Rahm-Hotep**": "In place of attacks, teleport to a random location in the multiverse.",
+      "**Bottomless Bag**": "Contains 200 gear slots in magical sub-pockets.",
+      "**Weighs as much as a normal backpack**": "The Wandering Merchant can summon it to himself from anywhere by snapping his fingers.",
+      "**Dice of Truth**": "A set of three six-sided dice whose rolls cannot be magically or mundanely altered in any way.",
+      "**Lop**": "On a natural attack roll of 18-20, behead the target.",
+      "**Reckoning**": "Any creature who steals from The Wandering Merchant develops a curse. Over the next 2d8 days, that creature turns into a cockatrice. This curse can only be lifted by a wish spell or by returning the stolen goods.",
+      "**Strange Lands**": "The Wandering Merchant does not suffer any ill effects from the natural environment he does not wish to suffer."
+    }
+  },
+  {
+    "slug": "archangel",
+    "name": "Archangel",
+    "level": 16,
+    "ac": "18 (+3 plate mail)",
+    "hp": "76",
+    "attack": "3 flaming greatsword +10 (2d12)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+2",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+5",
+      "CHA": "+5"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "3 flaming greatsword +10 (2d12)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Command",
+        "text": "DC 18 CHA to resist an archangel's command.",
+        "damage": []
+      },
+      {
+        "name": "Crown of Fire",
+        "text": "Hostile spells targeting the archangel are extreme (DC 18) to cast.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Archangel",
+    "**AC**": "18 (+3 plate mail)",
+    "**HP**": "76",
+    "**ATK**": "3 flaming greatsword +10 (2d12)",
+    "**MV**": "double near (fly)",
+    "**S**": "+5",
+    "**D**": "+2",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+5",
+    "**CH**": "+5",
+    "**AL**": "L",
+    "**LV**": "16",
+    "abilities": {
+      "**Command**": "DC 18 CHA to resist an archangel's command.",
+      "**Crown of Fire**": "Hostile spells targeting the archangel are extreme (DC 18) to cast."
+    }
+  },
+  {
+    "slug": "archdevil",
+    "name": "Archdevil",
+    "level": 16,
+    "ac": "19",
+    "hp": "76",
+    "attack": "4 iron scepter +10 (3d10) or 1 soulbind",
+    "movement": "far (teleport)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+4",
+      "CON": "+4",
+      "INT": "+5",
+      "WIS": "+4",
+      "CHA": "+7"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "3d10",
+        "display": "3d10",
+        "context": "4 iron scepter +10 (3d10) or 1 soulbind"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Fire immune. Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Crown of Darkness",
+        "text": "All hostile spells are reflected at caster with a spellcasting check less than 20.",
+        "damage": []
+      },
+      {
+        "name": "Soulbind",
+        "text": "All targets within near DC 20 CHA or fall under control of archdevil for 1d4 rounds. DC 20 CHA on turn to end the effect.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "All targets within near DC 20 CHA or fall under control of archdevil for 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Archdevil",
+    "**AC**": "19",
+    "**HP**": "76",
+    "**ATK**": "4 iron scepter +10 (3d10) or 1 soulbind",
+    "**MV**": "far (teleport)",
+    "**S**": "+5",
+    "**D**": "+4",
+    "**C**": "+4",
+    "**I**": "+5",
+    "**W**": "+4",
+    "**CH**": "+7",
+    "**AL**": "C",
+    "**LV**": "16",
+    "abilities": {
+      "**Impervious**": "Fire immune. Only damaged by magical sources.",
+      "**Crown of Darkness**": "All hostile spells are reflected at caster with a spellcasting check less than 20.",
+      "**Soulbind**": "All targets within near DC 20 CHA or fall under control of archdevil for 1d4 rounds. DC 20 CHA on turn to end the effect."
+    }
+  },
+  {
+    "slug": "demon-balor",
+    "name": "Demon, Balor",
+    "level": 16,
+    "ac": "19",
+    "hp": "77",
+    "attack": "3 greatsword +10 (2d12 + hellfire) and 1 fire whip (near) +10 (2d6 + grab)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+6",
+      "DEX": "+2",
+      "CON": "+5",
+      "INT": "+4",
+      "WIS": "+3",
+      "CHA": "+4"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "3 greatsword +10 (2d12 + hellfire) and 1 fire whip (near) +10 (2d6 + grab)"
+      },
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "3 greatsword +10 (2d12 + hellfire) and 1 fire whip (near) +10 (2d6 + grab)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Fire immune. Only damaged by magical sources.",
+        "damage": []
+      },
+      {
+        "name": "Grab",
+        "text": "DC 18 STR or target bound in whip. 2d6 damage per round held, DC 18 STR on turn to break free. In place of fire whip attack, balor can fling a grabbed target double near on its turn.",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "2d6 damage per round held, DC 18 STR on turn to break free."
+          }
+        ]
+      },
+      {
+        "name": "Hellfire",
+        "text": "DC 18 DEX or 2d8 damage per round until flames extinguished.",
+        "damage": [
+          {
+            "expression": "2d8",
+            "display": "2d8",
+            "context": "DC 18 DEX or 2d8 damage per round until flames extinguished."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Demon, Balor",
+    "**AC**": "19",
+    "**HP**": "77",
+    "**ATK**": "3 greatsword +10 (2d12 + hellfire) and 1 fire whip (near) +10 (2d6 + grab)",
+    "**MV**": "double near (fly)",
+    "**S**": "+6",
+    "**D**": "+2",
+    "**C**": "+5",
+    "**I**": "+4",
+    "**W**": "+3",
+    "**CH**": "+4",
+    "**AL**": "C",
+    "**LV**": "16",
+    "abilities": {
+      "**Impervious**": "Fire immune. Only damaged by magical sources.",
+      "**Grab**": "DC 18 STR or target bound in whip. 2d6 damage per round held, DC 18 STR on turn to break free. In place of fire whip attack, balor can fling a grabbed target double near on its turn.",
+      "**Hellfire**": "DC 18 DEX or 2d8 damage per round until flames extinguished."
+    }
+  },
+  {
+    "slug": "dragon-sea",
+    "name": "Dragon, Sea",
+    "level": 16,
+    "ac": "17",
+    "hp": "76",
+    "attack": "4 rend +10 (2d10) or 1 steam breath or 1 water spout",
+    "movement": "double near (fly swim)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+6",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+5",
+      "CHA": "+5"
+    },
+    "alignment": "L",
+    "damage": [
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "4 rend +10 (2d10) or 1 steam breath or 1 water spout"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Steam Breath",
+        "text": "Fills a double near-sized cube extending from dragon. DC 15 DEX or 4d12 damage.",
+        "damage": [
+          {
+            "expression": "4d12",
+            "display": "4d12",
+            "context": "DC 15 DEX or 4d12 damage."
+          }
+        ]
+      },
+      {
+        "name": "Water Spout",
+        "text": "Fills a near-sized cube within far. DC 15 STR or creatures inside flung 2d100 feet in a random direction.",
+        "damage": [
+          {
+            "expression": "2d100",
+            "display": "2d100",
+            "context": "DC 15 STR or creatures inside flung 2d100 feet in a random direction."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Dragon, Sea",
+    "**AC**": "17",
+    "**HP**": "76",
+    "**ATK**": "4 rend +10 (2d10) or 1 steam breath or 1 water spout",
+    "**MV**": "double near (fly swim)",
+    "**S**": "+5",
+    "**D**": "+6",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+5",
+    "**CH**": "+5",
+    "**AL**": "L",
+    "**LV**": "16",
+    "abilities": {
+      "**Steam Breath**": "Fills a double near-sized cube extending from dragon. DC 15 DEX or 4d12 damage.",
+      "**Water Spout**": "Fills a near-sized cube within far. DC 15 STR or creatures inside flung 2d100 feet in a random direction."
+    }
+  },
+  {
+    "slug": "dragon-fire",
+    "name": "Dragon, Fire",
+    "level": 17,
+    "ac": "18",
+    "hp": "80",
+    "attack": "4 rend +11 (2d12) or 1 fire breath",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+6",
+      "DEX": "+5",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+4",
+      "CHA": "+5"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "4 rend +11 (2d12) or 1 fire breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Fireblood",
+        "text": "Fire immune.",
+        "damage": []
+      },
+      {
+        "name": "Fire Breath",
+        "text": "Fills a double near- sized cube extending from dragon. DC 15 DEX or 6d10 damage.",
+        "damage": [
+          {
+            "expression": "6d10",
+            "display": "6d10",
+            "context": "DC 15 DEX or 6d10 damage."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Dragon, Fire",
+    "**AC**": "18",
+    "**HP**": "80",
+    "**ATK**": "4 rend +11 (2d12) or 1 fire breath",
+    "**MV**": "double near (fly)",
+    "**S**": "+6",
+    "**D**": "+5",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+4",
+    "**CH**": "+5",
+    "**AL**": "C",
+    "**LV**": "17",
+    "abilities": {
+      "**Fireblood**": "Fire immune.",
+      "**Fire Breath**": "Fills a double near- sized cube extending from dragon. DC 15 DEX or 6d10 damage."
+    }
+  },
+  {
+    "slug": "kraken",
+    "name": "Kraken",
+    "level": 17,
+    "ac": "18",
+    "hp": "80",
+    "attack": "4 tentacle (near) +9 (2d12) or 1 storm or 1d4 lightning bolt",
+    "movement": "double near (swim)",
+    "stats": {
+      "STR": "+6",
+      "DEX": "+3",
+      "CON": "+4",
+      "INT": "+4",
+      "WIS": "+3",
+      "CHA": "+4"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d12",
+        "display": "2d12",
+        "context": "4 tentacle (near) +9 (2d12) or 1 storm or 1d4 lightning bolt"
+      },
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "4 tentacle (near) +9 (2d12) or 1 storm or 1d4 lightning bolt"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Electricity immune.",
+        "damage": []
+      },
+      {
+        "name": "Crush",
+        "text": "Tentacle attacks deal double damage against objects.",
+        "damage": []
+      },
+      {
+        "name": "Lightning Bolt",
+        "text": "Straight line (5' wide) extending far from kraken. DC 15 DEX or 6d6 damage.",
+        "damage": [
+          {
+            "expression": "6d6",
+            "display": "6d6",
+            "context": "DC 15 DEX or 6d6 damage."
+          }
+        ]
+      },
+      {
+        "name": "Storm",
+        "text": "Seas become violently turbulent in 1 mile radius around kraken. Lasts 2d4 rounds. Seaborne vessels have a 1:6 chance of capsizing each round.",
+        "damage": [
+          {
+            "expression": "2d4",
+            "display": "2d4",
+            "context": "Lasts 2d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Kraken",
+    "**AC**": "18",
+    "**HP**": "80",
+    "**ATK**": "4 tentacle (near) +9 (2d12) or 1 storm or 1d4 lightning bolt",
+    "**MV**": "double near (swim)",
+    "**S**": "+6",
+    "**D**": "+3",
+    "**C**": "+4",
+    "**I**": "+4",
+    "**W**": "+3",
+    "**CH**": "+4",
+    "**AL**": "C",
+    "**LV**": "17",
+    "abilities": {
+      "**Impervious**": "Electricity immune.",
+      "**Crush**": "Tentacle attacks deal double damage against objects.",
+      "**Lightning Bolt**": "Straight line (5' wide) extending far from kraken. DC 15 DEX or 6d6 damage.",
+      "**Storm**": "Seas become violently turbulent in 1 mile radius around kraken. Lasts 2d4 rounds. Seaborne vessels have a 1:6 chance of capsizing each round."
+    }
+  },
+  {
+    "slug": "the-ten-eyed-oracle",
+    "name": "The Ten-Eyed Oracle",
+    "level": 30,
+    "ac": "22",
+    "hp": "140",
+    "attack": "4 thrash (near) +13 (3d10 + sever) and 1 bite (near) +13 (5d10 + sever + swallow)",
+    "movement": "triple near (burrow swim)",
+    "stats": {
+      "STR": "+7",
+      "DEX": "+2",
+      "CON": "+5",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "3d10",
+        "display": "3d10",
+        "context": "4 thrash (near) +13 (3d10 + sever) and 1 bite (near) +13 (5d10 + sever + swallow)"
+      },
+      {
+        "expression": "5d10",
+        "display": "5d10",
+        "context": "4 thrash (near) +13 (3d10 + sever) and 1 bite (near) +13 (5d10 + sever + swallow)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Legendary",
+        "text": "Only damaged by magical sources. Hostile spells targeting the tarrasque are DC 18 to cast.",
+        "damage": []
+      },
+      {
+        "name": "Deep Dweller",
+        "text": "Immune to harm from fire and cold. Amphibious.",
+        "damage": []
+      },
+      {
+        "name": "Permanent Death",
+        "text": "Cannot be permanently killed unless a wish spell is cast on it while it is at 0 HP.",
+        "damage": []
+      },
+      {
+        "name": "Rampage",
+        "text": "In place of attacks, move far in a straight line and make one bite attack. On a hit, triple damage.",
+        "damage": []
+      },
+      {
+        "name": "Reflective Carapace",
+        "text": "Immune to rays, blasts, or bolts of energy. 1:6 chance these are reflected back at their originator.",
+        "damage": []
+      },
+      {
+        "name": "Regeneration",
+        "text": "Regains 4d10 lost HP at the beginning of its turn.",
+        "damage": [
+          {
+            "expression": "4d10",
+            "display": "4d10",
+            "context": "Regains 4d10 lost HP at the beginning of its turn."
+          }
+        ]
+      },
+      {
+        "name": "Sever",
+        "text": "On a natural attack roll of 18+, the attack also severs a random limb. 1d6: 1. Head, 2-4. Arm, 5-6. Leg.",
+        "damage": [
+          {
+            "expression": "1d6",
+            "display": "1d6",
+            "context": "1d6: 1."
+          }
+        ]
+      },
+      {
+        "name": "Swallow",
+        "text": "DC 18 STR or swallowed whole. Total darkness inside and 4d10 damage per round. Tarrasque regurgitates all swallowed if dealt at least 30 damage in one round to the inside of its gullet.",
+        "damage": [
+          {
+            "expression": "4d10",
+            "display": "4d10",
+            "context": "Total darkness inside and 4d10 damage per round."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "The Ten-Eyed Oracle",
+    "**AC**": "22",
+    "**HP**": "140",
+    "**ATK**": "4 thrash (near) +13 (3d10 + sever) and 1 bite (near) +13 (5d10 + sever + swallow)",
+    "**MV**": "triple near (burrow swim)",
+    "**S**": "+7",
+    "**D**": "+2",
+    "**C**": "+5",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "30",
+    "abilities": {
+      "**Legendary**": "Only damaged by magical sources. Hostile spells targeting the tarrasque are DC 18 to cast.",
+      "**Deep Dweller**": "Immune to harm from fire and cold. Amphibious.",
+      "**Permanent Death**": "Cannot be permanently killed unless a wish spell is cast on it while it is at 0 HP.",
+      "**Rampage**": "In place of attacks, move far in a straight line and make one bite attack. On a hit, triple damage.",
+      "**Reflective Carapace**": "Immune to rays, blasts, or bolts of energy. 1:6 chance these are reflected back at their originator.",
+      "**Regeneration**": "Regains 4d10 lost HP at the beginning of its turn.",
+      "**Sever**": "On a natural attack roll of 18+, the attack also severs a random limb. 1d6: 1. Head, 2-4. Arm, 5-6. Leg.",
+      "**Swallow**": "DC 18 STR or swallowed whole. Total darkness inside and 4d10 damage per round. Tarrasque regurgitates all swallowed if dealt at least 30 damage in one round to the inside of its gullet."
+    }
+  }
+]

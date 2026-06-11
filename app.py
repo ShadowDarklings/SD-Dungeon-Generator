@@ -215,7 +215,7 @@ class LootEntry(SQLModel, table=True):
 
 # Create tables AFTER every model class is defined. Calling this earlier
 # (the pre-fix position was between OAuthIdentity and SavedRun) meant a fresh
-# database only got `users` and `oauth_identities` — the first save would 500.
+# database only got `users` and `oauth_identities` - the first save would 500.
 bootstrap_database()
 
 
@@ -488,7 +488,9 @@ def import_shadowdarklings_character():
     # login_required: this endpoint launches a headless browser server-side —
     # anonymous access would be a trivial resource-exhaustion (DoS) vector.
     try:
-        character_json = fetch_shadowdarklings_character_json()
+        data = request.get_json(silent=True) or {}
+        base_classes_only = bool(data.get("base_classes_only", False))
+        character_json = fetch_shadowdarklings_character_json(base_classes_only=base_classes_only)
     except Exception as exc:
         return {"error": "shadowdarklings_import_failed", "message": str(exc)}, 502
 
@@ -539,7 +541,32 @@ def populate_child_tables(db, run, state):
         db.add(loot)
         
     db.commit()
-def fetch_shadowdarklings_character_json() -> str:
+
+
+SHADOWDARKLINGS_SOURCE_SWITCHES = [
+    "Scroll #1",
+    "Scroll #2",
+    "Scroll #3",
+    "Scroll #4",
+    "B&R&K",
+    "Roustabout",
+    "Unnatural Selection",
+    "Darcy",
+]
+
+
+def set_shadowdarklings_source_switches(page, enabled: bool) -> None:
+    """Set the optional ShadowDarklings source switches to a consistent state."""
+    for label in SHADOWDARKLINGS_SOURCE_SWITCHES:
+        switch = page.get_by_role("switch", name=label)
+        try:
+            switch.set_checked(enabled)
+        except Exception:
+            # Some source switches may be disabled by the site; skip those safely.
+            continue
+
+
+def fetch_shadowdarklings_character_json(base_classes_only: bool = False) -> str:
     """Generate a ShadowDarklings character and capture the exported JSON from the live site."""
     from playwright.sync_api import sync_playwright
     try:
@@ -551,6 +578,7 @@ def fetch_shadowdarklings_character_json() -> str:
             page.goto(SHADOWDARKLINGS_CREATE_URL, wait_until="networkidle")
             page.get_by_role("button", name="Random 1").click()
             page.get_by_role("button", name="Best Fit").click()
+            set_shadowdarklings_source_switches(page, not base_classes_only)
             page.get_by_role("button", name="Generate a Random Character").click()
             page.get_by_role("button", name="JSON").click()
             page.wait_for_timeout(750)

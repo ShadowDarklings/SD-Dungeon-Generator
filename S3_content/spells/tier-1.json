@@ -1,0 +1,287 @@
+[
+  {
+    "slug": "alarm",
+    "name": "Alarm",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "1 day",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You touch one object, such as a door threshold, setting a magical alarm on it. If any creature you do not designate while casting the spell touches or crosses past the object, a magical bell sounds in your head.",
+    "paragraphs": [
+      "You touch one object, such as a door threshold, setting a magical alarm on it. If any creature you do not designate while casting the spell touches or crosses past the object, a magical bell sounds in your head."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "burning-hands",
+    "name": "Burning Hands",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You spread your fingers with thumbs touching, unleashing a circle of flame that roars out to a close area around where you stand.\n\nCreatures within the area of effect take 1d6 damage, and flammable objects catch fire.",
+    "paragraphs": [
+      "You spread your fingers with thumbs touching, unleashing a circle of flame that roars out to a close area around where you stand.",
+      "Creatures within the area of effect take 1d6 damage, and flammable objects catch fire."
+    ],
+    "damage": [
+      {
+        "expression": "1d6",
+        "display": "1d6",
+        "context": "Creatures within the area of effect take 1d6 damage, and flammable objects catch fire."
+      }
+    ]
+  },
+  {
+    "slug": "charm-person",
+    "name": "Charm Person",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "1d8 days",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You magically beguile one humanoid of level 2 or less within near range, who regards you as a friend for the duration.\n\nThe spell ends if you or your allies do anything to hurt it that it notices.\n\nThe target knows you magically enchanted it after the spell ends.",
+    "paragraphs": [
+      "You magically beguile one humanoid of level 2 or less within near range, who regards you as a friend for the duration.",
+      "The spell ends if you or your allies do anything to hurt it that it notices.",
+      "The target knows you magically enchanted it after the spell ends."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "cure-wounds",
+    "name": "Cure Wounds",
+    "tier": 1,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "Your touch restores ebbing life.\n\nRoll a number of d6s equal to 1 + half your level (rounded down).\n\nOne target you touch regains that many hit points.",
+    "paragraphs": [
+      "Your touch restores ebbing life.",
+      "Roll a number of d6s equal to 1 + half your level (rounded down).",
+      "One target you touch regains that many hit points."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "detect-magic",
+    "name": "Detect Magic",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You can sense the presence of magic within near range for the spell's duration. If you focus for two rounds, you discern its general properties. Full barriers block this spell.",
+    "paragraphs": [
+      "You can sense the presence of magic within near range for the spell's duration. If you focus for two rounds, you discern its general properties. Full barriers block this spell."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "feather-fall",
+    "name": "Feather Fall",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You may make an attempt to cast this spell when you fall.\n\nYour rate of descent slows so that you land safely on your feet.",
+    "paragraphs": [
+      "You may make an attempt to cast this spell when you fall.",
+      "Your rate of descent slows so that you land safely on your feet."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "floating-disk",
+    "name": "Floating Disk",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You create a floating, circular disk of force with a concave center. It can carry up to 20 gear slots. It hovers at waist level and automatically stays within near of you. It can’t cross over drop- offs or pits taller than a human.",
+    "paragraphs": [
+      "You create a floating, circular disk of force with a concave center. It can carry up to 20 gear slots. It hovers at waist level and automatically stays within near of you. It can’t cross over drop- offs or pits taller than a human."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "from-evil",
+    "name": "From Evil",
+    "tier": 1,
+    "classes": [
+      "priest",
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "For the spell's duration, chaotic beings have disadvantage on attack rolls and hostile spellcasting checks against the target. These beings also can’t possess, compel, or beguile it.\n\nWhen cast on an already- possessed target, the possessing entity makes a CHA check vs.\n\nthe last spellcasting check. On a failure, the entity is expelled.\n\nTier 3, wizard Duration: Focus Range: Close One creature you touch becomes impervious to the wild fury of the elements.\n\nChoose fire, cold, or electricity.\n\nFor the spell's duration, the target is immune to harm from energy of the chosen type.",
+    "paragraphs": [
+      "For the spell's duration, chaotic beings have disadvantage on attack rolls and hostile spellcasting checks against the target. These beings also can’t possess, compel, or beguile it.",
+      "When cast on an already- possessed target, the possessing entity makes a CHA check vs.",
+      "the last spellcasting check. On a failure, the entity is expelled.",
+      "Tier 3, wizard Duration: Focus Range: Close One creature you touch becomes impervious to the wild fury of the elements.",
+      "Choose fire, cold, or electricity.",
+      "For the spell's duration, the target is immune to harm from energy of the chosen type."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "hold-portal",
+    "name": "Hold Portal",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You magically hold a portal closed for the duration. A creature must make a successful STR check vs. your spellcasting check to open the portal. The knock spell ends this spell.",
+    "paragraphs": [
+      "You magically hold a portal closed for the duration. A creature must make a successful STR check vs. your spellcasting check to open the portal. The knock spell ends this spell."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "holy-weapon",
+    "name": "Holy Weapon",
+    "tier": 1,
+    "classes": [
+      "priest"
+    ],
+    "duration": "5 rounds",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "One weapon you touch is imbued with a sacred blessing.\n\nThe weapon becomes magical and has +1 to attack and damage rolls for the duration.",
+    "paragraphs": [
+      "One weapon you touch is imbued with a sacred blessing.",
+      "The weapon becomes magical and has +1 to attack and damage rolls for the duration."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "light",
+    "name": "Light",
+    "tier": 1,
+    "classes": [
+      "priest",
+      "wizard"
+    ],
+    "duration": "1 hour real time",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "One object you touch glows with bright, heatless light, illuminating out to a near distance for 1 hour of real time.",
+    "paragraphs": [
+      "One object you touch glows with bright, heatless light, illuminating out to a near distance for 1 hour of real time."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "mage-armor",
+    "name": "Mage Armor",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "An invisible layer of magical force protects your vitals. Your armor class becomes 14 (18 on a critical spellcasting check) for the spell's duration.",
+    "paragraphs": [
+      "An invisible layer of magical force protects your vitals. Your armor class becomes 14 (18 on a critical spellcasting check) for the spell's duration."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "magic-missile",
+    "name": "Magic Missile",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You have advantage on your check to cast this spell.\n\nA glowing bolt of force streaks from your open hand, dealing 1d4 damage to one target.",
+    "paragraphs": [
+      "You have advantage on your check to cast this spell.",
+      "A glowing bolt of force streaks from your open hand, dealing 1d4 damage to one target."
+    ],
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "A glowing bolt of force streaks from your open hand, dealing 1d4 damage to one target."
+      }
+    ]
+  },
+  {
+    "slug": "shield-of-faith",
+    "name": "Shield Of Faith",
+    "tier": 1,
+    "classes": [
+      "priest"
+    ],
+    "duration": "5 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "A protective force wrought of your holy conviction surrounds you. You gain a +2 bonus to your armor class for the duration.",
+    "paragraphs": [
+      "A protective force wrought of your holy conviction surrounds you. You gain a +2 bonus to your armor class for the duration."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "sleep",
+    "name": "Sleep",
+    "tier": 1,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You weave a lulling spell that fills a near-sized cube extending from you. Living creatures in the area of effect fall into a deep sleep if they are LV 2 or less.\n\nVigorous shaking or being injured wakes them.",
+    "paragraphs": [
+      "You weave a lulling spell that fills a near-sized cube extending from you. Living creatures in the area of effect fall into a deep sleep if they are LV 2 or less.",
+      "Vigorous shaking or being injured wakes them."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "turn-undead",
+    "name": "Turn Undead",
+    "tier": 1,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You rebuke undead creatures, forcing them to flee. You must present a holy symbol to cast this spell.\n\nUndead creatures within near of you must make a CHA check vs. your spellcasting check. If a creature fails by 10+ points and is equal to or less than your level, it is destroyed. Otherwise, on a fail, it flees from you for 5 rounds.",
+    "paragraphs": [
+      "You rebuke undead creatures, forcing them to flee. You must present a holy symbol to cast this spell.",
+      "Undead creatures within near of you must make a CHA check vs. your spellcasting check. If a creature fails by 10+ points and is equal to or less than your level, it is destroyed. Otherwise, on a fail, it flees from you for 5 rounds."
+    ],
+    "damage": []
+  }
+]

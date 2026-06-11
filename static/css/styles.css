@@ -53,10 +53,15 @@ main {
 }
 
 .auth-panel {
-    background: rgba(255, 255, 255, 0.85);
+    position: relative;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.9)),
+        rgba(255, 255, 255, 0.88);
     backdrop-filter: blur(8px);
-    border-radius: 1rem;
-    box-shadow: 0 0.75rem 1.5rem rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 1.2rem;
+    box-shadow: 0 1rem 2rem rgba(15, 23, 42, 0.1);
 }
 
 .footer-copy {
@@ -81,6 +86,8 @@ main {
     border-radius: 1.25rem;
     border: 0;
     box-shadow: 0 1rem 2rem rgba(15, 23, 42, 0.08);
+    position: relative;
+    overflow: hidden;
 }
 
 .hero-copy {
@@ -152,7 +159,9 @@ main {
 }
 
 .auth-intro {
-    background: linear-gradient(160deg, #0b1020, #1c2336);
+    background:
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent 42%),
+        linear-gradient(160deg, #0b1020, #1c2336);
     color: #fff;
 }
 
@@ -191,6 +200,24 @@ main {
 
 .auth-secondary-links a:hover {
     text-decoration: underline;
+}
+
+.auth-panel .form-control {
+    border-color: rgba(148, 163, 184, 0.35);
+    background-color: rgba(255, 255, 255, 0.96);
+}
+
+.auth-panel .form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.14);
+}
+
+.auth-panel .btn-primary {
+    box-shadow: 0 0.75rem 1.25rem rgba(13, 110, 253, 0.18);
+}
+
+.auth-panel .btn-outline-dark {
+    border-width: 2px;
 }
 
 @media (max-width: 991.98px) {

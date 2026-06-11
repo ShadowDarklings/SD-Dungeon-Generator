@@ -409,7 +409,10 @@ export function clickEntity(state, x, y) {
     return { message: "That tile is hidden by darkness." };
   }
 
-  const entity = clickedDoor || findEntityAt(state, x, y);
+  const clickedEntity = findEntityAt(state, x, y);
+  const entity = clickedEntity?.subtype === "door"
+    ? clickedEntity
+    : clickedEntity || clickedDoor;
   if (!entity) {
     return { message: "No interactive token on that tile." };
   }
@@ -591,15 +594,21 @@ export function getRoomTraps(state) {
   });
 }
 
-function rollCheck(modifier, options = {}) {
+export function rollCheck(modifier, options = {}) {
   const firstRoll = Math.floor(Math.random() * 20) + 1;
-  const secondRoll = options.doubleRoll === true ? Math.floor(Math.random() * 20) + 1 : null;
-  const roll = secondRoll === null ? firstRoll : Math.max(firstRoll, secondRoll);
+  const usesPairedRoll = options.doubleRoll === true || options.disadvantage === true;
+  const secondRoll = usesPairedRoll ? Math.floor(Math.random() * 20) + 1 : null;
+  const roll = secondRoll === null
+    ? firstRoll
+    : options.disadvantage === true
+      ? Math.min(firstRoll, secondRoll)
+      : Math.max(firstRoll, secondRoll);
   const normalizedModifier = Math.max(-99, Math.min(99, Number(modifier) || 0));
   return {
     roll,
     firstRoll,
     secondaryRoll: secondRoll,
+    checkMode: options.disadvantage === true ? "disadvantage" : options.doubleRoll === true ? "advantage" : "normal",
     modifier: normalizedModifier,
     total: roll + normalizedModifier
   };
@@ -679,7 +688,7 @@ export function disarmTrap(state, trapId, modifier, options = {}) {
     };
   }
 
-  if (trap.dc - check.total <= 5) {
+  if (check.total > trap.dc - 5) {
     return {
       ...check,
       disarmed: false,
@@ -715,21 +724,33 @@ export function attemptLockedDoor(state, method, modifier = 0, options = {}) {
     return {
       ...check,
       opened: false,
+      dc,
+      method,
       lockedDoor: action,
       message: `${method === "break" ? "Break" : "Pick lock"} ${check.total} vs DC ${dc}: failed.`
     };
   }
 
-  setDoorState(door, DOOR_STATES.OPEN);
+  const trap = findActiveTrapForTarget(state, "door", door?.id);
+  if (method === "break") {
+    const doorIndex = state.entities.findIndex((entity) => entity.id === action.doorId && entity.subtype === "door");
+    if (doorIndex !== -1) {
+      state.entities.splice(doorIndex, 1);
+    }
+  } else {
+    setDoorState(door, DOOR_STATES.OPEN);
+  }
   clearLockedDoorAction(state);
   recomputeVisibility(state);
 
-  const trap = findActiveTrapForTarget(state, "door", door.id);
   if (trap) {
     const result = revealAndTriggerTrap(trap);
     return {
       ...check,
       opened: true,
+      destroyed: method === "break",
+      dc,
+      method,
       trapSprung: true,
       message: `${method === "break" ? "Door broken open" : "Lock picked"}. You've run into a trapped door! ${result.message}`
     };
@@ -738,6 +759,9 @@ export function attemptLockedDoor(state, method, modifier = 0, options = {}) {
   return {
     ...check,
     opened: true,
+    destroyed: method === "break",
+    dc,
+    method,
     message: `${method === "break" ? "Door broken open" : "Lock picked"}. Door open.`
   };
 }

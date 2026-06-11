@@ -54,6 +54,7 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
       x: 0,
       y: 0,
       roomId: null,
+      lightSource: "torch",
       lightRadius: DEFAULT_LIGHT_RADIUS,
       torchLit: true
     },

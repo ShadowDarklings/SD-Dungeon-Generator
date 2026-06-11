@@ -1,0 +1,317 @@
+[
+  {
+    "slug": "arcane-eye",
+    "name": "Arcane Eye",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You conjure an invisible, grape- sized eye within range.\n\nYou can see through the eye. It can see in the dark out to near range, fly near on your turn, and squeeze through openings as narrow as a keyhole.",
+    "paragraphs": [
+      "You conjure an invisible, grape- sized eye within range.",
+      "You can see through the eye. It can see in the dark out to near range, fly near on your turn, and squeeze through openings as narrow as a keyhole."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "cloudkill",
+    "name": "Cloudkill",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "5 rounds",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "A putrid cloud of yellow poison fills a near-sized cube within range. It spreads around corners.\n\nCreatures inside the cloud are blinded and take 2d6 damage at the beginning of their turns.\n\nA creature of LV 9 or less that ends its turn fully inside the cloud dies.",
+    "paragraphs": [
+      "A putrid cloud of yellow poison fills a near-sized cube within range. It spreads around corners.",
+      "Creatures inside the cloud are blinded and take 2d6 damage at the beginning of their turns.",
+      "A creature of LV 9 or less that ends its turn fully inside the cloud dies."
+    ],
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "Creatures inside the cloud are blinded and take 2d6 damage at the beginning of their turns."
+      }
+    ]
+  },
+  {
+    "slug": "commune",
+    "name": "Commune",
+    "tier": 4,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You seek your god's counsel.\n\nAsk the GM up to three yes or no questions. The GM truthfully answers \"yes\" or \"no\" to each.\n\nIf you cast this spell more than once in 24 hours, treat a failed spellcasting check for it as a critical failure instead.",
+    "paragraphs": [
+      "You seek your god's counsel.",
+      "Ask the GM up to three yes or no questions. The GM truthfully answers \"yes\" or \"no\" to each.",
+      "If you cast this spell more than once in 24 hours, treat a failed spellcasting check for it as a critical failure instead."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "confusion",
+    "name": "Confusion",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You mesmerize one creature you can see in range. The target can't take actions, and it moves in a random direction on its turn. If the target is LV 9+, it may make a WIS check vs. your last spellcasting check at the start of its turn to end the spell.",
+    "paragraphs": [
+      "You mesmerize one creature you can see in range. The target can't take actions, and it moves in a random direction on its turn. If the target is LV 9+, it may make a WIS check vs. your last spellcasting check at the start of its turn to end the spell."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "control-water",
+    "name": "Control Water",
+    "tier": 4,
+    "classes": [
+      "priest",
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You move and shape water. You can cause a section of water up to 100 feet in width and depth to change shape, defy gravity, or flow in a different direction.",
+    "paragraphs": [
+      "You move and shape water. You can cause a section of water up to 100 feet in width and depth to change shape, defy gravity, or flow in a different direction."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "dimension-door",
+    "name": "Dimension Door",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You teleport yourself and up to one other willing creature within close to any point you can see.",
+    "paragraphs": [
+      "You teleport yourself and up to one other willing creature within close to any point you can see."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "divination",
+    "name": "Divination",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Instant",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "You throw the divining bones or peer into the blackness between the stars, seeking a portent.\n\nYou can ask the GM one yes or no question. The GM truthfully answers \"yes\" or \"no.\" If you cast this spell more than once in 24 hours, treat a failed spellcasting check for it as a critical failure instead.",
+    "paragraphs": [
+      "You throw the divining bones or peer into the blackness between the stars, seeking a portent.",
+      "You can ask the GM one yes or no question. The GM truthfully answers \"yes\" or \"no.\" If you cast this spell more than once in 24 hours, treat a failed spellcasting check for it as a critical failure instead."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "flame-strike",
+    "name": "Flame Strike",
+    "tier": 4,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Instant",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You call down a holy pillar of fire, immolating one creature you can see within range. The target takes 2d6 damage.",
+    "paragraphs": [
+      "You call down a holy pillar of fire, immolating one creature you can see within range. The target takes 2d6 damage."
+    ],
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "The target takes 2d6 damage."
+      }
+    ]
+  },
+  {
+    "slug": "passwall",
+    "name": "Passwall",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "5 rounds",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "A tunnel of your height opens in a barrier you touch and lasts for the duration.\n\nThe passage can be up to near distance in length and must be in a straight line.",
+    "paragraphs": [
+      "A tunnel of your height opens in a barrier you touch and lasts for the duration.",
+      "The passage can be up to near distance in length and must be in a straight line."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "pillar-of-salt",
+    "name": "Pillar Of Salt",
+    "tier": 4,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Focus",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "A creature you target turns into a statue made of hardened salt.\n\nYou can target a creature you can see of LV 5 or less.\n\nIf you successfully focus on this spell for 3 rounds in a row, the transformation becomes permanent.",
+    "paragraphs": [
+      "A creature you target turns into a statue made of hardened salt.",
+      "You can target a creature you can see of LV 5 or less.",
+      "If you successfully focus on this spell for 3 rounds in a row, the transformation becomes permanent."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "polymorph",
+    "name": "Polymorph",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You transform a creature you touch into another natural creature you choose of equal or smaller size. Any gear the target carries melds into its new form.\n\nThe target gains the creature's physical stats and features, but it retains its non-physical stats and features.\n\nIf the target goes to 0 hit points, it reverts to its true form at half its prior hit points.\n\nYou can target any willing creature with this spell, or an unwilling creature whose level is less than or equal to half your level rounded down (min. 1).",
+    "paragraphs": [
+      "You transform a creature you touch into another natural creature you choose of equal or smaller size. Any gear the target carries melds into its new form.",
+      "The target gains the creature's physical stats and features, but it retains its non-physical stats and features.",
+      "If the target goes to 0 hit points, it reverts to its true form at half its prior hit points.",
+      "You can target any willing creature with this spell, or an unwilling creature whose level is less than or equal to half your level rounded down (min. 1)."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "regenerate",
+    "name": "Regenerate",
+    "tier": 4,
+    "classes": [
+      "priest"
+    ],
+    "duration": "Focus",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "A creature you touch regains 1d4 hit points on your turn for the duration. This spell also regrows lost body parts.",
+    "paragraphs": [
+      "A creature you touch regains 1d4 hit points on your turn for the duration. This spell also regrows lost body parts."
+    ],
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "A creature you touch regains 1d4 hit points on your turn for the duration."
+      }
+    ]
+  },
+  {
+    "slug": "resilient-sphere",
+    "name": "Resilient Sphere",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "5 rounds",
+    "range": "Close",
+    "rangeBand": "close",
+    "description": "You conjure a weightless, glassy sphere around you that extends out to close range.\n\nFor the spell's duration, nothing can pass through or crush the sphere.\n\nYou can roll the sphere a near distance on your turn.",
+    "paragraphs": [
+      "You conjure a weightless, glassy sphere around you that extends out to close range.",
+      "For the spell's duration, nothing can pass through or crush the sphere.",
+      "You can roll the sphere a near distance on your turn."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "stoneskin",
+    "name": "Stoneskin",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "10 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "Your skin becomes like granite.\n\nFor the spell's duration, your armor class becomes 17 (20 on a critical spellcasting check).",
+    "paragraphs": [
+      "Your skin becomes like granite.",
+      "For the spell's duration, your armor class becomes 17 (20 on a critical spellcasting check)."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "telekinesis",
+    "name": "Telekinesis",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "Focus",
+    "range": "Far",
+    "rangeBand": "far",
+    "description": "You lift a creature or object with your mind. Choose a target that weighs 1,000 pounds or less.\n\nYou can move it a near distance in any direction and hold it in place.",
+    "paragraphs": [
+      "You lift a creature or object with your mind. Choose a target that weighs 1,000 pounds or less.",
+      "You can move it a near distance in any direction and hold it in place."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "wall-of-force",
+    "name": "Wall Of Force",
+    "tier": 4,
+    "classes": [
+      "wizard"
+    ],
+    "duration": "5 rounds",
+    "range": "Near",
+    "rangeBand": "near",
+    "description": "You lift your hands, conjuring a transparent wall of force.\n\nThe thin wall must be contiguous and can cover a near-sized area in width and length. You choose its shape.\n\nNothing on the same plane can physically pass through the wall.",
+    "paragraphs": [
+      "You lift your hands, conjuring a transparent wall of force.",
+      "The thin wall must be contiguous and can cover a near-sized area in width and length. You choose its shape.",
+      "Nothing on the same plane can physically pass through the wall."
+    ],
+    "damage": []
+  },
+  {
+    "slug": "wrath",
+    "name": "Wrath",
+    "tier": 4,
+    "classes": [
+      "priest"
+    ],
+    "duration": "10 rounds",
+    "range": "Self",
+    "rangeBand": "self",
+    "description": "Your weapons become magical +2 and deal an additional d8 damage for the spell's duration.",
+    "paragraphs": [
+      "Your weapons become magical +2 and deal an additional d8 damage for the spell's duration."
+    ],
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "Your weapons become magical +2 and deal an additional d8 damage for the spell's duration."
+      }
+    ]
+  }
+]

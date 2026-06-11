@@ -1,4 +1,4 @@
-import { MAX_SEARCH_MODIFIER, MIN_SEARCH_MODIFIER, TILE_SIZE_PX } from "./constants.js";
+import { DEFAULT_LIGHT_RADIUS, MAX_SEARCH_MODIFIER, MIN_SEARCH_MODIFIER, TILE_SIZE_PX } from "./constants.js";
 import { generateDungeon } from "./generator.js";
 import {
   clickEntity,
@@ -11,6 +11,7 @@ import {
   getRoomLoot,
   getRoomTraps,
   movePlayer,
+  rollCheck,
   searchForTraps
 } from "./interactions.js";
 import {
@@ -35,15 +36,22 @@ import {
   getCharacterDisplayHeader,
   getCharacterGearFreeSlots,
   hasCharacterAmmo,
-  getCharacterSpellText,
-  getCharacterRuleText,
   getCharacterStatSummary,
   markCharacterSlain,
   normalizeCharacterState,
   setActiveCharacter,
   setCharacterHp
 } from "./characters.js";
+import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression } from "./damage.js";
 import { preloadRendererAssets, renderDungeon } from "./render.js";
+import { loadSpellLibrary, normalizeSpellLookupKey } from "./spells.js";
+import {
+  assignSessionCharacter,
+  createHostSession,
+  getHostSession,
+  joinHostSession,
+  normalizeSessionCode
+} from "./multiplayer.js";
 import {
   advanceTorchTime,
   forceTorchOut,
@@ -61,12 +69,13 @@ const ui = {
   generateBtn: document.getElementById("generate-btn"),
   saveBtn: document.getElementById("save-btn"),
   loadBtn: document.getElementById("load-btn"),
+  multiplayerBtn: document.getElementById("multiplayer-btn"),
   lightTorchBtn: document.getElementById("light-torch-btn"),
+  lightLanternBtn: document.getElementById("light-lantern-btn"),
   torchOutBtn: document.getElementById("torch-out-btn"),
   torchBtn: document.getElementById("torch-btn"),
   searchBtn: document.getElementById("search-btn"),
   searchModifierInput: document.getElementById("search-modifier-input"),
-  searchResult: document.getElementById("search-result"),
   blackoutToggle: document.getElementById("blackout-toggle"),
   statusText: document.getElementById("status-text"),
   lockedDoorActions: document.getElementById("locked-door-actions"),
@@ -88,17 +97,24 @@ const ui = {
   dungeonTabPanel: document.getElementById("dungeon-tab-panel"),
   charactersTabPanel: document.getElementById("characters-tab-panel"),
   importCharacterBtn: document.getElementById("import-character-btn"),
+  baseClassesOnlyToggle: document.getElementById("base-classes-only-toggle"),
   charactersEmpty: document.getElementById("characters-empty"),
   charactersList: document.getElementById("characters-list"),
   characterDetail: document.getElementById("character-detail"),
-  characterImportModal: document.getElementById("character-import-modal"),
-  characterImportInput: document.getElementById("character-import-input"),
-  characterImportStatus: document.getElementById("character-import-status"),
-  characterImportSubmit: document.getElementById("character-import-submit"),
-  characterImportClose: document.getElementById("character-import-close"),
+  damageResult: document.getElementById("damage-result"),
+  damageContext: document.getElementById("damage-context"),
+  damageExpandBtn: document.getElementById("damage-expand-btn"),
+  damageDetail: document.getElementById("damage-detail"),
   characterSheetModal: document.getElementById("character-sheet-modal"),
   characterSheetContent: document.getElementById("character-sheet-content"),
   characterSheetClose: document.getElementById("character-sheet-close"),
+  spellDetailModal: document.getElementById("spell-detail-modal"),
+  spellDetailClose: document.getElementById("spell-detail-close"),
+  spellDetailTitle: document.getElementById("spell-detail-title"),
+  spellDetailMeta: document.getElementById("spell-detail-meta"),
+  spellDetailDuration: document.getElementById("spell-detail-duration"),
+  spellDetailRange: document.getElementById("spell-detail-range"),
+  spellDetailBody: document.getElementById("spell-detail-body"),
   saveLoadModal: document.getElementById("save-load-modal"),
   saveLoadTitle: document.getElementById("save-load-title"),
   saveLoadStatus: document.getElementById("save-load-status"),
@@ -113,6 +129,20 @@ const ui = {
   replaceCancelBtn: document.getElementById("replace-cancel-btn"),
   saveModalSubmit: document.getElementById("save-modal-submit"),
   saveLoadClose: document.getElementById("save-load-close"),
+  multiplayerModal: document.getElementById("multiplayer-modal"),
+  multiplayerStatus: document.getElementById("multiplayer-status"),
+  multiplayerCreateHostBtn: document.getElementById("multiplayer-create-host-btn"),
+  multiplayerInviteRow: document.getElementById("multiplayer-invite-row"),
+  multiplayerInviteLink: document.getElementById("multiplayer-invite-link"),
+  multiplayerCopyLinkBtn: document.getElementById("multiplayer-copy-link-btn"),
+  multiplayerJoinCode: document.getElementById("multiplayer-join-code"),
+  multiplayerJoinBtn: document.getElementById("multiplayer-join-btn"),
+  multiplayerPresenceList: document.getElementById("multiplayer-presence-list"),
+  multiplayerPlayerSelect: document.getElementById("multiplayer-player-select"),
+  multiplayerCharacterSelect: document.getElementById("multiplayer-character-select"),
+  multiplayerAssignBtn: document.getElementById("multiplayer-assign-btn"),
+  multiplayerRefreshBtn: document.getElementById("multiplayer-refresh-btn"),
+  multiplayerClose: document.getElementById("multiplayer-close"),
   lootCompleteModal: document.getElementById("loot-complete-modal"),
   lootCompleteClose: document.getElementById("loot-complete-close")
 };
@@ -123,12 +153,34 @@ let forceBlackoutWhenTorchOut = true;
 let monsterTable = [];
 let trapTable = [];
 let shadowdarkContent = null;
+let spellLibraryPromise = null;
+let spellLookup = new Map();
+let lastDamageRoll = null;
 let activeTab = "dungeon";
 let saveDialog = {
   mode: "save",
   runs: [],
   pendingRun: null
 };
+let multiplayerSession = {
+  inviteCode: "",
+  inviteUrl: "",
+  role: "",
+  players: [],
+  assignments: []
+};
+
+const BASE_CLASSES_ONLY_STORAGE_KEY = "shadowspawner.baseClassesOnly";
+const SHADOWDARKLINGS_SOURCE_SWITCHES = [
+  "Scroll #1",
+  "Scroll #2",
+  "Scroll #3",
+  "Scroll #4",
+  "B&R&K",
+  "Roustabout",
+  "Unnatural Selection",
+  "Darcy"
+];
 let viewport = {
   scale: 1,
   minScale: 1,
@@ -188,6 +240,41 @@ async function loadTrapTable() {
     console.warn("Using fallback trap names because traps.json could not load.", error);
     return [];
   }
+}
+
+function getMonsterBucket(level) {
+  const parsed = Number(level) || 1;
+  return Math.max(1, Math.min(10, parsed >= 10 ? 10 : parsed));
+}
+
+async function loadMonsterTableForLevel(level) {
+  const bucket = getMonsterBucket(level);
+  try {
+    const response = await fetch(`./monsters-${bucket}.json`);
+    if (!response.ok) {
+      throw new Error(`Monster table request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    console.warn(`Using fallback monster table for level ${level}.`, error);
+    return Array.isArray(shadowdarkContent?.monsters)
+      ? shadowdarkContent.monsters.filter((monster) => {
+        const monsterLevel = Number(monster?.level ?? monster?.lv ?? monster?.["**LV**"] ?? 1) || 1;
+        return bucket >= 10 ? monsterLevel >= 10 : monsterLevel === bucket;
+      })
+      : [];
+  }
+}
+
+async function ensureSpellLibraryLoaded() {
+  if (!spellLibraryPromise) {
+    spellLibraryPromise = loadSpellLibrary().then((library) => {
+      spellLookup = library.lookup;
+      return library;
+    });
+  }
+  return spellLibraryPromise;
 }
 
 function createLayerCanvas(className, width, height) {
@@ -356,7 +443,11 @@ function updateLockedDoorUi() {
     return;
   }
   ui.pickLockBtn.textContent = `Pick Lock DC ${action.pickDc}`;
-  ui.breakDoorBtn.textContent = `Break DC ${action.breakDc}`;
+  ui.breakDoorBtn.textContent = `Smash DC ${action.breakDc}`;
+}
+
+function updateTrapActionUi() {
+  // Revealed trap cards render their own Disarm? button; there is no global disarm control.
 }
 
 function sizeControlField(input) {
@@ -407,8 +498,12 @@ function render() {
   renderDungeon(state, layers, {
     forceBlackout: forceBlackoutWhenTorchOut && !state.player.torchLit
   });
-  ui.connectivityText.textContent = state.generation.connectivityValid ? "valid" : "invalid";
+  if (ui.connectivityText) {
+    ui.connectivityText.textContent = state.generation.connectivityValid ? "valid" : "invalid";
+  }
+  updateLightControlUi();
   updateLockedDoorUi();
+  updateTrapActionUi();
   updateWanderingUi();
 }
 
@@ -456,7 +551,7 @@ function updateLootUi() {
   ui.totalValue.textContent = `${state.lootLog.totalValue}`;
   if (ui.inventorySlots) {
     const inventory = state.inventory || { baseSlots: 10, bonusSlots: 0, usedSlots: 0 };
-    const capacity = (inventory.baseSlots || 10) + (inventory.bonusSlots || 0);
+    const capacity = Number(inventory.baseSlots ?? 10) + Number(inventory.bonusSlots ?? 0);
     ui.inventorySlots.textContent = `${inventory.usedSlots || 0} / ${capacity} slots`;
   }
 }
@@ -465,10 +560,19 @@ function getCharacterActionContext(action) {
   const character = getActiveCharacter(state);
   const situational = Number(ui.searchModifierInput.value || 0) || 0;
   const baseModifier = getCharacterActionModifier(character, action);
+  const className = String(character?.className || "").toLowerCase();
+  const advantageClassByAction = {
+    break: "fighter",
+    search: "thief",
+    disarm: "thief",
+    pick: "thief"
+  };
+  const advantageClass = advantageClassByAction[action] || "";
   return {
     character,
     modifier: baseModifier + situational,
-    doubleRoll: character?.className?.toLowerCase() === "thief"
+    doubleRoll: Boolean(advantageClass && className === advantageClass),
+    advantageClass
   };
 }
 
@@ -490,6 +594,167 @@ function formatModifier(value) {
   return modifier >= 0 ? `+${modifier}` : `${modifier}`;
 }
 
+function prettifyAttackName(value) {
+  return String(value || "")
+    .replace(/\b([A-Z]{2,})\b/g, (match) => match.charAt(0) + match.slice(1).toLowerCase())
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseAttackText(attackText) {
+  const normalized = String(attackText || "").replace(/^ATTACKS?:\s*/i, "").trim();
+  if (!normalized) {
+    return null;
+  }
+  const colonIndex = normalized.indexOf(":");
+  if (colonIndex === -1) {
+    return {
+      name: prettifyAttackName(normalized),
+      flag: "",
+      bonus: 0,
+      bonusText: "",
+      detail: ""
+    };
+  }
+
+  const namePart = normalized.slice(0, colonIndex).trim();
+  const remainder = normalized.slice(colonIndex + 1).trim();
+  const firstComma = remainder.indexOf(",");
+  const firstChunk = firstComma === -1 ? remainder : remainder.slice(0, firstComma).trim();
+  const rest = firstComma === -1 ? "" : remainder.slice(firstComma + 1).trim();
+  const flagMatch = namePart.match(/\(([^)]+)\)/) || firstChunk.match(/\(([^)]+)\)/);
+  const bonusMatch = firstChunk.match(/[+\-]\d+/);
+  const cleanName = namePart.replace(/\s*\([^)]+\)\s*/g, " ").trim();
+  const detail = rest
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/[\s,;]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return {
+    name: prettifyAttackName(cleanName || namePart),
+    flag: flagMatch ? ` (${flagMatch[1]})` : "",
+    bonus: bonusMatch ? Number.parseInt(bonusMatch[0], 10) : 0,
+    bonusText: bonusMatch ? bonusMatch[0] : firstChunk,
+    detail,
+    damageExpression: extractDamageReferences(detail)[0]?.expression || ""
+  };
+}
+
+function isThiefCharacter(character) {
+  return /\bthief\b/i.test(String(character?.className || ""));
+}
+
+function isBackstabAttackText(attackText) {
+  return /^backstab\b/i.test(String(attackText || "").replace(/^ATTACKS?:\s*/i, "").trim());
+}
+
+function getBackstabIncreaseCount(character) {
+  const haystack = [
+    ...(character?.levels || []).map((level) => `${level?.talentRolledName || ""} ${level?.talentRolledDesc || ""}`),
+    ...(character?.bonuses || []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""} ${bonus?.bonusTo || ""}`)
+  ].join(" ");
+  return Array.from(haystack.matchAll(/backstab\s+increase/gi)).length;
+}
+
+function getBackstabMultiplier(character) {
+  return isThiefCharacter(character) ? 2 + getBackstabIncreaseCount(character) : 0;
+}
+
+function multiplyDamageDice(expression, multiplier) {
+  const normalized = normalizeDamageExpression(expression);
+  if (!normalized || multiplier <= 1) {
+    return normalized;
+  }
+  return normalized.replace(/(\d*)d(\d+)/gi, (match, count, sides) => {
+    const diceCount = Number.parseInt(count || "1", 10);
+    return `${diceCount * multiplier}d${sides}`;
+  });
+}
+
+function applyAttackRoll(character, attack) {
+  if (!ui.damageResult || !attack) {
+    return;
+  }
+  const result = rollCheck(attack.bonus || 0);
+  const characterName = character?.name || "Character";
+  const attackName = `${attack.name}${attack.flag || ""}`.trim();
+  const message = `${characterName} attacks with ${attackName} and rolls a ${result.total}.`;
+  markUserActivity();
+  setStatus(message);
+  showCheckResult(result, "Attack", {
+    headline: message,
+    message: "Attack roll"
+  });
+}
+
+function createAttackButton(character, attack) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "damage-token attack-roll-button";
+  button.textContent = `${attack.name}${attack.flag || ""}`;
+  button.title = `Roll attack ${attack.bonusText ? attack.bonusText : formatModifier(attack.bonus || 0)}`;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    applyAttackRoll(character, attack);
+  });
+  return button;
+}
+
+function createBackstabButton(character, attack) {
+  const multiplier = getBackstabMultiplier(character);
+  const backstabExpression = multiplyDamageDice(attack?.damageExpression, multiplier);
+  if (!multiplier || !backstabExpression) {
+    return null;
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "damage-token backstab-roll-button";
+  button.textContent = `${attack.name} Backstab x ${multiplier}`;
+  button.title = `Roll ${backstabExpression}`;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    applyDamageRoll({
+      expression: backstabExpression,
+      display: `${attack.name} Backstab x ${multiplier}`,
+      context: `${attack.name} backstab ${backstabExpression}`
+    }, `${character?.name || "Character"} backstab`);
+  });
+  return button;
+}
+
+function createAttackAwareLine(attackText, character) {
+  if (isSpellCheckText(attackText)) {
+    return createDamageAwareLine(formatTalentSpellTextForSheet(formatAttackForSheet(attackText)), {
+      sourceLabel: `${character?.name || "Character"} spell`,
+      spellCheck: true,
+      character
+    });
+  }
+  const attack = parseAttackText(attackText);
+  if (!attack) {
+    return document.createTextNode("");
+  }
+  const content = document.createElement("span");
+  content.append(createAttackButton(character, attack));
+  if (attack.bonusText) {
+    content.append(document.createTextNode(` ${attack.bonusText}`));
+  }
+  if (attack.detail) {
+    content.append(document.createTextNode(", "));
+    appendDamageAwareText(content, attack.detail, {
+      sourceLabel: `${character?.name || "Character"} attack`,
+      character
+    });
+  }
+  const backstabButton = createBackstabButton(character, attack);
+  if (backstabButton) {
+    content.append(document.createTextNode(", "));
+    content.append(backstabButton);
+  }
+  return content;
+}
+
 function formatAbilityPair(character, key) {
   const score = character.stats?.[key] ?? 10;
   return `${score} / ${formatModifier(abilityScoreModifier(score))}`;
@@ -498,6 +763,15 @@ function formatAbilityPair(character, key) {
 function getCharacterColorValue(character) {
   const match = CHARACTER_COLOR_PALETTE.find((color) => color.id === character?.colorId);
   return match?.value || CHARACTER_COLOR_PALETTE[0].value;
+}
+
+function shuffleCoordinates(coords) {
+  const shuffled = coords.slice();
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
 }
 
 function hasCharacterMapPosition(character) {
@@ -521,6 +795,214 @@ function clampInt(value, min, max, fallback = 0) {
 
 function formatAttackForSheet(attackText) {
   return String(attackText || "").replace(/^ATTACKS?:\s*/i, "").trim();
+}
+
+function characterGearNames(character) {
+  return (Array.isArray(character?.gear) ? character.gear : []).map((item) => String(item?.name || "").toLowerCase());
+}
+
+function characterHasGear(character, matcher) {
+  return characterGearNames(character).some(matcher);
+}
+
+function characterHasTorch(character) {
+  return characterHasGear(character, (name) => /^torch\b/.test(name));
+}
+
+function characterHasLantern(character) {
+  return characterHasGear(character, (name) => /\blantern\b/.test(name));
+}
+
+function characterHasOil(character) {
+  return characterHasGear(character, (name) => /\boil\b/.test(name));
+}
+
+function characterHasFlintAndSteel(character) {
+  return characterHasGear(character, (name) => /flint\s*(?:and|&)?\s*steel/.test(name));
+}
+
+function setCharacterLight(character, source) {
+  if (!character) {
+    return;
+  }
+  if (source === "light-spell") {
+    character.lightSource = "light-spell";
+    character.lightRadius = DEFAULT_LIGHT_RADIUS;
+    return;
+  }
+  if (source === "lantern") {
+    character.lightSource = "lantern";
+    character.lightRadius = 12;
+    return;
+  }
+  if (source === "torch") {
+    character.lightSource = "torch";
+    character.lightRadius = DEFAULT_LIGHT_RADIUS;
+    return;
+  }
+  character.lightSource = "";
+  character.lightRadius = 0;
+}
+
+function initializeImportedCharacterLight(character, index) {
+  if (!character || Number(index) !== 0 || character.lightSource) {
+    return;
+  }
+  if (characterHasLantern(character) && characterHasOil(character)) {
+    setCharacterLight(character, "lantern");
+    return;
+  }
+  if (characterHasTorch(character)) {
+    setCharacterLight(character, "torch");
+  }
+}
+
+function syncPlayerLightFromActiveCharacter() {
+  const active = getActiveCharacter(state);
+  const radius = Number(active?.lightRadius) || 0;
+  state.player.lightSource = active?.lightSource || "";
+  state.player.lightRadius = radius || DEFAULT_LIGHT_RADIUS;
+  state.player.torchLit = radius > 0;
+}
+
+function syncActiveCharacterLightFromPlayer() {
+  const active = getActiveCharacter(state);
+  if (!active) {
+    return;
+  }
+  if (!state.player.torchLit) {
+    setCharacterLight(active, "");
+    return;
+  }
+  if (state.player.lightSource === "lantern") {
+    setCharacterLight(active, "lantern");
+    return;
+  }
+  if (state.player.lightSource === "light-spell") {
+    setCharacterLight(active, "light-spell");
+    return;
+  }
+  setCharacterLight(active, "torch");
+}
+
+function lightActiveCharacter(source) {
+  const active = getActiveCharacter(state);
+  lightNewTorch(state);
+  state.player.lightSource = source === "lantern" ? "lantern" : source === "light-spell" ? "light-spell" : "torch";
+  state.player.lightRadius = source === "lantern" ? 12 : DEFAULT_LIGHT_RADIUS;
+  if (active) {
+    setCharacterLight(active, state.player.lightSource);
+  }
+}
+
+function clearActiveCharacterLight() {
+  forceTorchOut(state);
+  state.player.lightSource = "";
+  state.player.lightRadius = DEFAULT_LIGHT_RADIUS;
+  syncActiveCharacterLightFromPlayer();
+}
+
+function canLightLantern(character) {
+  return characterHasLantern(character) && characterHasOil(character) && characterHasFlintAndSteel(character);
+}
+
+function canLightTorch(character) {
+  return characterHasTorch(character) && characterHasFlintAndSteel(character);
+}
+
+function createLightSourceMarker(source) {
+  const marker = document.createElement("span");
+  marker.className = ["light-source-marker", `light-source-marker--${source || "torch"}`].join(" ");
+  marker.setAttribute("aria-hidden", "true");
+  return marker;
+}
+
+function createCharacterLightNote(character) {
+  if (!character?.lightSource || !Number(character.lightRadius)) {
+    return null;
+  }
+  const source = character.lightSource;
+  const note = document.createElement("span");
+  note.className = "character-light-note";
+  const rangeText = source === "lantern" ? "2 x Near" : "Near";
+  note.append(document.createTextNode(`${getLightSourceLabel(source)} (${rangeText}) `), createLightSourceMarker(source));
+  return note;
+}
+
+function clearMagicLightIfIncapacitated(character) {
+  if (!character || character.lightSource !== "light-spell" || Number(character.hp) > 0) {
+    return;
+  }
+  setCharacterLight(character, "");
+  if (state?.activeCharacterId === character.id) {
+    syncPlayerLightFromActiveCharacter();
+    recomputeVisibility(state);
+  }
+}
+
+function getLightSourceLabel(source) {
+  if (source === "lantern") {
+    return "Lantern";
+  }
+  if (source === "light-spell") {
+    return "Light Spell";
+  }
+  return "Torch";
+}
+
+function updateLightControlUi() {
+  const active = getActiveCharacter(state);
+  if (ui.lightTorchBtn) {
+    ui.lightTorchBtn.hidden = !canLightTorch(active);
+  }
+  if (ui.lightLanternBtn) {
+    ui.lightLanternBtn.hidden = !canLightLantern(active);
+  }
+  const lightSource = state.player.lightSource || (state.player.torchLit ? "torch" : "");
+  if (ui.torchBtn) {
+    ui.torchBtn.hidden = !state.player.torchLit && !canLightTorch(active);
+  }
+  ui.torchBtn.textContent = state.player.torchLit
+    ? lightSource === "lantern" ? "Hide Lantern" : lightSource === "light-spell" ? "Hide Light" : "Hide Torch"
+    : "Show Torch";
+}
+
+function formatTalentSpellTextForSheet(text) {
+  return String(text || "")
+    .replace(
+      /\bBackstab Increase:\s*Your Backstab deals \+1 dice of damage\.?/gi,
+      "Backstab Increase: +1 dice of damage."
+    )
+    .replace(/\bAdvantageOnStatChecks\b/g, "Advantage")
+    .replace(
+      /\bWizard spell,\s*roll\s+1d20\s*\+\s*\[?int mod\]?\s+vs\.?\s+a\s+DC\s+equal\s+to\s+10\s*\+\s*the\s+spell'?s\s+tier\.?/gi,
+      "Wizard spell, 1d20+[int mod] DC = 10 + Tier."
+    )
+    .replace(
+      /\bTo cast a Priest spell,\s*roll\s+1d20\s*\+\s*\[?wis mod\]?\s+vs\.?\s+a\s+DC\s+equal\s+to\s+10\s*\+\s*the\s+spell'?s\s+tier\.?/gi,
+      "Priest spell, 1d20+[wis mod] DC = 10 + Tier."
+    )
+    .replace(
+      /\bPriest spell,\s*roll\s+1d20\s*\+\s*\[?wis mod\]?\s+vs\.?\s+a\s+DC\s+equal\s+to\s+10\s*\+\s*the\s+spell'?s\s+tier\.?/gi,
+      "Priest spell, 1d20+[wis mod] DC = 10 + Tier."
+    );
+}
+
+function isSpellCheckText(text) {
+  return /\b(?:wizard|priest)\s+spell\b/i.test(String(text || "")) && /\b1d20\b/i.test(String(text || ""));
+}
+
+function shouldSuppressTalentLine(line, allLines) {
+  const normalized = String(line || "").trim();
+  if (!/Backstab Increase\s*$/i.test(normalized)) {
+    return false;
+  }
+  const prefix = normalized.replace(/Backstab Increase\s*$/i, "Backstab Increase:");
+  return allLines.some((candidate) => (
+    candidate !== line &&
+    String(candidate || "").startsWith(prefix) &&
+    /\+1 dice of damage|Your Backstab deals/i.test(String(candidate || ""))
+  ));
 }
 
 function buildTalentSpellLines(character) {
@@ -1238,19 +1720,53 @@ function isCharacterTileBlocked(x, y) {
 }
 
 function findOpenCharacterTile(originX, originY, occupied = new Set()) {
-  for (let radius = 0; radius <= 4; radius += 1) {
+  for (let radius = 1; radius <= 4; radius += 1) {
+    const candidates = [];
     for (let y = originY - radius; y <= originY + radius; y += 1) {
       for (let x = originX - radius; x <= originX + radius; x += 1) {
         if (Math.max(Math.abs(x - originX), Math.abs(y - originY)) !== radius) {
           continue;
         }
-        if (!isCharacterTileBlocked(x, y) && !occupied.has(`${x},${y}`)) {
-          return { x, y, roomId: getTileAt(x, y)?.roomId || null };
-        }
+        candidates.push({ x, y });
+      }
+    }
+    for (const candidate of shuffleCoordinates(candidates)) {
+      if (!isCharacterTileBlocked(candidate.x, candidate.y) && !occupied.has(`${candidate.x},${candidate.y}`)) {
+        return { x: candidate.x, y: candidate.y, roomId: getTileAt(candidate.x, candidate.y)?.roomId || null };
       }
     }
   }
   return { x: originX, y: originY, roomId: getTileAt(originX, originY)?.roomId || null };
+}
+
+function getCharacterSpawnOrigin(character, index) {
+  const active = getActiveCharacter(state);
+  if (hasCharacterMapPosition(active) && active.id !== character?.id) {
+    return {
+      x: Number(active.x),
+      y: Number(active.y)
+    };
+  }
+
+  const previous = index > 0 ? state.characters[index - 1] : null;
+  if (hasCharacterMapPosition(previous)) {
+    return {
+      x: Number(previous.x),
+      y: Number(previous.y)
+    };
+  }
+
+  if (hasCharacterMapPosition(state.player)) {
+    return {
+      x: Number(state.player.x),
+      y: Number(state.player.y)
+    };
+  }
+
+  return {
+    x: 0,
+    y: 0
+  };
 }
 
 function ensureCharacterPresentation() {
@@ -1261,6 +1777,7 @@ function ensureCharacterPresentation() {
   const occupied = new Set();
 
   for (const [index, character] of state.characters.entries()) {
+    initializeImportedCharacterLight(character, index);
     const overrideColorId = characterColorOverrides.get(character.id);
     if (overrideColorId) {
       character.colorId = overrideColorId;
@@ -1283,9 +1800,9 @@ function ensureCharacterPresentation() {
     usedColors.add(character.colorId);
 
     if (!hasCharacterMapPosition(character) || occupied.has(`${character.x},${character.y}`) || isCharacterTileBlocked(Number(character.x), Number(character.y))) {
-      const origin = index > 0 ? state.characters[index - 1] : state.player;
-      const originX = hasCharacterMapPosition(origin) ? Number(origin.x) : Number(state.player.x);
-      const originY = hasCharacterMapPosition(origin) ? Number(origin.y) : Number(state.player.y);
+      const origin = getCharacterSpawnOrigin(character, index);
+      const originX = origin.x;
+      const originY = origin.y;
       const start = findOpenCharacterTile(originX, originY, occupied);
       character.x = start.x;
       character.y = start.y;
@@ -1300,6 +1817,7 @@ function ensureCharacterPresentation() {
     state.player.x = active.x;
     state.player.y = active.y;
     state.player.roomId = active.roomId ?? getTileAt(active.x, active.y)?.roomId ?? state.player.roomId;
+    syncPlayerLightFromActiveCharacter();
   }
 }
 
@@ -1311,6 +1829,7 @@ function syncPlayerToActiveCharacter() {
   state.player.x = Number(active.x);
   state.player.y = Number(active.y);
   state.player.roomId = active.roomId ?? getTileAt(active.x, active.y)?.roomId ?? state.player.roomId;
+  syncPlayerLightFromActiveCharacter();
 }
 
 function activateCharacter(character) {
@@ -1332,6 +1851,7 @@ function syncActiveCharacterToPlayer() {
   active.x = state.player.x;
   active.y = state.player.y;
   active.roomId = state.player.roomId;
+  syncActiveCharacterLightFromPlayer();
 }
 
 function getCharacterAtTile(x, y) {
@@ -1418,6 +1938,7 @@ function applyCharacterAmmoOverrides() {
 
 function refreshCharacterViews(character) {
   const currentCharacter = getCurrentCharacter(character);
+  clearMagicLightIfIncapacitated(currentCharacter);
   normalizeCharacterState(state);
   applyCharacterAmmoOverrides();
   applyCharacterColorOverrides();
@@ -1481,6 +2002,7 @@ function renderCharacterCard(character) {
     createMiniInlineNumberField(character.hp, 99, (value) => {
       const currentCharacter = getCurrentCharacter(character);
       setCharacterHp(currentCharacter, value);
+      clearMagicLightIfIncapacitated(currentCharacter);
       refreshCharacterViews(currentCharacter);
     }),
     document.createTextNode(" "),
@@ -1548,8 +2070,22 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
   logo.textContent = "ShadowDark";
 
   const nameBox = createSdField("Name", character.name, "sd-name-box");
-  const talents = createSdPanel("Talents / Spells", buildSheetLines(buildTalentSpellLines(character), 8), "sd-talents-panel");
-  const attacks = createSdPanel("Attacks", buildSheetLines((character.attacks || []).map(formatAttackForSheet), 8), "sd-attacks-panel");
+  const talentLines = buildTalentSpellLines(character);
+  const talentRows = talentLines.filter((line) => !shouldSuppressTalentLine(line, talentLines)).map((line) => {
+    const displayLine = formatTalentSpellTextForSheet(line);
+    return /^Spells:/i.test(displayLine)
+      ? createSpellSummaryLine(displayLine, character)
+      : createDamageAwareLine(displayLine, {
+        sourceLabel: `${character.name} talent`,
+        spellCheck: isSpellCheckText(displayLine),
+        character
+      });
+  });
+  const attackRows = (character.attacks || [])
+    .filter((attackText) => !isBackstabAttackText(attackText))
+    .map((attackText) => createAttackAwareLine(formatAttackForSheet(attackText), character));
+  const talents = createSdPanel("Talents / Spells", buildSheetLines(talentRows, 8), "sd-talents-panel");
+  const attacks = createSdPanel("Attacks", buildSheetLines(attackRows, 8), "sd-attacks-panel");
   const gear = createSdGearPanel(character);
   const dismissal = popout ? createSdDismissPanel(character) : null;
 
@@ -1646,10 +2182,16 @@ function buildMiniAttackLine(character) {
   const line = document.createElement("div");
   line.className = "character-mini-attacks";
   const attacks = (character.attacks || [])
+    .filter((attack) => !isBackstabAttackText(attack))
     .map((attack) => createMiniAttackNode(String(attack), character))
     .filter(Boolean);
+  const lightNote = createCharacterLightNote(character);
   if (!attacks.length) {
     line.textContent = "Attacks: None";
+    if (lightNote) {
+      line.append(document.createTextNode("; "));
+      line.append(lightNote);
+    }
     return line;
   }
   line.append(document.createTextNode("Attacks: "));
@@ -1659,48 +2201,38 @@ function buildMiniAttackLine(character) {
     }
     line.append(attackNode);
   });
+  if (lightNote) {
+    line.append(document.createTextNode("; "));
+    line.append(lightNote);
+  }
   return line;
 }
 
 function createMiniAttackNode(attackText, character) {
-  const normalized = attackText.replace(/^ATTACKS?:\s*/i, "").trim();
-  if (!normalized) {
+  if (isSpellCheckText(attackText)) {
+    return createDamageAwareLine(formatTalentSpellTextForSheet(formatAttackForSheet(attackText)), {
+      sourceLabel: `${character?.name || "Character"} spell`,
+      spellCheck: true,
+      character
+    });
+  }
+  const attack = parseAttackText(attackText);
+  if (!attack) {
     return null;
   }
-  const colonIndex = normalized.indexOf(":");
-  if (colonIndex === -1) {
-    const fallback = document.createElement("span");
-    fallback.textContent = normalized;
-    return fallback;
-  }
-
-  const namePart = normalized.slice(0, colonIndex).trim();
-  const remainder = normalized.slice(colonIndex + 1).trim();
-  const firstComma = remainder.indexOf(",");
-  const firstChunk = firstComma === -1 ? remainder : remainder.slice(0, firstComma).trim();
-  const rest = firstComma === -1 ? "" : remainder.slice(firstComma + 1).trim();
-  const name = namePart
-    .replace(/\b([A-Z]{2,})\b/g, (match) => match.charAt(0) + match.slice(1).toLowerCase())
-    .replace(/\s+/g, " ");
-  const bonusMatch = firstChunk.match(/^[+\-]\d+/);
-  const bonus = bonusMatch ? bonusMatch[0] : firstChunk;
-  const flagMatch = firstChunk.match(/\(([^)]+)\)/);
-  const flag = flagMatch ? ` (${flagMatch[1]})` : "";
-  const ammoType = /bolt|crossbow/i.test(namePart)
+  const rawName = String(attackText || "").replace(/^ATTACKS?:\s*/i, "").split(":")[0] || attack.name;
+  const ammoType = /bolt|crossbow/i.test(rawName)
     ? "bolts"
-    : /bow|arrow/i.test(namePart)
+    : /bow|arrow/i.test(rawName)
       ? "arrows"
       : "";
   const ammoValue = ammoType ? getDisplayCharacterAmmo(character, ammoType) : undefined;
-  const detail = rest
-    .replace(/\[[^\]]*\]/g, "")
-    .replace(/\s*,\s*/g, ", ")
-    .replace(/[\s,;]+$/, "")
-    .replace(/\s+/g, " ")
-    .trim();
   const attackNode = document.createElement("span");
   attackNode.className = "character-mini-attack-entry";
-  attackNode.append(document.createTextNode(`${name}${flag}: ${bonus}`));
+  attackNode.append(createAttackButton(character, attack));
+  if (attack.bonusText) {
+    attackNode.append(document.createTextNode(` ${attack.bonusText}`));
+  }
   if (ammoValue !== undefined) {
     attackNode.append(document.createTextNode(" "));
     attackNode.append(createMiniInlineNumberField(ammoValue, 99, (value) => {
@@ -1708,8 +2240,17 @@ function createMiniAttackNode(attackText, character) {
       refreshCharacterViews(currentCharacter);
     }));
   }
-  if (detail) {
-    attackNode.append(document.createTextNode(`, ${detail}`));
+  if (attack.detail) {
+    attackNode.append(document.createTextNode(", "));
+    appendDamageAwareText(attackNode, attack.detail, {
+      sourceLabel: `${character?.name || "Character"} attack`,
+      character
+    });
+  }
+  const backstabButton = createBackstabButton(character, attack);
+  if (backstabButton) {
+    attackNode.append(document.createTextNode(", "));
+    attackNode.append(backstabButton);
   }
   return attackNode;
 }
@@ -1962,6 +2503,582 @@ function createSheetField(label, value, options = {}) {
   return field;
 }
 
+function readBaseClassesOnlyPreference() {
+  try {
+    const storedValue = window.localStorage.getItem(BASE_CLASSES_ONLY_STORAGE_KEY);
+    return storedValue === null ? true : storedValue === "true";
+  } catch {
+    return true;
+  }
+}
+
+function writeBaseClassesOnlyPreference(isEnabled) {
+  try {
+    window.localStorage.setItem(BASE_CLASSES_ONLY_STORAGE_KEY, isEnabled ? "true" : "false");
+  } catch {
+    // Ignore storage failures in private browsing or locked-down environments.
+  }
+}
+
+function syncBaseClassesOnlyToggleState(isEnabled) {
+  if (!ui.baseClassesOnlyToggle) {
+    return;
+  }
+  ui.baseClassesOnlyToggle.checked = Boolean(isEnabled);
+  writeBaseClassesOnlyPreference(Boolean(isEnabled));
+}
+
+function getBaseClassesOnlyToggleState() {
+  return Boolean(ui.baseClassesOnlyToggle?.checked);
+}
+
+async function setShadowdarklingsSourceSwitches(page, enabled) {
+  for (const label of SHADOWDARKLINGS_SOURCE_SWITCHES) {
+    const switchControl = page.getByRole("switch", { name: label });
+    try {
+      await switchControl.setChecked(enabled);
+    } catch (error) {
+      console.warn(`Unable to set ShadowDarklings source switch "${label}" to ${enabled ? "on" : "off"}.`, error);
+    }
+  }
+}
+
+async function importShadowdarklingsCharacterOneClick() {
+  if (!state) {
+    ui.charactersEmpty.hidden = false;
+    ui.charactersEmpty.textContent = "Generate a dungeon first, then import characters.";
+    return;
+  }
+
+  const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
+  const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
+  if (!availableSlots) {
+    ui.charactersEmpty.hidden = false;
+    ui.charactersEmpty.textContent = "Maximum of 16 active characters reached.";
+    return;
+  }
+
+  const importButton = ui.importCharacterBtn;
+  const previousLabel = importButton?.textContent || "Import from ShadowDarklings";
+  if (importButton) {
+    importButton.disabled = true;
+    importButton.textContent = "Importing...";
+  }
+
+  ui.charactersEmpty.hidden = false;
+  ui.charactersEmpty.textContent = "Fetching one character from ShadowDarklings...";
+
+  try {
+    const characterJson = await importShadowdarklingsCharacter({
+      baseClassesOnly: getBaseClassesOnlyToggleState()
+    });
+    const characters = extractShadowdarkCharacters(characterJson);
+    if (!characters.length) {
+      throw new Error("ShadowDarklings did not return usable character JSON.");
+    }
+
+    const importedCharacters = characters.slice(0, availableSlots);
+    state.characters.push(...importedCharacters);
+    normalizeCharacterState(state);
+    ensureCharacterPresentation();
+    state.run.dirty = true;
+    markUserActivity();
+    updatePanels();
+    render();
+
+    ui.charactersEmpty.hidden = state.characters.length > 0;
+    ui.charactersEmpty.textContent = state.characters.length > 0 ? "" : "No characters imported yet.";
+    setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"} from ShadowDarklings.`);
+  } catch (error) {
+    ui.charactersEmpty.hidden = false;
+    ui.charactersEmpty.textContent = error?.message || "ShadowDarklings import failed.";
+    setStatus(ui.charactersEmpty.textContent);
+  } finally {
+    if (importButton) {
+      importButton.disabled = false;
+      importButton.textContent = previousLabel;
+    }
+  }
+}
+
+function findSpellRecord(name) {
+  return spellLookup.get(normalizeSpellLookupKey(name)) || null;
+}
+
+function getSpellKey(spellOrName) {
+  return normalizeSpellLookupKey(typeof spellOrName === "string" ? spellOrName : spellOrName?.name);
+}
+
+function ensureFailedSpellKeys(character) {
+  if (!character) {
+    return [];
+  }
+  if (!Array.isArray(character.failedSpellKeys)) {
+    character.failedSpellKeys = [];
+  }
+  return character.failedSpellKeys;
+}
+
+function isCharacterSpellFailed(character, spellOrName) {
+  const key = getSpellKey(spellOrName);
+  return Boolean(key && ensureFailedSpellKeys(character).includes(key));
+}
+
+function markCharacterSpellFailed(character, spellOrName) {
+  const key = getSpellKey(spellOrName);
+  if (!key || !character) {
+    return;
+  }
+  const failedSpellKeys = ensureFailedSpellKeys(character);
+  if (!failedSpellKeys.includes(key)) {
+    failedSpellKeys.push(key);
+  }
+}
+
+function getSpellCastingAbility(character, spell) {
+  const className = String(character?.className || "").toLowerCase();
+  const spellClasses = Array.isArray(spell?.classes) ? spell.classes.map((entry) => String(entry).toLowerCase()) : [];
+  if (className.includes("priest") || (spellClasses.includes("priest") && !className.includes("wizard"))) {
+    return "WIS";
+  }
+  return "INT";
+}
+
+function getSpellCastingModifier(character, spell) {
+  return abilityScoreModifier(character?.stats?.[getSpellCastingAbility(character, spell)]);
+}
+
+function getSpellCastingDc(spell) {
+  return 10 + Math.max(0, Number(spell?.tier) || 0);
+}
+
+function characterHasSpellCastingAdvantage(character, spell) {
+  const spellKey = getSpellKey(spell);
+  if (!character || !spellKey) {
+    return false;
+  }
+  if (spellKey === "magic missile") {
+    return true;
+  }
+
+  const advantageLines = buildTalentSpellLines(character).filter((line) => /gain advantage on casting/i.test(line));
+  if (advantageLines.some((line) => normalizeSpellLookupKey(line).includes(spellKey))) {
+    return true;
+  }
+
+  const rawTalentText = JSON.stringify([
+    character.levels || [],
+    character.bonuses || [],
+    character.raw?.levels || [],
+    character.raw?.bonuses || []
+  ]);
+  return /advantage|adv on cast/i.test(rawTalentText) && normalizeSpellLookupKey(rawTalentText).includes(spellKey);
+}
+
+function refreshOpenCharacterSheet(character) {
+  updatePanels();
+  if (!ui.characterSheetModal?.hidden && ui.characterSheetContent) {
+    renderCharacterDetail(getCurrentCharacter(character), ui.characterSheetContent, { popout: true });
+  }
+}
+
+function performSpellCast(character, spell) {
+  const currentCharacter = getCurrentCharacter(character) || getActiveCharacter(state);
+  if (!currentCharacter || !spell) {
+    return;
+  }
+
+  const modifier = getSpellCastingModifier(currentCharacter, spell);
+  const dc = getSpellCastingDc(spell);
+  const hasAdvantage = characterHasSpellCastingAdvantage(currentCharacter, spell);
+  const advantageLabel = hasAdvantage
+    ? getSpellKey(spell) === "magic missile" ? "Magic Missile" : "Talent"
+    : "";
+  const result = rollCheck(modifier, { doubleRoll: hasAdvantage });
+  const succeeded = result.total >= dc;
+  const characterName = currentCharacter.name || "The caster";
+  const message = succeeded
+    ? `${characterName} casts ${spell.name}!`
+    : `${characterName} fails to cast ${spell.name}!`;
+
+  if (!succeeded) {
+    markCharacterSpellFailed(currentCharacter, spell);
+  } else if (getSpellKey(spell) === "light") {
+    lightActiveCharacter("light-spell");
+    recomputeVisibility(state);
+  }
+
+  markUserActivity();
+  if (state?.run) {
+    state.run.dirty = true;
+  }
+  setStatus(message);
+  showCheckResult(result, "Spell", {
+    headline: `${result.total} spell check`,
+    message,
+    context: {
+      doubleRoll: hasAdvantage,
+      advantageClass: advantageLabel
+    }
+  });
+  refreshOpenCharacterSheet(currentCharacter);
+  renderSpellDetail(spell, currentCharacter);
+}
+
+function setDamageDetailVisibility(visible) {
+  if (!ui.damageDetail || !ui.damageExpandBtn) {
+    return;
+  }
+  ui.damageDetail.hidden = !visible;
+  ui.damageExpandBtn.textContent = visible ? "collapse" : "expand";
+}
+
+function formatSignedModifier(modifier) {
+  const normalized = Number(modifier) || 0;
+  return normalized >= 0 ? `+${normalized}` : `${normalized}`;
+}
+
+function createCheckRollToken(value, kept = false) {
+  const token = document.createElement(kept ? "strong" : "span");
+  token.className = "damage-breakdown-term";
+  if (value === 1) {
+    token.classList.add("is-minimum");
+  }
+  if (value === 20) {
+    token.classList.add("is-maximum");
+  }
+  token.textContent = `${value}`;
+  return token;
+}
+
+function createStrongText(value) {
+  const token = document.createElement("strong");
+  token.textContent = value;
+  return token;
+}
+
+function renderCheckDetail(roll) {
+  const result = roll?.result;
+  if (!result || !ui.damageDetail) {
+    return;
+  }
+
+  const line = document.createElement("div");
+  line.className = "damage-breakdown-line";
+  const classNote = roll.advantageClass
+    ? ` ${roll.advantageClass.charAt(0).toUpperCase()}${roll.advantageClass.slice(1)}`
+    : "";
+  const checkMode = result.checkMode === "disadvantage" ? "disadvantage" : result.secondaryRoll ? "advantage" : "";
+  line.append(document.createTextNode(`${roll.actionLabel} check${checkMode ? ` at ${checkMode}${classNote}` : ""}: `));
+
+  if (Number.isFinite(result.secondaryRoll)) {
+    const kept = checkMode === "disadvantage"
+      ? Math.min(result.firstRoll, result.secondaryRoll)
+      : Math.max(result.firstRoll, result.secondaryRoll);
+    line.append(createCheckRollToken(result.firstRoll, result.firstRoll === kept));
+    line.append(document.createTextNode(", "));
+    line.append(createCheckRollToken(result.secondaryRoll, result.secondaryRoll === kept));
+  } else {
+    line.append(createCheckRollToken(result.roll, true));
+  }
+
+  line.append(document.createTextNode(" "));
+  line.append(createStrongText(formatSignedModifier(result.modifier)));
+  line.append(document.createTextNode(" = "));
+  line.append(createStrongText(`${result.total}`));
+  ui.damageDetail.append(line);
+}
+
+function renderDamageDetail(roll) {
+  if (!ui.damageDetail) {
+    return;
+  }
+  ui.damageDetail.innerHTML = "";
+  if (!roll) {
+    ui.damageDetail.hidden = true;
+    return;
+  }
+  if (roll.kind === "check") {
+    renderCheckDetail(roll);
+    return;
+  }
+
+  const line = document.createElement("div");
+  line.className = "damage-breakdown-line";
+  roll.terms.forEach((term, index) => {
+    if (index > 0) {
+      line.append(document.createTextNode(term.sign < 0 ? " - " : " + "));
+    } else if (term.sign < 0) {
+      line.append(document.createTextNode("-"));
+    }
+
+    if (term.type === "die") {
+      const token = document.createElement("span");
+      token.className = "damage-breakdown-term";
+      if (term.isMinimum) {
+        token.classList.add("is-minimum");
+      }
+      if (term.isMaximum) {
+        token.classList.add("is-maximum");
+      }
+      token.textContent = `${term.label}: ${term.value}`;
+      line.append(token);
+      return;
+    }
+
+    line.append(document.createTextNode(String(term.value)));
+  });
+
+  if (roll.multiplier > 1) {
+    line.append(document.createTextNode(`, then x ${roll.multiplier}`));
+  }
+  line.append(document.createTextNode(` = ${roll.total}`));
+  ui.damageDetail.append(line);
+}
+
+function applyDamageRoll(reference, sourceLabel = "", options = {}) {
+  const expression = normalizeDamageExpression(reference?.expression);
+  if (!expression || !ui.damageResult) {
+    return;
+  }
+  const roll = rollDamageExpression(expression);
+  lastDamageRoll = {
+    ...roll,
+    display: reference?.display || expression,
+    sourceLabel
+  };
+  ui.damageResult.textContent = `${roll.total} ${options.resultLabel || "Damage"}`;
+  ui.damageContext.textContent = sourceLabel
+    ? `${sourceLabel}: ${reference?.display || expression}`
+    : (reference?.display || expression);
+  ui.damageExpandBtn.hidden = roll.terms.length === 0;
+  renderDamageDetail(lastDamageRoll);
+  setDamageDetailVisibility(false);
+}
+
+function parseSpellCheckModifier(expression, character, contextText) {
+  const normalized = normalizeDamageExpression(expression);
+  const modifierMatch = normalized.match(/^1d20([+\-]\d+)?$/i);
+  if (modifierMatch) {
+    return Number.parseInt(modifierMatch[1] || "0", 10) || 0;
+  }
+  if (/\bpriest\s+spell\b/i.test(contextText)) {
+    return abilityScoreModifier(character?.stats?.WIS);
+  }
+  if (/\bwizard\s+spell\b/i.test(contextText)) {
+    return abilityScoreModifier(character?.stats?.INT);
+  }
+  return 0;
+}
+
+function parseGenericSpellTier(contextText) {
+  const tierMatch = String(contextText || "").match(/\bTier\s+(\d+)\b/i);
+  return Math.max(1, Number.parseInt(tierMatch?.[1] || "1", 10) || 1);
+}
+
+function applyGenericSpellCheck(reference, options = {}) {
+  if (!ui.damageResult) {
+    return;
+  }
+  const contextText = String(options.contextText || reference?.context || "");
+  const character = getCurrentCharacter(options.character) || getActiveCharacter(state);
+  const tier = parseGenericSpellTier(contextText);
+  const modifier = parseSpellCheckModifier(reference?.expression, character, contextText);
+  const result = rollCheck(modifier);
+  const characterName = character?.name || "The caster";
+  const succeeded = result.total >= 10 + tier;
+  const message = succeeded
+    ? `${characterName} casts a Tier ${tier} spell!`
+    : `${characterName} fails to cast a Tier ${tier} spell`;
+
+  markUserActivity();
+  setStatus(message);
+  showCheckResult(result, "Spell", {
+    headline: `${result.total} spell check:`,
+    message
+  });
+}
+
+function shouldTreatAsSpellCheck(reference, text, options = {}) {
+  const expression = normalizeDamageExpression(reference?.expression);
+  return (
+    options.spellCheck === true ||
+    (
+      /^1d20(?:[+\-]\d+)?$/i.test(expression) &&
+      /\b(?:wizard|priest)\s+spell\b/i.test(String(text || reference?.context || ""))
+    )
+  );
+}
+
+function createDamageButton(reference, options = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "damage-token";
+  button.textContent = options.label || reference.expression;
+  button.title = `Roll ${reference.display || reference.expression}`;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (options.spellCheck) {
+      applyGenericSpellCheck(reference, options);
+      return;
+    }
+    applyDamageRoll(reference, options.sourceLabel || "", {
+      resultLabel: "Damage"
+    });
+  });
+  return button;
+}
+
+function appendDamageAwareText(target, text, options = {}) {
+  const value = String(text || "");
+  const references = Array.isArray(options.references) && options.references.length
+    ? options.references
+    : extractDamageReferences(value, { preferDeathLabel: options.preferDeathLabel === true });
+  if (!references.length) {
+    target.append(document.createTextNode(value));
+    return;
+  }
+
+  const referenceMap = new Map();
+  references.forEach((reference) => {
+    const key = normalizeDamageExpression(reference.expression);
+    if (key && !referenceMap.has(key)) {
+      referenceMap.set(key, reference);
+    }
+  });
+
+  let cursor = 0;
+  for (const match of value.matchAll(/\b(?:\d+d\d+(?:\s*(?:\+\s*\d+|x\s*\d+|\*\s*\d+))*|d\d+)\b/gi)) {
+    const matchText = match[0];
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      target.append(document.createTextNode(value.slice(cursor, index)));
+    }
+    const expression = normalizeDamageExpression(matchText);
+    const reference = referenceMap.get(expression) || {
+      expression,
+      display: expression,
+      context: value
+    };
+    const spellCheck = shouldTreatAsSpellCheck(reference, value, options);
+    target.append(createDamageButton(reference, {
+      label: matchText,
+      sourceLabel: options.sourceLabel || "",
+      spellCheck,
+      contextText: value,
+      character: options.character
+    }));
+    cursor = index + matchText.length;
+  }
+
+  if (cursor < value.length) {
+    target.append(document.createTextNode(value.slice(cursor)));
+  }
+}
+
+function createDamageAwareLine(text, options = {}) {
+  const content = document.createElement("span");
+  appendDamageAwareText(content, text, options);
+  return content;
+}
+
+function renderSpellDetail(spell, character) {
+  const currentCharacter = getCurrentCharacter(character) || getActiveCharacter(state);
+  const failed = isCharacterSpellFailed(currentCharacter, spell);
+  ui.spellDetailTitle.textContent = spell.name.toUpperCase();
+  ui.spellDetailTitle.classList.toggle("is-spell-lost", failed);
+  ui.spellDetailMeta.textContent = `Tier ${spell.tier}, ${spell.classes.join(", ")}`;
+  ui.spellDetailDuration.textContent = spell.duration || "Unknown";
+  ui.spellDetailRange.textContent = spell.range || "Unknown";
+  ui.spellDetailBody.innerHTML = "";
+
+  if (!failed && currentCharacter) {
+    const castActions = document.createElement("div");
+    castActions.className = "spell-detail-actions";
+    const castButton = document.createElement("button");
+    castButton.type = "button";
+    castButton.className = "spell-cast-button";
+    castButton.textContent = "Cast";
+    castButton.title = `Cast ${spell.name} against DC ${getSpellCastingDc(spell)}`;
+    castButton.addEventListener("click", () => performSpellCast(currentCharacter, spell));
+    castActions.append(castButton);
+    ui.spellDetailBody.append(castActions);
+  }
+
+  spell.paragraphs.forEach((paragraph) => {
+    const item = document.createElement("p");
+    appendDamageAwareText(item, paragraph, {
+      references: (spell.damage || []).filter((reference) => paragraph.includes(reference.expression) || reference.context.includes(reference.expression)),
+      preferDeathLabel: true,
+      sourceLabel: spell.name
+    });
+    ui.spellDetailBody.append(item);
+  });
+  ui.spellDetailModal.hidden = false;
+}
+
+function createSpellButton(spellName, options = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "spell-link-button";
+  button.textContent = spellName;
+  if (isCharacterSpellFailed(options.character, spellName)) {
+    button.classList.add("is-spell-lost");
+  }
+  button.addEventListener("click", async () => {
+    await ensureSpellLibraryLoaded();
+    const spell = findSpellRecord(spellName);
+    if (!spell) {
+      setStatus(`No spell details found for ${spellName}.`);
+      return;
+    }
+    renderSpellDetail(spell, options.character);
+  });
+  return button;
+}
+
+function createSpellSummaryLine(text, character) {
+  const container = document.createElement("div");
+  container.className = "sd-spell-summary-line";
+  const prefix = document.createElement("strong");
+  prefix.className = "sd-line-prefix";
+  prefix.textContent = "Spells:";
+  container.append(prefix, document.createTextNode(" "));
+
+  const payload = String(text || "").replace(/^Spells:\s*/i, "").trim();
+  if (!payload || /^none$/i.test(payload)) {
+    container.append(document.createTextNode("None"));
+    return container;
+  }
+
+  const groups = payload.split(/\s*;\s*/).filter(Boolean);
+  groups.forEach((group, groupIndex) => {
+    if (groupIndex > 0) {
+      container.append(document.createTextNode("; "));
+    }
+    const match = group.match(/^\(Tier\s+(\d+)\):\s*(.+)$/i);
+    const tier = match?.[1] || "";
+    const names = (match?.[2] || group)
+      .split(/\s*,\s*/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (tier) {
+      const tierLabel = document.createElement("span");
+      tierLabel.className = "sd-spell-tier-label";
+      tierLabel.textContent = `Tier ${tier}`;
+      container.append(tierLabel, document.createTextNode(": "));
+    }
+    names.forEach((name, index) => {
+      if (index > 0) {
+        container.append(document.createTextNode(", "));
+      }
+      container.append(createSpellButton(name, { character, tier }));
+    });
+  });
+
+  return container;
+}
+
 function createSdField(label, value, className = "") {
   const field = document.createElement("section");
   field.className = ["sd-sheet-field", className].filter(Boolean).join(" ");
@@ -1977,13 +3094,22 @@ function createSdField(label, value, className = "") {
 function buildSheetLines(lines, minimumLines = 1) {
   const block = document.createElement("div");
   block.className = "sd-lined-block";
-  const normalized = lines.map((line) => String(line || "").trim()).filter(Boolean);
+  const normalized = lines.filter((line) => {
+    if (line instanceof Node) {
+      return true;
+    }
+    return String(line || "").trim().length > 0;
+  });
   while (normalized.length < minimumLines) {
     normalized.push("");
   }
   for (const line of normalized) {
     const row = document.createElement("div");
-    row.textContent = line;
+    if (line instanceof Node) {
+      row.append(line);
+    } else {
+      row.textContent = line;
+    }
     block.append(row);
   }
   return block;
@@ -2138,12 +3264,20 @@ function updateRoomLootPanel() {
   }
 }
 
-function createStatRow(term, value) {
+function createStatRow(term, value, options = {}) {
   const fragment = document.createDocumentFragment();
   const dt = document.createElement("dt");
   dt.textContent = term;
   const dd = document.createElement("dd");
-  dd.textContent = value || "unknown";
+  const displayValue = value || "unknown";
+  if (options.damageAware) {
+    appendDamageAwareText(dd, displayValue, {
+      sourceLabel: options.sourceLabel || term,
+      references: options.references
+    });
+  } else {
+    dd.textContent = displayValue;
+  }
   fragment.append(dt, dd);
   return fragment;
 }
@@ -2172,7 +3306,11 @@ function updateMonsterPanel() {
     stats.append(
       createStatRow("AC", monster.ac),
       createStatRow("HP", monster.hp),
-      createStatRow("ATK", monster.attack)
+      createStatRow("ATK", monster.attack, {
+        damageAware: true,
+        sourceLabel: monster.name,
+        references: monster.damage
+      })
     );
     card.append(stats);
 
@@ -2181,7 +3319,9 @@ function updateMonsterPanel() {
       const abilities = document.createElement("ul");
       for (const [name, description] of abilityEntries) {
         const ability = document.createElement("li");
-        ability.textContent = `${name.replaceAll("*", "")}: ${description}`;
+        appendDamageAwareText(ability, `${name.replaceAll("*", "")}: ${description}`, {
+          sourceLabel: `${monster.name} ability`
+        });
         abilities.append(ability);
       }
       card.append(abilities);
@@ -2224,7 +3364,10 @@ function updateTrapPanel() {
     const stateLabel = trap.disarmed ? "disarmed" : trap.triggered ? "triggered" : "found";
     stats.append(
       createStatRow("Trigger", trap.trigger),
-      createStatRow("Effect", trap.effect),
+      createStatRow("Effect", trap.effect, {
+        damageAware: true,
+        sourceLabel: trap.name
+      }),
       createStatRow("Trap DC", trap.dc),
       createStatRow("State", stateLabel)
     );
@@ -2235,11 +3378,16 @@ function updateTrapPanel() {
       disarmButton.type = "button";
       disarmButton.textContent = "Disarm?";
       disarmButton.addEventListener("click", () => {
-        const result = disarmTrap(state, trap.id, normalizeSearchModifier());
+        const context = getCharacterActionContext("disarm");
+        const result = disarmTrap(state, trap.id, context.modifier, { doubleRoll: context.doubleRoll });
+        const message = createDisarmResultMessage(result);
         markUserActivity();
-        setStatus(result);
-        ui.searchResult.textContent = `${result.total}`;
-        ui.searchResult.title = formatRollTooltip(result, "disarm");
+        setStatus(message);
+        showCheckResult(result, "Disarm", {
+          headline: `Disarm ${result.total}`,
+          message,
+          context
+        });
         render();
         updatePanels();
       });
@@ -2265,6 +3413,8 @@ function updatePanels() {
   updateRoomLootPanel();
   updateMonsterPanel();
   updateTrapPanel();
+  updateTrapActionUi();
+  renderMultiplayerUi();
 }
 
 function maybeShowFullyLooted() {
@@ -2310,13 +3460,62 @@ function formatRollTooltip(result, action) {
   return `roll ${formatRollText(result)} = ${result.total} for ${action}`;
 }
 
+function showCheckResult(result, action = "check", options = {}) {
+  if (!result || !ui.damageResult) {
+    return;
+  }
+  const actionLabel = options.actionLabel || action;
+  ui.damageResult.textContent = options.headline || `${actionLabel} ${result.total}`;
+  ui.damageContext.textContent = options.message || result.message || actionLabel;
+  lastDamageRoll = {
+    kind: "check",
+    actionLabel,
+    result,
+    advantageClass: options.context?.doubleRoll ? options.context?.advantageClass : ""
+  };
+  if (ui.damageExpandBtn) {
+    ui.damageExpandBtn.hidden = !Number.isFinite(result.roll) || result.roll <= 0;
+  }
+  renderDamageDetail(lastDamageRoll);
+  setDamageDetailVisibility(false);
+}
+
+function getCharacterDisplayName(character) {
+  return character?.name || "The selected character";
+}
+
+function getFoundEntityType(entity) {
+  if (!entity) {
+    return "nothing";
+  }
+  if (entity.type === "treasure") {
+    return "treasure";
+  }
+  if (entity.type === "trap") {
+    return "trap";
+  }
+  return entity.type || "something";
+}
+
+function createDisarmResultMessage(result) {
+  if (result.disarmed) {
+    return `Disarm: ${result.total}. You disarm the trap!`;
+  }
+  if (result.triggered) {
+    return `Disarm ${result.total} you have set off the trap!`;
+  }
+  return `Disarm ${result.total} you fail to disarm the trap, but it doesn't go off.`;
+}
+
 function applyTorchAdvance(result) {
   if (result.crossedWanderingChecks) {
     processWanderingChecks(result.crossedWanderingChecks);
   }
   if (result.expired) {
+    const source = state.player.lightSource === "lantern" ? "Lantern" : "Torch";
+    syncActiveCharacterLightFromPlayer();
     recomputeVisibility(state);
-    setStatus("Torch went out!");
+    setStatus(`${source} went out!`);
   }
 }
 
@@ -2326,10 +3525,21 @@ function performSearch() {
   }
   const context = getCharacterActionContext("search");
   const result = searchForTraps(state, context.modifier, { doubleRoll: context.doubleRoll });
+  const characterName = getCharacterDisplayName(context.character);
+  const foundTypes = [...new Set((result.found || []).map(getFoundEntityType))];
+  const foundTypeText = foundTypes.length ? foundTypes.join(" and ") : "nothing";
+  const message = result.darknessMessage
+    ? result.darknessMessage
+    : result.found?.length
+      ? `Search ${result.total}. ${characterName} finds ${foundTypeText}!`
+      : `Search ${result.total}. ${characterName} finds nothing.`;
   markUserActivity();
-  setStatus(result);
-  ui.searchResult.textContent = formatRollText(result);
-  ui.searchResult.title = result.roll ? formatRollTooltip(result, "search") : "";
+  setStatus(message);
+  showCheckResult(result, "Search", {
+    headline: `Search ${result.total}`,
+    message,
+    context
+  });
   if (state.player.torchLit) {
     applyTorchAdvance(advanceTorchTime(state, TORCH_SEARCH_ADVANCE_MS));
   }
@@ -2373,10 +3583,14 @@ function performDisarm() {
   }
   const context = getCharacterActionContext("disarm");
   const result = disarmTrap(state, trap.id, context.modifier, { doubleRoll: context.doubleRoll });
+  const message = createDisarmResultMessage(result);
   markUserActivity();
-  setStatus(result);
-  ui.searchResult.textContent = formatRollText(result);
-  ui.searchResult.title = formatRollTooltip(result, "disarm");
+  setStatus(message);
+  showCheckResult(result, "Disarm", {
+    headline: `Disarm ${result.total}`,
+    message,
+    context
+  });
   render();
   updatePanels();
 }
@@ -2512,6 +3726,191 @@ async function loadSelectedRun(run) {
   }
 }
 
+function normalizeMultiplayerSession(raw = {}, fallback = {}) {
+  const inviteCode = raw.invite_code || raw.code || raw.session_code || fallback.inviteCode || "";
+  return {
+    inviteCode,
+    inviteUrl: raw.invite_url || fallback.inviteUrl || (inviteCode ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(inviteCode)}` : ""),
+    role: raw.role || fallback.role || "",
+    players: Array.isArray(raw.players) ? raw.players : fallback.players || [],
+    assignments: Array.isArray(raw.assignments) ? raw.assignments : fallback.assignments || []
+  };
+}
+
+function setMultiplayerStatus(message, tone = "") {
+  if (!ui.multiplayerStatus) {
+    return;
+  }
+  ui.multiplayerStatus.textContent = message || "";
+  ui.multiplayerStatus.dataset.tone = tone;
+}
+
+function renderMultiplayerUi() {
+  if (!ui.multiplayerPresenceList) {
+    return;
+  }
+
+  const hasInvite = Boolean(multiplayerSession.inviteCode || multiplayerSession.inviteUrl);
+  ui.multiplayerInviteRow.hidden = !hasInvite;
+  ui.multiplayerInviteLink.value = multiplayerSession.inviteUrl || "";
+
+  const players = multiplayerSession.players.length
+    ? multiplayerSession.players
+    : hasInvite
+      ? [{ id: "host", display_name: "Host", role: multiplayerSession.role || "host" }]
+      : [];
+
+  ui.multiplayerPresenceList.innerHTML = "";
+  if (!players.length) {
+    ui.multiplayerPresenceList.textContent = "No connected players yet.";
+  } else {
+    for (const player of players) {
+      const row = document.createElement("div");
+      row.className = "multiplayer-presence-row";
+      const name = document.createElement("span");
+      name.textContent = player.display_name || player.username || player.name || `Player ${player.id}`;
+      const meta = document.createElement("span");
+      meta.className = "multiplayer-presence-meta";
+      meta.textContent = player.role === "host" || player.is_host ? "host" : "player";
+      row.append(name, meta);
+      ui.multiplayerPresenceList.append(row);
+    }
+  }
+
+  ui.multiplayerPlayerSelect.innerHTML = "";
+  for (const player of players) {
+    const option = document.createElement("option");
+    option.value = player.id || player.user_id || "";
+    option.textContent = player.display_name || player.username || player.name || "Player";
+    ui.multiplayerPlayerSelect.append(option);
+  }
+
+  ui.multiplayerCharacterSelect.innerHTML = "";
+  const characters = Array.isArray(state?.characters) ? state.characters : [];
+  for (const character of characters) {
+    const option = document.createElement("option");
+    option.value = character.id;
+    option.textContent = character.name || "Unnamed dot";
+    ui.multiplayerCharacterSelect.append(option);
+  }
+
+  const canAssign = Boolean(hasInvite && ui.multiplayerPlayerSelect.value && ui.multiplayerCharacterSelect.value);
+  ui.multiplayerAssignBtn.disabled = !canAssign;
+  ui.multiplayerRefreshBtn.disabled = !hasInvite;
+}
+
+function openMultiplayerModal() {
+  ui.multiplayerModal.hidden = false;
+  const codeFromUrl = normalizeSessionCode(new URL(window.location.href).searchParams.get("session") || "");
+  if (codeFromUrl && !multiplayerSession.inviteCode) {
+    ui.multiplayerJoinCode.value = codeFromUrl;
+    setMultiplayerStatus("Invite code found in the URL. Click Join Host when you're ready.", "info");
+  } else if (!multiplayerSession.inviteCode) {
+    setMultiplayerStatus("Create a host link, or paste a friend's code to join their dungeon.");
+  }
+  renderMultiplayerUi();
+}
+
+function closeMultiplayerModal() {
+  ui.multiplayerModal.hidden = true;
+}
+
+function openInviteFromUrlIfPresent() {
+  const codeFromUrl = normalizeSessionCode(new URL(window.location.href).searchParams.get("session") || "");
+  if (!codeFromUrl) {
+    return;
+  }
+  multiplayerSession = {
+    ...multiplayerSession,
+    inviteCode: codeFromUrl,
+    inviteUrl: window.location.href
+  };
+  ui.multiplayerJoinCode.value = codeFromUrl;
+  openMultiplayerModal();
+}
+
+async function createMultiplayerHost() {
+  if (!state) {
+    setMultiplayerStatus("Generate a dungeon before creating a host link.", "error");
+    return;
+  }
+  setMultiplayerStatus("Creating host link...");
+  try {
+    const activeCharacter = getActiveCharacter(state);
+    const session = await createHostSession(state, {
+      hostCharacterId: activeCharacter?.id || null
+    });
+    multiplayerSession = normalizeMultiplayerSession(session, { role: "host" });
+    setMultiplayerStatus("Host link ready. Share it with your players.", "success");
+    renderMultiplayerUi();
+  } catch (error) {
+    setMultiplayerStatus(error.message, "error");
+    renderMultiplayerUi();
+  }
+}
+
+async function joinMultiplayerHost() {
+  const inviteValue = ui.multiplayerJoinCode.value;
+  setMultiplayerStatus("Joining host...");
+  try {
+    const activeCharacter = getActiveCharacter(state);
+    const session = await joinHostSession(inviteValue, {
+      characterId: activeCharacter?.id || null
+    });
+    multiplayerSession = normalizeMultiplayerSession(session, { role: "player" });
+    setMultiplayerStatus("Joined host session.", "success");
+    renderMultiplayerUi();
+  } catch (error) {
+    setMultiplayerStatus(error.message, "error");
+    renderMultiplayerUi();
+  }
+}
+
+async function refreshMultiplayerSession() {
+  if (!multiplayerSession.inviteCode) {
+    setMultiplayerStatus("No active host link to refresh.", "error");
+    return;
+  }
+  setMultiplayerStatus("Refreshing session...");
+  try {
+    const session = await getHostSession(multiplayerSession.inviteCode);
+    multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
+    setMultiplayerStatus("Session refreshed.", "success");
+    renderMultiplayerUi();
+  } catch (error) {
+    setMultiplayerStatus(error.message, "error");
+    renderMultiplayerUi();
+  }
+}
+
+async function assignMultiplayerDot() {
+  setMultiplayerStatus("Assigning dot...");
+  try {
+    await assignSessionCharacter(
+      multiplayerSession.inviteCode,
+      ui.multiplayerPlayerSelect.value,
+      ui.multiplayerCharacterSelect.value
+    );
+    await refreshMultiplayerSession();
+  } catch (error) {
+    setMultiplayerStatus(error.message, "error");
+  }
+}
+
+async function copyMultiplayerInviteLink() {
+  if (!multiplayerSession.inviteUrl) {
+    setMultiplayerStatus("No invite link is ready yet.", "error");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(multiplayerSession.inviteUrl);
+    setMultiplayerStatus("Invite link copied.", "success");
+  } catch {
+    ui.multiplayerInviteLink.select();
+    setMultiplayerStatus("Copy blocked by the browser. The link is selected for manual copy.", "info");
+  }
+}
+
 function hookInputEvents() {
   document.addEventListener("keydown", (event) => {
     if (!state) {
@@ -2556,10 +3955,6 @@ function hookInputEvents() {
       performLeave();
       return;
     }
-    if (event.key === "d" || event.key === "D") {
-      event.preventDefault();
-      performDisarm();
-    }
   });
 
   ui.generateBtn.addEventListener("click", () => {
@@ -2572,40 +3967,15 @@ function hookInputEvents() {
       openCharacterSheet(getActiveCharacter(state));
     }
   });
-  ui.importCharacterBtn.addEventListener("click", async () => {
-    if (!state) {
-      return;
-    }
-    ui.importCharacterBtn.disabled = true;
-    setStatus("Importing a ShadowDarklings character...");
-    try {
-      const characterJson = await importShadowdarklingsCharacter();
-      const characters = extractShadowdarkCharacters(characterJson);
-      if (!characters.length) {
-        throw new Error("No valid ShadowDarklings character JSON found.");
-      }
-      const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
-      const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
-      if (!availableSlots) {
-        throw new Error("Maximum of 16 active characters reached.");
-      }
-      const importedCharacters = characters.slice(0, availableSlots);
-      state.characters.push(...importedCharacters);
-      normalizeCharacterState(state);
-      ensureCharacterPresentation();
-      state.run.dirty = true;
-      markUserActivity();
-      updatePanels();
-      render();
-      setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"}.`);
-    } catch (error) {
-      setStatus(error.message || "ShadowDarklings import failed.");
-    } finally {
-      ui.importCharacterBtn.disabled = false;
-    }
+  syncBaseClassesOnlyToggleState(readBaseClassesOnlyPreference());
+  ui.baseClassesOnlyToggle?.addEventListener("change", () => {
+    syncBaseClassesOnlyToggleState(ui.baseClassesOnlyToggle.checked);
   });
-  ui.characterImportClose.addEventListener("click", () => {
-    ui.characterImportModal.hidden = true;
+  ui.importCharacterBtn.addEventListener("click", () => {
+    importShadowdarklingsCharacterOneClick();
+  });
+  ui.damageExpandBtn?.addEventListener("click", () => {
+    setDamageDetailVisibility(ui.damageDetail.hidden);
   });
   if (ui.characterSheetClose) {
     ui.characterSheetClose.addEventListener("click", closeCharacterSheet);
@@ -2617,32 +3987,12 @@ function hookInputEvents() {
       }
     });
   }
-  ui.characterImportSubmit.addEventListener("click", () => {
-    const characters = extractShadowdarkCharacters(ui.characterImportInput.value);
-    if (!characters.length) {
-      ui.characterImportStatus.textContent = "No valid ShadowDarklings character JSON found.";
-      return;
-    }
-    const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
-    const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
-    if (!availableSlots) {
-      ui.characterImportStatus.textContent = "Maximum of 16 active characters reached.";
-      return;
-    }
-    const importedCharacters = characters.slice(0, availableSlots);
-    state.characters.push(...importedCharacters);
-    normalizeCharacterState(state);
-    ensureCharacterPresentation();
-    state.run.dirty = true;
-    markUserActivity();
-    ui.characterImportModal.hidden = true;
-    updatePanels();
-    render();
-    setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"}.`);
+  ui.spellDetailClose?.addEventListener("click", () => {
+    ui.spellDetailModal.hidden = true;
   });
-  ui.characterImportModal.addEventListener("click", (event) => {
-    if (event.target === ui.characterImportModal) {
-      ui.characterImportModal.hidden = true;
+  ui.spellDetailModal?.addEventListener("click", (event) => {
+    if (event.target === ui.spellDetailModal) {
+      ui.spellDetailModal.hidden = true;
     }
   });
   ui.levelInput.addEventListener("input", () => sizeControlField(ui.levelInput));
@@ -2655,28 +4005,60 @@ function hookInputEvents() {
     openSaveLoadModal("load");
   });
 
+  ui.multiplayerBtn?.addEventListener("click", openMultiplayerModal);
+  ui.multiplayerCreateHostBtn?.addEventListener("click", createMultiplayerHost);
+  ui.multiplayerJoinBtn?.addEventListener("click", joinMultiplayerHost);
+  ui.multiplayerRefreshBtn?.addEventListener("click", refreshMultiplayerSession);
+  ui.multiplayerAssignBtn?.addEventListener("click", assignMultiplayerDot);
+  ui.multiplayerCopyLinkBtn?.addEventListener("click", copyMultiplayerInviteLink);
+  ui.multiplayerClose?.addEventListener("click", closeMultiplayerModal);
+  ui.multiplayerModal?.addEventListener("click", (event) => {
+    if (event.target === ui.multiplayerModal) {
+      closeMultiplayerModal();
+    }
+  });
+
   ui.lightTorchBtn.addEventListener("click", () => {
-    lightNewTorch(state);
+    if (!canLightTorch(getActiveCharacter(state))) {
+      return;
+    }
+    lightActiveCharacter("torch");
     markUserActivity();
     recomputeVisibility(state);
     setStatus("New torch lit.");
     render();
   });
 
-  ui.torchOutBtn.addEventListener("click", () => {
-    forceTorchOut(state);
+  ui.lightLanternBtn?.addEventListener("click", () => {
+    if (!canLightLantern(getActiveCharacter(state))) {
+      return;
+    }
+    lightActiveCharacter("lantern");
     markUserActivity();
     recomputeVisibility(state);
-    setStatus("Torch went out!");
+    setStatus("Lantern is lit!");
+    render();
+  });
+
+  ui.torchOutBtn.addEventListener("click", () => {
+    const source = state.player.lightSource === "lantern" ? "Lantern" : "Torch";
+    clearActiveCharacterLight();
+    markUserActivity();
+    recomputeVisibility(state);
+    setStatus(`${source} went out!`);
     render();
   });
 
   ui.torchBtn.addEventListener("click", () => {
     if (state.player.torchLit) {
-      forceTorchOut(state);
-      setStatus("Torch extinguished.");
+      const source = state.player.lightSource === "lantern" ? "Lantern" : "Torch";
+      clearActiveCharacterLight();
+      setStatus(`${source} extinguished.`);
     } else {
-      lightNewTorch(state);
+      if (!canLightTorch(getActiveCharacter(state))) {
+        return;
+      }
+      lightActiveCharacter("torch");
       recomputeVisibility(state);
       setStatus("Torch relit.");
     }
@@ -2705,10 +4087,16 @@ function hookInputEvents() {
   ui.pickLockBtn.addEventListener("click", () => {
     const context = getCharacterActionContext("pick");
     const result = attemptLockedDoor(state, "pick", context.modifier, { doubleRoll: context.doubleRoll });
+    const message = result.opened
+      ? `Pick Lock ${result.total}. Lock picked.`
+      : `Pick Lock ${result.total}. The lock holds.`;
     markUserActivity();
-    setStatus(result);
-    ui.searchResult.textContent = formatRollText(result);
-    ui.searchResult.title = formatRollTooltip(result, "pick lock");
+    setStatus(result.trapSprung ? `${message} ${result.message}` : message);
+    showCheckResult(result, "Pick Lock", {
+      headline: `Pick Lock ${result.total}`,
+      message,
+      context
+    });
     render();
     updatePanels();
   });
@@ -2716,10 +4104,14 @@ function hookInputEvents() {
   ui.breakDoorBtn.addEventListener("click", () => {
     const context = getCharacterActionContext("break");
     const result = attemptLockedDoor(state, "break", context.modifier, { doubleRoll: context.doubleRoll });
+    const message = result.opened ? "door destroyed." : "you can't budge the door.";
     markUserActivity();
-    setStatus(result);
-    ui.searchResult.textContent = formatRollText(result);
-    ui.searchResult.title = formatRollTooltip(result, "break door");
+    setStatus(result.trapSprung ? `${message} ${result.message}` : message);
+    showCheckResult(result, "Smash", {
+      headline: `Smash ${result.total}`,
+      message,
+      context
+    });
     render();
     updatePanels();
   });
@@ -2863,10 +4255,8 @@ async function generateAndRender() {
   const seed = Number(ui.seedInput.value || Date.now());
   const level = Number(ui.levelInput.value || 1);
   setStatus("Generating dungeon...");
-  [shadowdarkContent, trapTable] = await Promise.all([loadShadowdarkContent(), loadTrapTable()]);
-  monsterTable = Array.isArray(shadowdarkContent?.monsters)
-    ? shadowdarkContent.monsters.filter((monster) => (monster.level ?? monster.lv ?? 1) <= Math.max(2, level + 1))
-    : [];
+  [shadowdarkContent] = await Promise.all([loadShadowdarkContent(), ensureSpellLibraryLoaded()]);
+  [trapTable, monsterTable] = await Promise.all([loadTrapTable(), loadMonsterTableForLevel(level)]);
   state = generateDungeon(seed, level, {
     monsterTable,
     trapTable,
@@ -2876,8 +4266,6 @@ async function generateAndRender() {
   normalizeWanderingChance(state, ui.wanderingNumerator.value, ui.wanderingDenominator.value);
   state.run.hasUserActivity = false;
   state.run.dirty = false;
-  ui.searchResult.textContent = "none";
-  ui.searchResult.title = "";
   recomputeVisibility(state);
   setupCanvasLayers(state);
   updatePanels();
@@ -2921,12 +4309,14 @@ async function initialize() {
   hookMapViewportInteractions();
   updateControlSizing();
   syncSidebarWidth();
+  syncBaseClassesOnlyToggleState(readBaseClassesOnlyPreference());
   if (document.fonts?.ready) {
     document.fonts.ready.then(syncSidebarWidth);
   }
   window.addEventListener("resize", syncSidebarWidth);
   startClock();
-  generateAndRender();
+  await generateAndRender();
+  openInviteFromUrlIfPresent();
 }
 
 initialize();

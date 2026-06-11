@@ -1,0 +1,774 @@
+[
+  {
+    "slug": "bear-polar",
+    "name": "Bear, Polar",
+    "level": 7,
+    "ac": "13",
+    "hp": "34",
+    "attack": "2 claw +6 (2d6)",
+    "movement": "near (climb)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+1",
+      "CON": "+3",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "-2"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "2 claw +6 (2d6)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Crush",
+        "text": "Deals an extra die of damage if it hits the same target with both claws.",
+        "damage": []
+      },
+      {
+        "name": "Thick Fur",
+        "text": "Cold immune.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Bear, Polar",
+    "**AC**": "13",
+    "**HP**": "34",
+    "**ATK**": "2 claw +6 (2d6)",
+    "**MV**": "near (climb)",
+    "**S**": "+4",
+    "**D**": "+1",
+    "**C**": "+3",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "-2",
+    "**AL**": "N",
+    "**LV**": "7",
+    "abilities": {
+      "**Crush**": "Deals an extra die of damage if it hits the same target with both claws.",
+      "**Thick Fur**": "Cold immune."
+    }
+  },
+  {
+    "slug": "devil-horned",
+    "name": "Devil, Horned",
+    "level": 7,
+    "ac": "16",
+    "hp": "35",
+    "attack": "2 burning trident (near) +7 (2d6) or 1 fire blast (far) +4 (2d8)",
+    "movement": "double near (fly)",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+2",
+      "CON": "+4",
+      "INT": "+2",
+      "WIS": "+1",
+      "CHA": "+2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d6",
+        "display": "2d6",
+        "context": "2 burning trident (near) +7 (2d6) or 1 fire blast (far) +4 (2d8)"
+      },
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "2 burning trident (near) +7 (2d6) or 1 fire blast (far) +4 (2d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Iron Hide",
+        "text": "Half damage from non-magical weapons.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Devil, Horned",
+    "**AC**": "16",
+    "**HP**": "35",
+    "**ATK**": "2 burning trident (near) +7 (2d6) or 1 fire blast (far) +4 (2d8)",
+    "**MV**": "double near (fly)",
+    "**S**": "+5",
+    "**D**": "+2",
+    "**C**": "+4",
+    "**I**": "+2",
+    "**W**": "+1",
+    "**CH**": "+2",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {
+      "**Iron Hide**": "Half damage from non-magical weapons."
+    }
+  },
+  {
+    "slug": "druid",
+    "name": "Druid",
+    "level": 7,
+    "ac": "11",
+    "hp": "31",
+    "attack": "1 staff +0 (1d4) or 2 spell +5",
+    "movement": "near",
+    "stats": {
+      "STR": "+0",
+      "DEX": "+1",
+      "CON": "+0",
+      "INT": "+4",
+      "WIS": "+3",
+      "CHA": "+0"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d4",
+        "display": "1d4",
+        "context": "1 staff +0 (1d4) or 2 spell +5"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Barkskin (INT Spell)",
+        "text": "Self. DC 13. AC becomes 15 for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Conjure Flames (INT Spell)",
+        "text": "DC 12. One target in far takes 2d6 damage.",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "One target in far takes 2d6 damage."
+          }
+        ]
+      },
+      {
+        "name": "Imbue (INT Spell)",
+        "text": "Self. DC 13. Staff becomes a +3 magic weapon for 10 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Summon Bear (INT Spell)",
+        "text": "DC 14. Summon a loyal brown bear that appears within near. It stays for 5 rounds.",
+        "damage": []
+      },
+      {
+        "name": "Thunderclap (INT Spell)",
+        "text": "DC 13. Fills a near-sized cube extending from druid. Creatures within are thrown 2d20 feet in a random direction.",
+        "damage": [
+          {
+            "expression": "2d20",
+            "display": "2d20",
+            "context": "Creatures within are thrown 2d20 feet in a random direction."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Druid",
+    "**AC**": "11",
+    "**HP**": "31",
+    "**ATK**": "1 staff +0 (1d4) or 2 spell +5",
+    "**MV**": "near",
+    "**S**": "+0",
+    "**D**": "+1",
+    "**C**": "+0",
+    "**I**": "+4",
+    "**W**": "+3",
+    "**CH**": "+0",
+    "**AL**": "N",
+    "**LV**": "7",
+    "abilities": {
+      "**Barkskin (INT Spell)**": "Self. DC 13. AC becomes 15 for 5 rounds.",
+      "**Conjure Flames (INT Spell)**": "DC 12. One target in far takes 2d6 damage.",
+      "**Imbue (INT Spell)**": "Self. DC 13. Staff becomes a +3 magic weapon for 10 rounds.",
+      "**Summon Bear (INT Spell)**": "DC 14. Summon a loyal brown bear that appears within near. It stays for 5 rounds.",
+      "**Thunderclap (INT Spell)**": "DC 13. Fills a near-sized cube extending from druid. Creatures within are thrown 2d20 feet in a random direction."
+    }
+  },
+  {
+    "slug": "elephant",
+    "name": "Elephant",
+    "level": 7,
+    "ac": "14",
+    "hp": "34",
+    "attack": "2 tusks +6 (1d8)",
+    "movement": "near",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+0",
+      "CON": "+3",
+      "INT": "-2",
+      "WIS": "+1",
+      "CHA": "+0"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 tusks +6 (1d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Charge",
+        "text": "Move up to double near in straight line and make 1 tusks attack. If hit, x3 damage.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Elephant",
+    "**AC**": "14",
+    "**HP**": "34",
+    "**ATK**": "2 tusks +6 (1d8)",
+    "**MV**": "near",
+    "**S**": "+5",
+    "**D**": "+0",
+    "**C**": "+3",
+    "**I**": "-2",
+    "**W**": "+1",
+    "**CH**": "+0",
+    "**AL**": "N",
+    "**LV**": "7",
+    "abilities": {
+      "**Charge**": "Move up to double near in straight line and make 1 tusks attack. If hit, x3 damage."
+    }
+  },
+  {
+    "slug": "giant-hill",
+    "name": "Giant, Hill",
+    "level": 7,
+    "ac": "11 (leather)",
+    "hp": "34",
+    "attack": "2 greatclub +6 (2d8) or 1 boulder (far) +6 (2d10)",
+    "movement": "double near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+0",
+      "CON": "+3",
+      "INT": "-2",
+      "WIS": "-2",
+      "CHA": "-2"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "2 greatclub +6 (2d8) or 1 boulder (far) +6 (2d10)"
+      },
+      {
+        "expression": "2d10",
+        "display": "2d10",
+        "context": "2 greatclub +6 (2d8) or 1 boulder (far) +6 (2d10)"
+      }
+    ],
+    "abilityDetails": [],
+    "Monster Name": "Giant, Hill",
+    "**AC**": "11 (leather)",
+    "**HP**": "34",
+    "**ATK**": "2 greatclub +6 (2d8) or 1 boulder (far) +6 (2d10)",
+    "**MV**": "double near",
+    "**S**": "+4",
+    "**D**": "+0",
+    "**C**": "+3",
+    "**I**": "-2",
+    "**W**": "-2",
+    "**CH**": "-2",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {}
+  },
+  {
+    "slug": "golem-flesh",
+    "name": "Golem, Flesh",
+    "level": 7,
+    "ac": "9",
+    "hp": "35",
+    "attack": "3 slam +6 (1d8)",
+    "movement": "near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "-1",
+      "CON": "+4",
+      "INT": "-1",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "3 slam +6 (1d8)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Golem",
+        "text": "Immune to damage from fire, cold, or non-magical sources. Healed by electricity.",
+        "damage": []
+      },
+      {
+        "name": "Berserk",
+        "text": "When at or below 20 HP, +1 slam attack and slams deal double damage.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Golem, Flesh",
+    "**AC**": "9",
+    "**HP**": "35",
+    "**ATK**": "3 slam +6 (1d8)",
+    "**MV**": "near",
+    "**S**": "+4",
+    "**D**": "-1",
+    "**C**": "+4",
+    "**I**": "-1",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "7",
+    "abilities": {
+      "**Golem**": "Immune to damage from fire, cold, or non-magical sources. Healed by electricity.",
+      "**Berserk**": "When at or below 20 HP, +1 slam attack and slams deal double damage."
+    }
+  },
+  {
+    "slug": "gorgon",
+    "name": "Gorgon",
+    "level": 7,
+    "ac": "18",
+    "hp": "33",
+    "attack": "2 gore +6 (2d8) or 1 charge or 1 petrifying breath",
+    "movement": "double near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+0",
+      "CON": "+2",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "2d8",
+        "display": "2d8",
+        "context": "2 gore +6 (2d8) or 1 charge or 1 petrifying breath"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Charge",
+        "text": "Move up to double near in straight line and make 1 gore attack. If hit, x3 damage.",
+        "damage": []
+      },
+      {
+        "name": "Petrifying Breath",
+        "text": "Fills a near- sized cube extending from gorgon. DC 15 CON or petrified (gorgons immune).",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Gorgon",
+    "**AC**": "18",
+    "**HP**": "33",
+    "**ATK**": "2 gore +6 (2d8) or 1 charge or 1 petrifying breath",
+    "**MV**": "double near",
+    "**S**": "+4",
+    "**D**": "+0",
+    "**C**": "+2",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {
+      "**Charge**": "Move up to double near in straight line and make 1 gore attack. If hit, x3 damage.",
+      "**Petrifying Breath**": "Fills a near- sized cube extending from gorgon. DC 15 CON or petrified (gorgons immune)."
+    }
+  },
+  {
+    "slug": "minotaur",
+    "name": "Minotaur",
+    "level": 7,
+    "ac": "14 (chainmail)",
+    "hp": "34",
+    "attack": "2 greataxe +6 (1d10) and 1 horns +6 (1d12)",
+    "movement": "near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+1",
+      "CON": "+3",
+      "INT": "+1",
+      "WIS": "+2",
+      "CHA": "+1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 greataxe +6 (1d10) and 1 horns +6 (1d12)"
+      },
+      {
+        "expression": "1d12",
+        "display": "1d12",
+        "context": "2 greataxe +6 (1d10) and 1 horns +6 (1d12)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Charge",
+        "text": "In place of attacks, move up to double near in a straight line and make 1 horn attack. If hit, x2 damage.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Minotaur",
+    "**AC**": "14 (chainmail)",
+    "**HP**": "34",
+    "**ATK**": "2 greataxe +6 (1d10) and 1 horns +6 (1d12)",
+    "**MV**": "near",
+    "**S**": "+4",
+    "**D**": "+1",
+    "**C**": "+3",
+    "**I**": "+1",
+    "**W**": "+2",
+    "**CH**": "+1",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {
+      "**Charge**": "In place of attacks, move up to double near in a straight line and make 1 horn attack. If hit, x2 damage."
+    }
+  },
+  {
+    "slug": "oni",
+    "name": "Oni",
+    "level": 7,
+    "ac": "11",
+    "hp": "33",
+    "attack": "1 glaive (near) +6 (1d10) or 1 spell +5",
+    "movement": "near",
+    "stats": {
+      "STR": "+5",
+      "DEX": "+1",
+      "CON": "+2",
+      "INT": "+2",
+      "WIS": "+1",
+      "CHA": "+3"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "1 glaive (near) +6 (1d10) or 1 spell +5"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Shapeshift",
+        "text": "In place of attacks, turn into any humanoid or back into original form.",
+        "damage": []
+      },
+      {
+        "name": "Fade (CHA Spell)",
+        "text": "DC 13. Self. Become invisible for 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "Become invisible for 1d4 rounds."
+          }
+        ]
+      },
+      {
+        "name": "Hellfrost (CHA Spell)",
+        "text": "DC 13. All within near-sized cube extending from oni 3d6 damage.",
+        "damage": [
+          {
+            "expression": "3d6",
+            "display": "3d6",
+            "context": "All within near-sized cube extending from oni 3d6 damage."
+          }
+        ]
+      },
+      {
+        "name": "Mist (CHA Spell)",
+        "text": "DC 13. Self. Turn into mist that can fly double near. Lasts 2d4 rounds.",
+        "damage": [
+          {
+            "expression": "2d4",
+            "display": "2d4",
+            "context": "Lasts 2d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Oni",
+    "**AC**": "11",
+    "**HP**": "33",
+    "**ATK**": "1 glaive (near) +6 (1d10) or 1 spell +5",
+    "**MV**": "near",
+    "**S**": "+5",
+    "**D**": "+1",
+    "**C**": "+2",
+    "**I**": "+2",
+    "**W**": "+1",
+    "**CH**": "+3",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {
+      "**Shapeshift**": "In place of attacks, turn into any humanoid or back into original form.",
+      "**Fade (CHA Spell)**": "DC 13. Self. Become invisible for 1d4 rounds.",
+      "**Hellfrost (CHA Spell)**": "DC 13. All within near-sized cube extending from oni 3d6 damage.",
+      "**Mist (CHA Spell)**": "DC 13. Self. Turn into mist that can fly double near. Lasts 2d4 rounds."
+    }
+  },
+  {
+    "slug": "otyugh",
+    "name": "Otyugh",
+    "level": 7,
+    "ac": "13",
+    "hp": "35",
+    "attack": "2 tentacle +5 (1d8) and 1 bite +5 (1d10 + disease)",
+    "movement": "near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "-1",
+      "CON": "+4",
+      "INT": "-2",
+      "WIS": "+0",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 tentacle +5 (1d8) and 1 bite +5 (1d10 + disease)"
+      },
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 tentacle +5 (1d8) and 1 bite +5 (1d10 + disease)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Disease",
+        "text": "DC 15 CON or infected. DC 15 CON each day or lose 1d6",
+        "damage": [
+          {
+            "expression": "1d6",
+            "display": "1d6",
+            "context": "DC 15 CON each day or lose 1d6"
+          }
+        ]
+      },
+      {
+        "name": "HP (can't heal)",
+        "text": "Ends on success.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Otyugh",
+    "**AC**": "13",
+    "**HP**": "35",
+    "**ATK**": "2 tentacle +5 (1d8) and 1 bite +5 (1d10 + disease)",
+    "**MV**": "near",
+    "**S**": "+4",
+    "**D**": "-1",
+    "**C**": "+4",
+    "**I**": "-2",
+    "**W**": "+0",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "7",
+    "abilities": {
+      "**Disease**": "DC 15 CON or infected. DC 15 CON each day or lose 1d6",
+      "**HP (can't heal)**": "Ends on success."
+    }
+  },
+  {
+    "slug": "triceratops",
+    "name": "Triceratops",
+    "level": 7,
+    "ac": "17",
+    "hp": "35",
+    "attack": "2 horns +6 (1d10) or 1 charge",
+    "movement": "near",
+    "stats": {
+      "STR": "+4",
+      "DEX": "-1",
+      "CON": "+4",
+      "INT": "-3",
+      "WIS": "+1",
+      "CHA": "-3"
+    },
+    "alignment": "N",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 horns +6 (1d10) or 1 charge"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Charge",
+        "text": "Move up to double near in straight line and make 1 horn attack. If hit, x3 damage.",
+        "damage": []
+      }
+    ],
+    "Monster Name": "Triceratops",
+    "**AC**": "17",
+    "**HP**": "35",
+    "**ATK**": "2 horns +6 (1d10) or 1 charge",
+    "**MV**": "near",
+    "**S**": "+4",
+    "**D**": "-1",
+    "**C**": "+4",
+    "**I**": "-3",
+    "**W**": "+1",
+    "**CH**": "-3",
+    "**AL**": "N",
+    "**LV**": "7",
+    "abilities": {
+      "**Charge**": "Move up to double near in straight line and make 1 horn attack. If hit, x3 damage."
+    }
+  },
+  {
+    "slug": "troll-frost",
+    "name": "Troll, Frost",
+    "level": 7,
+    "ac": "13",
+    "hp": "34",
+    "attack": "2 claw +5 (1d8) and 1 bite +5 (1d12)",
+    "movement": "near",
+    "stats": {
+      "STR": "+3",
+      "DEX": "+2",
+      "CON": "+3",
+      "INT": "-1",
+      "WIS": "+0",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d8",
+        "display": "1d8",
+        "context": "2 claw +5 (1d8) and 1 bite +5 (1d12)"
+      },
+      {
+        "expression": "1d12",
+        "display": "1d12",
+        "context": "2 claw +5 (1d8) and 1 bite +5 (1d12)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Cold and fire immune.",
+        "damage": []
+      },
+      {
+        "name": "Regenerate",
+        "text": "Regains 2d6 HP on its turn unless its wounds are cauterized with acid.",
+        "damage": [
+          {
+            "expression": "2d6",
+            "display": "2d6",
+            "context": "Regains 2d6 HP on its turn unless its wounds are cauterized with acid."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Troll, Frost",
+    "**AC**": "13",
+    "**HP**": "34",
+    "**ATK**": "2 claw +5 (1d8) and 1 bite +5 (1d12)",
+    "**MV**": "near",
+    "**S**": "+3",
+    "**D**": "+2",
+    "**C**": "+3",
+    "**I**": "-1",
+    "**W**": "+0",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {
+      "**Impervious**": "Cold and fire immune.",
+      "**Regenerate**": "Regains 2d6 HP on its turn unless its wounds are cauterized with acid."
+    }
+  },
+  {
+    "slug": "void-spawn",
+    "name": "Void Spawn",
+    "level": 7,
+    "ac": "13",
+    "hp": "34",
+    "attack": "2 scythe +6 (1d10) and 1 tentacles +6 (1d12 + toxin)",
+    "movement": "near (fly)",
+    "stats": {
+      "STR": "+4",
+      "DEX": "+1",
+      "CON": "+3",
+      "INT": "+0",
+      "WIS": "+1",
+      "CHA": "-1"
+    },
+    "alignment": "C",
+    "damage": [
+      {
+        "expression": "1d10",
+        "display": "1d10",
+        "context": "2 scythe +6 (1d10) and 1 tentacles +6 (1d12 + toxin)"
+      },
+      {
+        "expression": "1d12",
+        "display": "1d12",
+        "context": "2 scythe +6 (1d10) and 1 tentacles +6 (1d12 + toxin)"
+      }
+    ],
+    "abilityDetails": [
+      {
+        "name": "Impervious",
+        "text": "Immune to cold.",
+        "damage": []
+      },
+      {
+        "name": "Toxin",
+        "text": "DC 12 CON or paralyzed for 1d4 rounds.",
+        "damage": [
+          {
+            "expression": "1d4",
+            "display": "1d4",
+            "context": "DC 12 CON or paralyzed for 1d4 rounds."
+          }
+        ]
+      }
+    ],
+    "Monster Name": "Void Spawn",
+    "**AC**": "13",
+    "**HP**": "34",
+    "**ATK**": "2 scythe +6 (1d10) and 1 tentacles +6 (1d12 + toxin)",
+    "**MV**": "near (fly)",
+    "**S**": "+4",
+    "**D**": "+1",
+    "**C**": "+3",
+    "**I**": "+0",
+    "**W**": "+1",
+    "**CH**": "-1",
+    "**AL**": "C",
+    "**LV**": "7",
+    "abilities": {
+      "**Impervious**": "Immune to cold.",
+      "**Toxin**": "DC 12 CON or paralyzed for 1d4 rounds."
+    }
+  }
+]

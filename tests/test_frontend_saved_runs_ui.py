@@ -68,3 +68,30 @@ def test_overwrite_and_replace_confirmations_present():
     assert overwrite.select_one("#overwrite-cancel-btn") is not None
     assert replace.select_one("#replace-confirm-btn") is not None
     assert replace.select_one("#replace-cancel-btn") is not None
+
+
+def test_multiplayer_controls_and_modal_structure_exist():
+    """/site/ exposes stable multiplayer selectors for host-link flow."""
+    with build_client() as client:
+        response = client.get("/site/")
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.data, "html.parser")
+
+    assert soup.select_one("#multiplayer-btn") is not None
+
+    modal = soup.select_one("#multiplayer-modal")
+    assert modal is not None
+    assert modal.select_one("#multiplayer-title") is not None
+    assert modal.select_one("#multiplayer-status") is not None
+    assert modal.select_one("#multiplayer-create-host-btn") is not None
+    assert modal.select_one("#multiplayer-invite-link") is not None
+    assert modal.select_one("#multiplayer-copy-link-btn") is not None
+    assert modal.select_one("#multiplayer-join-code") is not None
+    assert modal.select_one("#multiplayer-join-btn") is not None
+    assert modal.select_one("#multiplayer-presence-list") is not None
+    assert modal.select_one("[data-testid='multiplayer-presence-list']") is not None
+    assert modal.select_one("#multiplayer-player-select") is not None
+    assert modal.select_one("#multiplayer-character-select") is not None
+    assert modal.select_one("#multiplayer-assign-btn") is not None
+    assert modal.select_one("#multiplayer-refresh-btn") is not None
+    assert modal.select_one("#multiplayer-close") is not None
