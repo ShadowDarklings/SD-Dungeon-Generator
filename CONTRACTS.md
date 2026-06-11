@@ -1,7 +1,7 @@
 # SD Dungeon Generator - CONTRACTS.md
 
 **Team:** ShadowDarklings  
-**Week:** 10 — Hardening / Production Stack  
+**Week:** Final Project  
 **Project:** Procedural Shadowdark dungeon generator  
 **Contract status:** Load-bearing. Change this document first, then tests, then code.
 
@@ -9,6 +9,15 @@
 > & Hardening)** at the end. The schema, endpoint contracts, and authorization rules do not change; §15
 > records new infrastructure ownership and the one runtime behavior change (ProxyFix + Secure cookies
 > now active over HTTPS).
+
+> **Final Project note:** This revision (1) contracts the previously undocumented
+> `POST /api/shadowdarklings/import` endpoint (§2, §3c), (2) revises the monster-table mapping now that
+> per-level tables `monsters-1.json` … `monsters-10.json` exist (§3a — **code change required**, see
+> §17), (3) marks the §15.5 CSP open item resolved and records the deployed policy, and (4) adds
+> **§16 (Multiplayer Host Links)** — the contracted API for the invite-players feature whose frontend
+> shipped in PR #17. §17 is the revision log with per-role action items. Source material for §16:
+> `BACKEND_multiplayer_handoff.md` and `SECURITY_multiplayer_handoff.md` (now superseded by this
+> contract where they conflict).
 
 This document defines what the system does. It is not an implementation
 plan. The back-end role builds the API described here, the front-end role
@@ -262,6 +271,19 @@ All JSON responses use this error envelope when a request fails:
 | Behavior | Finds or creates a `User` with `email=<username>@test`, `display_name=<username>`, `password_hash=NULL`. Calls `login_user(user)`. Redirects to `/`. |
 | Creates `oauth_identities` row? | No — the backdoor simulates a logged-in state, not an OAuth flow. This is the documented gap. |
 
+### `POST /api/shadowdarklings/import` (contracted Final Project; shipped earlier without contract)
+
+| Field | Contract |
+|---|---|
+| Purpose | Generate a random Shadowdark character by driving the live shadowdarklings.net site (§3c) and return its exported JSON to the client. |
+| Auth | **Required.** The endpoint launches a server-side headless browser; anonymous access would be a trivial resource-exhaustion vector. 401 `login_required` for anonymous callers. |
+| Request | Optional JSON body: `{ "base_classes_only": boolean }` (default `false`). When `true`, the optional ShadowDarklings source switches (§3c) are disabled before generating. Missing/invalid body is treated as `{}`. |
+| Success | HTTP 200 JSON: `{ "source": "shadowdarklings", "character_json": "<exported JSON string>", "generated_at": "<ISO timestamp>" }`. |
+| Errors | 401 `login_required`; 503 `feature_disabled` when the feature is off (see Environments); 502 `shadowdarklings_import_failed` when the upstream site or browser automation fails. |
+| CSRF | Exempt (JSON API, protected by `SameSite=Lax`; see §9.3). |
+| Environments | **Dev-only feature** (§17 item 6, decided). Enabled when `FLASK_ENV != production`, or explicitly via `app.config["SHADOWDARKLINGS_IMPORT_ENABLED"]`. In production it returns 503 `feature_disabled` — the prod image deliberately does not ship Playwright browsers. |
+| Known limitation | Synchronous and slow (real browser per request). One request at a time per user is the intended usage; no queueing exists. |
+
 ## 3. External API Contracts
 
 ### 3a. S3 Dungeon Tables (Week 6)
@@ -272,7 +294,8 @@ static website hosting, also mirrored locally through Flask at `/site/`.
 | Item | Contract |
 |---|---|
 | Base URL | `http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com` |
-| Monster tables | `/monsters-1.json`, `/monsters-2.json`; levels 1 maps to table 1, levels 2-10 map to table 2 for Week 6. |
+| Monster tables | **Revised (Final Project):** `/monsters-1.json` … `/monsters-10.json` — one table per dungeon level, level N maps to `monsters-N.json`. The client already does this (`loadMonsterTableForLevel` clamps to 1-10 and fetches `./monsters-N.json` from `/site/`). The `/api/random-tables` proxy still implements the old Week 6 mapping (2-10 → table 2) and **must be updated to match** (§17). The Week 6 two-table mapping is retired. |
+| Table sync | The per-level JSON files are committed in `S3_content/` and served at `/site/`. Whoever changes them must re-publish to the S3 bucket (`scripts/s3_sync_publish.py`) — the proxy reads the *bucket*, the game reads `/site/`, and the two must not drift. |
 | Trap table | `/traps.json` |
 | Auth | None. These are public static JSON assets. |
 | Rate limits | S3 has service limits and free-tier usage limits, but no application key. The app should make one request per table load and should not poll repeatedly. |
@@ -317,6 +340,24 @@ Representative payload shape from `GET https://api.github.com/user`:
 - `name` is `null` → set `display_name` to the GitHub `login` value instead.
 - `login` is never null in GitHub's API — safe as a fallback.
 
+### 3c. ShadowDarklings Character Generator (contracted Final Project)
+
+**external_dependency: shadowdarklings.net**
+
+The `POST /api/shadowdarklings/import` endpoint (§2) drives the live site
+`https://shadowdarklings.net/create` with a server-side headless browser
+(Playwright) and copies the site's JSON export. As with GitHub (§3b), we
+contract what our code does, not what the site will do.
+
+| Item | Contract |
+|---|---|
+| URL | `https://shadowdarklings.net/create` |
+| Auth | None — public site. |
+| Automation steps | Click "Random 1" → "Best Fit" → set source switches → "Generate a Random Character" → "JSON" → read clipboard. |
+| Source switches | `Scroll #1-4`, `B&R&K`, `Roustabout`, `Unnatural Selection`, `Darcy`. All enabled by default; all disabled when `base_classes_only=true`. Switches the site has disabled are skipped without error. |
+| Failure handling | Any automation or upstream failure → HTTP 502 `shadowdarklings_import_failed` with the exception message. No retries. |
+| Fragility | This is UI-scraping: any shadowdarklings.net redesign breaks it. Acceptable for a bonus feature; the dungeon game must function fully without it. |
+
 ## 4. Authorization Rules
 
 | Resource | Anonymous user | Logged-in owner | Logged-in non-owner |
@@ -328,9 +369,11 @@ Representative payload shape from `GET https://api.github.com/user`:
 | `PUT /api/runs/<run_id>` | 401 or 302 | Can update own run | 404, not 403 |
 | `DELETE /api/runs/<run_id>` | 401 or 302 | Can delete own run | 404, not 403 |
 | `GET /api/random-tables` | Read allowed | Read allowed | Read allowed |
+| `POST /api/shadowdarklings/import` | 401 | Allowed | Allowed (not ownership-scoped) |
 | `GET /login/github` | Initiates OAuth flow | Initiates OAuth flow (re-auth) | — |
 | `GET /auth/github/callback` | Processes callback | Processes callback | — |
 | `GET /test/login/<username>` | 404 (unless `TESTING`) | 404 (unless `TESTING`) | — |
+| `/api/multiplayer/*` (§16) | 401 | Per §16.4 role rules (host vs. player vs. non-member) | Per §16.4 |
 
 Ownership-restricted resources must use the OWASP-style 404-for-not-yours
 rule. A user must not be able to learn whether another user's saved run exists.
@@ -746,13 +789,30 @@ place, `SESSION_COOKIE_SECURE` is now active:
   and the §13 limitation ("`SESSION_COOKIE_SECURE` is disabled in dev/test") now apply **only** to the
   Playwright e2e fixtures and any deliberate plain-HTTP local run — not to the docker-compose stack.
 
-### 15.5 Security headers and CSP (set in nginx, not Flask)
+### 15.5 Security headers and CSP (set in nginx, not Flask) — RESOLVED
 
-Per the stack design, response security headers are set at nginx (§9, §4): `Strict-Transport-Security`,
-`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and a
-`Content-Security-Policy`. **Open item:** a strict `default-src 'self'` CSP conflicts with any inline
-`<script>`/`<style>` or inline handlers in `S3_content/index.html`; the front end either refactors the
-inline code into external files or adds nonces/hashes before the CSP can be enforced.
+Response security headers are set at nginx: `Strict-Transport-Security`, `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (camera/mic/geolocation/
+payment all denied), and the `Content-Security-Policy` below.
+
+The former open item is **resolved**: the inline delete-handler in `runs.html` moved to
+`static/js/runs.js`, and `about.html`'s inline `<style>` moved to `about.css`. No inline scripts,
+inline styles, or inline event handlers remain anywhere served by nginx.
+
+Deployed policy:
+
+```
+default-src 'self'; script-src 'self';
+style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none';
+frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+```
+
+- `https://cdn.jsdelivr.net` in `style-src` is for the Bootstrap CSS link in `templates/base.html`.
+- `'unsafe-inline'` in `style-src` was added for `about.html`'s former inline `<style>` block. That
+  block is now externalized, so the exception is **no longer needed and should be dropped** (§17).
+- `script-src` is strictly `'self'` — keep it that way. New JS goes in `static/js/` or
+  `S3_content/src/`, never inline in templates or HTML.
 
 ### 15.6 Static assets served by nginx
 
@@ -809,3 +869,184 @@ building the workflow is **out of scope** for Week 10.
   (current config logs to stdout).
 - Playwright e2e runs over HTTP + SQLite with `SESSION_COOKIE_SECURE=False`; it does not exercise the
   HTTPS Secure-cookie path unless pointed at `https://localhost` with `ignore_https_errors=true`.
+
+## 16. Multiplayer Host Links (Final Project)
+
+**Status:** Frontend shipped (PR #17): invite modal, `S3_content/src/multiplayer.js` API client,
+DOM-structure test. **Backend does not exist yet.** The client degrades gracefully ("Multiplayer
+backend is not connected yet."). This section is the contract the backend is built against; it
+supersedes the two handoff documents where they conflict.
+
+### 16.1 Schema
+
+#### Table: `multiplayer_sessions`
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY | Autoincrement session id. **Never exposed as the invite code.** |
+| `host_user_id` | INTEGER | NOT NULL, FK to `users.id` ON DELETE CASCADE, indexed | Session creator. |
+| `invite_code` | VARCHAR(43) | UNIQUE, NOT NULL, indexed | URL-safe, cryptographically random (§16.3). |
+| `seed` | INTEGER | NOT NULL | Generator seed. |
+| `level` | INTEGER | NOT NULL, CHECK `level BETWEEN 1 AND 10` | Dungeon level. |
+| `state_json` | JSON | NOT NULL | Serialized dungeon state (`docs/STATE_SCHEMA.md`), same format as `saved_runs`. |
+| `created_at` | TIMESTAMP WITH TIME ZONE | NOT NULL | Creation time. |
+| `updated_at` | TIMESTAMP WITH TIME ZONE | NOT NULL | Last state change. |
+| `closed_at` | TIMESTAMP WITH TIME ZONE | NULL | Set when the host closes the session; closed sessions reject join/assign. |
+
+#### Table: `multiplayer_players`
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY | Row id; this is the `player_id` used in API payloads. |
+| `session_id` | INTEGER | NOT NULL, FK to `multiplayer_sessions.id` ON DELETE CASCADE, indexed | Parent session. |
+| `user_id` | INTEGER | NOT NULL, FK to `users.id` ON DELETE CASCADE, indexed | Local account. |
+| `display_name` | VARCHAR(200) | NOT NULL | Shown to other players; defaults to the user's `display_name` or `username`. |
+| `role` | VARCHAR(10) | NOT NULL | `host` or `player`. |
+| `assigned_character_id` | VARCHAR(120) | NULL | Runtime character/dot id from `state_json`. |
+| `joined_at` | TIMESTAMP WITH TIME ZONE | NOT NULL | First join. |
+| `last_seen_at` | TIMESTAMP WITH TIME ZONE | NOT NULL | Updated on any authenticated session fetch. |
+
+**UNIQUE constraint:** `(session_id, user_id)` — joining twice returns the existing membership
+(idempotent join), it does not create a duplicate row.
+
+A `multiplayer_events` audit table is deferred until real-time sync is built (§16.7).
+
+### 16.2 Endpoint Contracts
+
+All endpoints: auth **required** (401 `login_required` JSON envelope for anonymous), JSON only,
+CSRF-exempt under the §9.3 rationale (`SameSite=Lax` + JSON content type), standard §2 error envelope.
+
+**Common response shape** (`SessionView`) returned by create/join/get:
+
+```json
+{
+  "id": 1,
+  "invite_code": "kZx7…",
+  "invite_url": "<origin>/site/?session=kZx7…",
+  "role": "host" | "player",
+  "players": [ { "id": 3, "display_name": "Alice", "role": "host", "assigned_character_id": "char-1" } ],
+  "assignments": [ { "player_id": 3, "character_id": "char-1" } ],
+  "state_json": { … },
+  "error": null
+}
+```
+
+`role` is the *requesting user's* role. `players[].id` is the `multiplayer_players.id`, never
+`users.id`. No email, OAuth ids, password fields, or other users' saved runs ever appear (§16.5).
+
+#### `POST /api/multiplayer/sessions`
+
+| Field | Contract |
+|---|---|
+| Purpose | Create a session with the caller as host. |
+| Request | JSON: `seed` int, `level` int 1-10, `host_character_id` string or null, `state_json` object. |
+| Success | 201 `SessionView` (role `host`, caller in `players`). |
+| Errors | 400 `invalid_json` / `invalid_level` / `invalid_state`, 401. |
+
+#### `POST /api/multiplayer/sessions/<invite_code>/join`
+
+| Field | Contract |
+|---|---|
+| Purpose | Join (or re-join, idempotently) a session by invite code. |
+| Request | JSON: `character_id` string or null, `display_name` string (optional; empty → account default). |
+| Success | 200 `SessionView` (role `player`; host re-joining stays `host`). |
+| Errors | 401; 404 `not_found` for unknown **or closed** sessions (no existence leak); 409 `session_full` if the player cap (§16.6) is reached. |
+
+#### `GET /api/multiplayer/sessions/<invite_code>`
+
+| Field | Contract |
+|---|---|
+| Purpose | Fetch current session state/presence; refreshes the caller's `last_seen_at`. |
+| Auth | Caller must be a **member** (host or joined player). Non-members get 404 `not_found` — knowing a code is not enough to read state without joining. |
+| Success | 200 `SessionView`. |
+| Errors | 401; 404 for unknown, closed, or not-joined sessions. |
+
+#### `POST /api/multiplayer/sessions/<invite_code>/assignments`
+
+| Field | Contract |
+|---|---|
+| Purpose | Assign or reassign a character dot to a player. **Host only.** |
+| Request | JSON: `player_id` int (`multiplayer_players.id` in this session), `character_id` string present in the session's `state_json` characters. |
+| Success | 200 `{ "ok": true, "players": […], "assignments": […], "error": null }`. |
+| Errors | 401; 404 for unknown/closed/not-joined; **404 (not 403) for a non-host member** — consistent with the §4 no-enumeration rule; 400 `invalid_assignment` if `player_id` is not in this session or `character_id` is not in the state. |
+
+### 16.3 Invite-code rules (security)
+
+- Generated server-side with `secrets.token_urlsafe(16)` (≥128 bits) — never `random`, never
+  sequential, never derived from database ids.
+- Unique per session; regenerating on collision is the server's job.
+- The code is the *only* join credential, so treat it like a bearer token: never log it at INFO,
+  never put it in error messages, and rate-limit guessing (§16.6).
+
+### 16.4 Authorization matrix
+
+| Action | Anonymous | Non-member | Member (player) | Host |
+|---|---|---|---|---|
+| Create session | 401 | — | — | n/a (creates) |
+| Join by valid code | 401 | Becomes player | Idempotent re-join | Idempotent |
+| Fetch session | 401 | 404 | Allowed | Allowed |
+| Assign dots | 401 | 404 | 404 | Allowed |
+| Close session / kick / transfer host | 401 | 404 | 404 | Future work (§16.7) |
+
+### 16.5 Privacy
+
+Session responses expose exactly: player row id, `display_name`, `role`, `assigned_character_id`.
+Never `users.email`, `users.password_hash`, OAuth provider ids, or any data about runs/sessions the
+caller is not a member of.
+
+### 16.6 Abuse controls
+
+- nginx `limit_req` zone on `POST /api/multiplayer/sessions` and `/join` (same 5 r/m + burst pattern
+  as the auth endpoints; tune after real usage).
+- Caps, enforced in the backend: **8 players per session**, **5 open sessions per host** (409
+  `too_many_sessions` / `session_full`). Numbers are deliberately generous; revise via contract PR.
+- Stale sessions: anything with no `last_seen_at` activity for 24h may be treated as closed. No
+  background reaper is contracted — lazy enforcement on access is fine.
+
+### 16.7 Deliberately out of scope (first production pass)
+
+- Real-time sync (WebSocket/SSE) and per-action validated mutation endpoints. Until those exist, the
+  host's client is authoritative and writes full `state_json`; **non-host players cannot write state
+  at all** (assignment is the only mutating player-adjacent operation, and it's host-only).
+- Kick, host transfer, invite-code rotation, guest (anonymous) joins, `multiplayer_events` audit log.
+- Spectators.
+
+### 16.8 Ownership (extends §5)
+
+| Role | Multiplayer ownership |
+|---|---|
+| Front end (Charles) | Modal UX, `multiplayer.js` client, `?session=` deep link, presence rendering. |
+| Back end (Megan) | SQLModel tables (§16.1), the four endpoints (§16.2), caps (§16.6), backend tests: create/join/duplicate-join/assign happy paths + error envelopes. |
+| DB/security (Mario) | Invite-code generation review (§16.3), authorization matrix enforcement + tests (§16.4: 401/404 rules, non-host assignment denial, non-member fetch denial), privacy of session payloads (§16.5), nginx rate limits (§16.6). |
+
+### 16.9 Test checklist (merge gate for the backend PR)
+
+- [ ] Unauthenticated create/join/get/assign → 401 JSON envelope
+- [ ] Unknown invite code → 404 `not_found` (same body as not-joined: no existence leak)
+- [ ] Non-member GET → 404; joined player GET → 200
+- [ ] Duplicate join is idempotent (no duplicate `multiplayer_players` row)
+- [ ] Non-host assignment → 404; host assignment → 200 and visible in next GET
+- [ ] `invalid_assignment` for foreign `player_id` or unknown `character_id`
+- [ ] Invite codes from `secrets.token_urlsafe`, non-sequential across two sessions
+- [ ] Session payload contains no email/oauth/password fields
+- [ ] Wrong content type / invalid JSON → 400 `invalid_json`
+
+## 17. Final Project Revision Log & Action Items
+
+This revision was driven by the post-rebase review. Where this section assigns work, the contract
+above is the authority; mark items done in the PR that lands them.
+
+| # | Action | Owner | Status |
+|---|---|---|---|
+| 1 | `/api/random-tables`: replace the Week 6 level mapping (2-10 → table 2) with per-level `monsters-N.json` (§3a). Update `tests/test_backend_random_table_proxy.py` mapping test. | Back end (Megan) | **Done** (hardening PR; Megan reviews) |
+| 2 | Re-publish `monsters-3..10.json` + `spells/` to the S3 bucket so the proxy and `/site/` serve identical tables (§3a). | Front end (Charles) | **Verified** — bucket spot-checked live (`monsters-3.json`) |
+| 3 | Drop `'unsafe-inline'` from `style-src` in `nginx/nginx.conf` (§15.5 — no longer needed). | DB/sec (Mario) | **Done** |
+| 4 | Build the multiplayer backend per §16. | Back end (Megan) | **Done** (hardening PR; Megan reviews) |
+| 5 | Multiplayer security tests per §16.9 + nginx rate limits (§16.6). | DB/sec (Mario) | **Done** — `tests/test_security_multiplayer.py` |
+| 6 | Decide: install Playwright browsers in the production image or document the shadowdarklings import as dev-only (§2). | Back end (Megan) + team | **Decided: dev-only** — 503 `feature_disabled` in production (§2) |
+| 7 | `docs/STATE_SCHEMA.md` synced with `state-schema.js` (run/timers/wandering/characters/inventory/lightSource fields). | DB/sec (Mario) | Done |
+| 8 | Wire the login page "Remember me" checkbox to `login_user(remember=…)` (§5 Week 7 item, still unwired). | Back end (Megan) | **Done** (hardening PR) |
+
+See `SECURITY_ASSESSMENT.md` for the full security review backing this revision (residual risks §4
+there: Postgres superuser, self-signed cert, Host-header in `invite_url`, e2e HTTPS gap, attack-path
+suite not CI-gated).

@@ -66,3 +66,14 @@ def test_shadowdarklings_import_endpoint_returns_copied_json(client, monkeypatch
     assert data["source"] == "shadowdarklings"
     assert data["character_json"] == '{"name":"Glazkhar","className":"Basilisk Warrior"}'
     assert data["generated_at"]
+
+
+def test_shadowdarklings_import_disabled_in_production(client):
+    """Contract §2: when the feature flag is off, the endpoint returns 503 feature_disabled."""
+    flask_app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = False
+    try:
+        response = client.post("/api/shadowdarklings/import")
+        assert response.status_code == 503
+        assert response.get_json()["error"] == "feature_disabled"
+    finally:
+        flask_app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = True

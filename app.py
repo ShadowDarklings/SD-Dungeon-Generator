@@ -10,6 +10,7 @@ import os
 import json
 import re
 import random
+import secrets
 import requests
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -213,6 +214,36 @@ class LootEntry(SQLModel, table=True):
     origin_tile: dict = Field(sa_column=Column(JSON, nullable=False))
 
 
+class MultiplayerSession(SQLModel, table=True):
+    """CONTRACTS.md §16.1 — a hosted invite-link game session."""
+    __tablename__ = "multiplayer_sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    host_user_id: int = Field(sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True))
+    invite_code: str = Field(sa_column=Column(String(43), nullable=False, unique=True, index=True))
+    seed: int = Field(nullable=False)
+    level: int = Field(sa_column=Column(Integer, CheckConstraint("level BETWEEN 1 AND 10"), nullable=False))
+    state_json: dict = Field(sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)))
+    closed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+
+
+class MultiplayerPlayer(SQLModel, table=True):
+    """CONTRACTS.md §16.1 — membership row; `id` is the player_id in API payloads."""
+    __tablename__ = "multiplayer_players"
+    __table_args__ = (UniqueConstraint("session_id", "user_id", name="uq_mp_session_user"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: int = Field(sa_column=Column(Integer, ForeignKey("multiplayer_sessions.id", ondelete="CASCADE"), nullable=False, index=True))
+    user_id: int = Field(sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True))
+    display_name: str = Field(sa_column=Column(String(200), nullable=False))
+    role: str = Field(sa_column=Column(String(10), nullable=False))
+    assigned_character_id: str | None = Field(default=None, sa_column=Column(String(120), nullable=True))
+    joined_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
+    last_seen_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
+
+
 # Create tables AFTER every model class is defined. Calling this earlier
 # (the pre-fix position was between OAuthIdentity and SavedRun) meant a fresh
 # database only got `users` and `oauth_identities` - the first save would 500.
@@ -347,7 +378,10 @@ def login():
         return redirect(url_for("login"))
 
     session.permanent = True
-    login_user(user)
+    # §9.2: "remember me" sets the 14-day remember_token cookie; without it the
+    # session expires after PERMANENT_SESSION_LIFETIME (2h).
+    remember = request.form.get("remember") == "1"
+    login_user(user, remember=remember)
     return redirect(url_for("home"))
 
 
@@ -487,6 +521,16 @@ def about():
 def import_shadowdarklings_character():
     # login_required: this endpoint launches a headless browser server-side —
     # anonymous access would be a trivial resource-exhaustion (DoS) vector.
+    #
+    # Dev-only feature (CONTRACTS.md §2, §17 item 6): the production image does
+    # not ship Playwright browsers, so the feature is cleanly disabled there
+    # instead of failing with a 502 mid-request.
+    if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", os.environ.get("FLASK_ENV") != "production"):
+        return {
+            "error": "feature_disabled",
+            "message": "Character import is not available in this environment.",
+        }, 503
+
     try:
         data = request.get_json(silent=True) or {}
         base_classes_only = bool(data.get("base_classes_only", False))
@@ -771,8 +815,327 @@ def delete_run(run_id):
         
     db.delete(run)
     db.commit()
-    
+
     return "", 204
+
+
+# ---------------------------------------------------------------------------
+# Routes — multiplayer host links (CONTRACTS.md §16)
+#
+# Security properties (§16.3-§16.6):
+# - invite codes from secrets.token_urlsafe(16) (≥128 bits), never row ids
+# - 404 (never 403) for unknown/closed/not-joined sessions — no enumeration
+# - host-only assignment; non-host members also get 404
+# - caps: MAX_PLAYERS_PER_SESSION, MAX_OPEN_SESSIONS_PER_HOST
+# - session payloads expose only player-row id / display_name / role /
+#   assigned_character_id — never email, oauth ids, or password fields
+# ---------------------------------------------------------------------------
+
+MAX_PLAYERS_PER_SESSION = 8
+MAX_OPEN_SESSIONS_PER_HOST = 5
+SESSION_STALE_AFTER = timedelta(hours=24)
+
+
+def _generate_invite_code(db) -> str:
+    """§16.3: cryptographically random, URL-safe, retried on (unlikely) collision."""
+    while True:
+        code = secrets.token_urlsafe(16)
+        exists = db.exec(
+            select(MultiplayerSession).where(MultiplayerSession.invite_code == code)
+        ).first()
+        if not exists:
+            return code
+
+
+def _default_display_name(user) -> str:
+    return (user.display_name or user.username or "Adventurer")[:200]
+
+
+def _state_character_ids(state_json) -> set:
+    chars = state_json.get("characters") if isinstance(state_json, dict) else None
+    if not isinstance(chars, list):
+        return set()
+    return {c.get("id") for c in chars if isinstance(c, dict) and c.get("id")}
+
+
+def _load_open_session(db, invite_code):
+    """Return the open session for this code, lazily closing stale ones (§16.6).
+
+    Returns None for unknown or closed sessions — callers map that to 404.
+    """
+    mp = db.exec(
+        select(MultiplayerSession).where(MultiplayerSession.invite_code == invite_code)
+    ).first()
+    if mp is None or mp.closed_at is not None:
+        return None
+
+    players = db.exec(
+        select(MultiplayerPlayer).where(MultiplayerPlayer.session_id == mp.id)
+    ).all()
+    last_activity = max(
+        (p.last_seen_at for p in players if p.last_seen_at is not None),
+        default=mp.created_at,
+    )
+    if last_activity is not None:
+        if last_activity.tzinfo is None:
+            last_activity = last_activity.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - last_activity > SESSION_STALE_AFTER:
+            mp.closed_at = datetime.now(timezone.utc)
+            db.add(mp)
+            db.commit()
+            return None
+    return mp
+
+
+def _get_membership(db, mp, user_id):
+    return db.exec(
+        select(MultiplayerPlayer).where(
+            MultiplayerPlayer.session_id == mp.id,
+            MultiplayerPlayer.user_id == user_id,
+        )
+    ).first()
+
+
+def _session_view(db, mp, requester_role):
+    """§16.2 SessionView. Exposes only the contracted player fields (§16.5)."""
+    players = db.exec(
+        select(MultiplayerPlayer)
+        .where(MultiplayerPlayer.session_id == mp.id)
+        .order_by(MultiplayerPlayer.joined_at)
+    ).all()
+    invite_url = f"{request.url_root.rstrip('/')}/site/?session={mp.invite_code}"
+    return {
+        "id": mp.id,
+        "invite_code": mp.invite_code,
+        "invite_url": invite_url,
+        "role": requester_role,
+        "players": [
+            {
+                "id": p.id,
+                "display_name": p.display_name,
+                "role": p.role,
+                "assigned_character_id": p.assigned_character_id,
+            }
+            for p in players
+        ],
+        "assignments": [
+            {"player_id": p.id, "character_id": p.assigned_character_id}
+            for p in players
+            if p.assigned_character_id
+        ],
+        "state_json": mp.state_json,
+        "error": None,
+    }
+
+
+def _json_body_or_none(required: bool):
+    """400-invalid_json helper: wrong content type or malformed JSON → None."""
+    data = request.get_json(silent=True)
+    if data is None:
+        if required or request.data:
+            return None
+        return {}
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+_NOT_FOUND = ({"error": "not_found", "message": "Multiplayer session not found."}, 404)
+_INVALID_JSON = ({"error": "invalid_json", "message": "Request body must be valid JSON."}, 400)
+
+
+@app.route("/api/multiplayer/sessions", methods=["POST"])
+@login_required
+@csrf.exempt
+def create_multiplayer_session():
+    data = _json_body_or_none(required=True)
+    if data is None:
+        return _INVALID_JSON
+
+    seed = data.get("seed")
+    level = data.get("level")
+    state_json = data.get("state_json")
+    host_character_id = data.get("host_character_id")
+
+    if seed is None or not isinstance(seed, int):
+        return {"error": "invalid_json", "message": "Seed is required and must be an integer."}, 400
+    if level is None or not isinstance(level, int) or not (1 <= level <= 10):
+        return {"error": "invalid_level", "message": "Level is required and must be between 1 and 10."}, 400
+    if not isinstance(state_json, dict):
+        return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
+
+    db = get_db_session()
+
+    open_sessions = db.exec(
+        select(MultiplayerSession).where(
+            MultiplayerSession.host_user_id == current_user.id,
+            MultiplayerSession.closed_at == None,  # noqa: E711 — SQL NULL check
+        )
+    ).all()
+    if len(open_sessions) >= MAX_OPEN_SESSIONS_PER_HOST:
+        return {"error": "too_many_sessions", "message": "Close an existing session before hosting another."}, 409
+
+    # host_character_id is best-effort: stored only if it names a character in
+    # the submitted state (assignment errors are reserved for §16.2 assignments).
+    valid_chars = _state_character_ids(state_json)
+    if not (isinstance(host_character_id, str) and host_character_id in valid_chars):
+        host_character_id = None
+
+    mp = MultiplayerSession(
+        host_user_id=current_user.id,
+        invite_code=_generate_invite_code(db),
+        seed=seed,
+        level=level,
+        state_json=state_json,
+    )
+    db.add(mp)
+    db.commit()
+    db.refresh(mp)
+
+    db.add(MultiplayerPlayer(
+        session_id=mp.id,
+        user_id=current_user.id,
+        display_name=_default_display_name(current_user),
+        role="host",
+        assigned_character_id=host_character_id,
+    ))
+    db.commit()
+
+    return _session_view(db, mp, "host"), 201
+
+
+@app.route("/api/multiplayer/sessions/<invite_code>/join", methods=["POST"])
+@login_required
+@csrf.exempt
+def join_multiplayer_session(invite_code):
+    data = _json_body_or_none(required=False)
+    if data is None:
+        return _INVALID_JSON
+
+    db = get_db_session()
+    mp = _load_open_session(db, invite_code)
+    if mp is None:
+        return _NOT_FOUND
+
+    membership = _get_membership(db, mp, current_user.id)
+    if membership is not None:
+        # §16.2: idempotent re-join — refresh presence, keep existing role/dot.
+        membership.last_seen_at = datetime.now(timezone.utc)
+        db.add(membership)
+        db.commit()
+        return _session_view(db, mp, membership.role), 200
+
+    player_count = len(db.exec(
+        select(MultiplayerPlayer).where(MultiplayerPlayer.session_id == mp.id)
+    ).all())
+    if player_count >= MAX_PLAYERS_PER_SESSION:
+        return {"error": "session_full", "message": "This session is full."}, 409
+
+    display_name = data.get("display_name")
+    if not isinstance(display_name, str) or not display_name.strip():
+        display_name = _default_display_name(current_user)
+    display_name = display_name.strip()[:200]
+
+    # Self-claim at join time: honored only for a real, unclaimed character.
+    # Reassignment afterwards is host-only (§16.4).
+    character_id = data.get("character_id")
+    if isinstance(character_id, str) and character_id in _state_character_ids(mp.state_json):
+        taken = db.exec(
+            select(MultiplayerPlayer).where(
+                MultiplayerPlayer.session_id == mp.id,
+                MultiplayerPlayer.assigned_character_id == character_id,
+            )
+        ).first()
+        if taken is not None:
+            character_id = None
+    else:
+        character_id = None
+
+    db.add(MultiplayerPlayer(
+        session_id=mp.id,
+        user_id=current_user.id,
+        display_name=display_name,
+        role="player",
+        assigned_character_id=character_id,
+    ))
+    db.commit()
+
+    return _session_view(db, mp, "player"), 200
+
+
+@app.route("/api/multiplayer/sessions/<invite_code>", methods=["GET"])
+@login_required
+def get_multiplayer_session(invite_code):
+    db = get_db_session()
+    mp = _load_open_session(db, invite_code)
+    if mp is None:
+        return _NOT_FOUND
+
+    membership = _get_membership(db, mp, current_user.id)
+    if membership is None:
+        # §16.2: knowing the code is not enough — non-members get 404.
+        return _NOT_FOUND
+
+    membership.last_seen_at = datetime.now(timezone.utc)
+    db.add(membership)
+    db.commit()
+
+    return _session_view(db, mp, membership.role), 200
+
+
+@app.route("/api/multiplayer/sessions/<invite_code>/assignments", methods=["POST"])
+@login_required
+@csrf.exempt
+def assign_multiplayer_character(invite_code):
+    data = _json_body_or_none(required=True)
+    if data is None:
+        return _INVALID_JSON
+
+    db = get_db_session()
+    mp = _load_open_session(db, invite_code)
+    if mp is None:
+        return _NOT_FOUND
+
+    membership = _get_membership(db, mp, current_user.id)
+    # §16.4: non-members AND non-host members both get 404 (no role leakage).
+    if membership is None or membership.role != "host":
+        return _NOT_FOUND
+
+    player_id = data.get("player_id")
+    character_id = data.get("character_id")
+
+    target = None
+    if isinstance(player_id, int):
+        target = db.exec(
+            select(MultiplayerPlayer).where(
+                MultiplayerPlayer.id == player_id,
+                MultiplayerPlayer.session_id == mp.id,
+            )
+        ).first()
+    if target is None or not isinstance(character_id, str) or character_id not in _state_character_ids(mp.state_json):
+        return {"error": "invalid_assignment", "message": "Unknown player or character for this session."}, 400
+
+    # Reassignment: a character belongs to at most one player.
+    holders = db.exec(
+        select(MultiplayerPlayer).where(
+            MultiplayerPlayer.session_id == mp.id,
+            MultiplayerPlayer.assigned_character_id == character_id,
+        )
+    ).all()
+    for holder in holders:
+        if holder.id != target.id:
+            holder.assigned_character_id = None
+            db.add(holder)
+
+    target.assigned_character_id = character_id
+    membership.last_seen_at = datetime.now(timezone.utc)
+    db.add(target)
+    db.add(membership)
+    db.commit()
+
+    view = _session_view(db, mp, "host")
+    return {"ok": True, "players": view["players"], "assignments": view["assignments"], "error": None}, 200
+
 
 @app.route("/api/random-tables", methods=["GET"])
 def get_random_tables():
@@ -785,16 +1148,16 @@ def get_random_tables():
     if table_type == "traps":
         s3_bucket_url = "http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/traps.json"
     else:
-        # Contract §2/§3a: level is required for monsters, must be 1-10, and
-        # maps to the available tables (level 1 → table 1, levels 2-10 → table 2).
+        # Contract §2/§3a (Final Project revision): level is required for
+        # monsters, must be 1-10, and maps to the per-level table
+        # monsters-<level>.json. The Week 6 two-table mapping is retired.
         try:
             level = int(request.args.get("level", default="1"))
         except (TypeError, ValueError):
             return jsonify({"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}), 400
         if not (1 <= level <= 10):
             return jsonify({"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}), 400
-        table_number = 1 if level == 1 else 2
-        s3_bucket_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/monsters-{table_number}.json"
+        s3_bucket_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/monsters-{level}.json"
 
     try:
         response = requests.get(s3_bucket_url, timeout=3.0)
