@@ -63,6 +63,7 @@ Set-Location '$repo'
 `$env:DATABASE_URL = 'sqlite:///dev.db'
 `$env:OAUTH_CLIENT_ID = 'dev-client-id'
 `$env:OAUTH_CLIENT_SECRET = 'dev-client-secret'
+`$env:ALLOW_ANON_SHADOWDARKLINGS_IMPORT = '1'
 & '$python' -u -c "from app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
 "@ | Set-Content -Path $launcher -Encoding UTF8
 
@@ -94,6 +95,7 @@ $env:SECRET_KEY = "dev-secret-not-for-production"
 $env:DATABASE_URL = "sqlite:///dev.db"
 $env:OAUTH_CLIENT_ID = "dev-client-id"
 $env:OAUTH_CLIENT_SECRET = "dev-client-secret"
+$env:ALLOW_ANON_SHADOWDARKLINGS_IMPORT = "1"
 & "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe" -u -c "from app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
 ```
 
@@ -182,9 +184,11 @@ The script sets:
 - `OAUTH_CLIENT_ID=dev-client-id`
 - `OAUTH_CLIENT_SECRET=dev-client-secret`
 - `S3_CONTENT_DIR=S3_content`
+- `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1`
 
-All four main env vars are required because [app.py](./app.py) reads them with
-`os.environ[...]`.
+The first four main env vars are required because [app.py](./app.py) reads them
+with `os.environ[...]`. The anonymous ShadowDarklings import bypass is only for
+local frontend editing and must not be enabled in production.
 
 ---
 

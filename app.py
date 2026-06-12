@@ -516,7 +516,6 @@ def about():
 
 
 @app.route("/api/shadowdarklings/import", methods=["POST"])
-@login_required
 @csrf.exempt
 def import_shadowdarklings_character():
     # login_required: this endpoint launches a headless browser server-side —
@@ -530,6 +529,9 @@ def import_shadowdarklings_character():
             "error": "feature_disabled",
             "message": "Character import is not available in this environment.",
         }, 503
+    allow_anon_dev_import = os.getenv("ALLOW_ANON_SHADOWDARKLINGS_IMPORT") == "1"
+    if not current_user.is_authenticated and not allow_anon_dev_import:
+        return {"error": "login_required", "message": "Authentication required."}, 401
 
     try:
         data = request.get_json(silent=True) or {}

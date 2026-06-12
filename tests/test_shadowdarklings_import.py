@@ -43,14 +43,32 @@ def client():
         yield client
 
 
-def test_shadowdarklings_import_requires_login():
+def test_shadowdarklings_import_requires_login(monkeypatch):
     """Anonymous POST is rejected with 401 login_required."""
+    monkeypatch.delenv("ALLOW_ANON_SHADOWDARKLINGS_IMPORT", raising=False)
     flask_app.config["TESTING"] = True
     SQLModel.metadata.create_all(engine)
     with flask_app.test_client() as anon:
         response = anon.post("/api/shadowdarklings/import")
     assert response.status_code == 401
     assert response.get_json()["error"] == "login_required"
+
+
+def test_shadowdarklings_import_allows_explicit_local_dev_bypass(monkeypatch):
+    """AGENTS.md can opt local frontend sessions into anonymous importing."""
+    flask_app.config["TESTING"] = True
+    SQLModel.metadata.create_all(engine)
+    monkeypatch.setenv("ALLOW_ANON_SHADOWDARKLINGS_IMPORT", "1")
+    monkeypatch.setattr(
+        "app.fetch_shadowdarklings_character_json",
+        lambda base_classes_only=False: '{"name":"Local Dev","className":"Fighter"}'
+    )
+
+    with flask_app.test_client() as anon:
+        response = anon.post("/api/shadowdarklings/import")
+
+    assert response.status_code == 200
+    assert response.get_json()["character_json"] == '{"name":"Local Dev","className":"Fighter"}'
 
 
 def test_shadowdarklings_import_endpoint_returns_copied_json(client, monkeypatch):
