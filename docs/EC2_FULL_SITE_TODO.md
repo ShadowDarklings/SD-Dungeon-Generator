@@ -37,7 +37,7 @@ imports all work in production.
 
 - [ ] Point a domain or subdomain at the EC2 public IP.
 - [ ] Replace self-signed certs with Let's Encrypt certs, or switch the proxy to Caddy.
-- [ ] Open EC2 inbound ports `80` and `443`. Public checks currently time out, while EC2 localhost checks pass.
+- [x] Open EC2 inbound ports `80` and `443`.
 - [ ] Restrict inbound SSH `22` to trusted IPs only.
 - [x] Confirm Postgres has no public host port.
 
