@@ -187,11 +187,8 @@ function getLineBetween(x0, y0, x1, y1) {
   return points;
 }
 
-export function hasLineOfSight(state, x, y) {
-  const px = state.player.x;
-  const py = state.player.y;
-
-  const points = getLineBetween(px, py, x, y);
+function hasLineOfSightFrom(state, originX, originY, x, y) {
+  const points = getLineBetween(originX, originY, x, y);
   for (let i = 1; i < points.length; i += 1) {
     const prev = points[i - 1];
     const curr = points[i];
@@ -204,7 +201,11 @@ export function hasLineOfSight(state, x, y) {
     }
   }
 
-  return !isAcrossClosedDoor(state, px, py, x, y) || isClosedDoorHallTarget(state, x, y);
+  return !isAcrossClosedDoor(state, originX, originY, x, y) || isClosedDoorHallTarget(state, x, y);
+}
+
+export function hasLineOfSight(state, x, y) {
+  return hasLineOfSightFrom(state, state.player.x, state.player.y, x, y);
 }
 
 export function isTileVisible(state, x, y) {
@@ -213,15 +214,52 @@ export function isTileVisible(state, x, y) {
 
 export function recomputeVisibility(state) {
   state.visibility.visibleNow.clear();
-  if (!state.player.torchLit) {
+  const lightSources = [];
+  for (const character of state.characters || []) {
+    if (
+      character &&
+      Number.isFinite(Number(character.x)) &&
+      Number.isFinite(Number(character.y)) &&
+      Number(character.lightRadius) > 0
+    ) {
+      lightSources.push({
+        x: Number(character.x),
+        y: Number(character.y),
+        radius: Number(character.lightRadius)
+      });
+    }
+  }
+  if (state.player.torchLit) {
+    lightSources.push({
+      x: state.player.x,
+      y: state.player.y,
+      radius: state.player.lightRadius
+    });
+  }
+  for (const entity of state.entities || []) {
+    if (
+      entity.subtype === "dropped-equipment" &&
+      entity.collected !== true &&
+      entity.visible !== false &&
+      Number(entity.lightRadius) > 0
+    ) {
+      lightSources.push({
+        x: entity.x,
+        y: entity.y,
+        radius: Number(entity.lightRadius)
+      });
+    }
+  }
+  if (!lightSources.length) {
     return;
   }
 
   for (const tile of state.tiles) {
-    if (
-      isWithinRadius(state.player.x, state.player.y, tile.x, tile.y, state.player.lightRadius) &&
-      hasLineOfSight(state, tile.x, tile.y)
-    ) {
+    const lit = lightSources.some((source) => (
+      isWithinRadius(source.x, source.y, tile.x, tile.y, source.radius) &&
+      hasLineOfSightFrom(state, source.x, source.y, tile.x, tile.y)
+    ));
+    if (lit) {
       const key = tileKey(tile.x, tile.y);
       state.visibility.visibleNow.add(key);
       state.visibility.exploredEver.add(key);

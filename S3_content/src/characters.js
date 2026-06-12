@@ -20,6 +20,33 @@ function clampInRange(value, min, max, fallback = min) {
   return Math.max(min, Math.min(max, parsed));
 }
 
+function inferGearItemSlots(name, item = {}) {
+  const normalizedName = String(name || "").toLowerCase();
+  if (/\bplate\s*(?:mail|armor)?\b/.test(normalizedName)) {
+    return 3;
+  }
+  if (/(?:chainmail|bastard\s+sword|greatsword|greataxe)/.test(normalizedName)) {
+    return 2;
+  }
+  return 1;
+}
+
+function hasHaulerTalent(raw = {}) {
+  const haystack = [
+    ...(Array.isArray(raw?.levels) ? raw.levels : []).map((level) => `${level?.talentRolledName || ""} ${level?.talentRolledDesc || ""}`),
+    ...(Array.isArray(raw?.bonuses) ? raw.bonuses : []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""} ${bonus?.bonusTo || ""}`),
+    ...(Array.isArray(raw?.talents) ? raw.talents : [])
+  ].join(" ");
+  return /\bhauler\b/i.test(haystack);
+}
+
+function getGearSlotCapacity(stats = {}, className = "", raw = {}) {
+  const strCapacity = clampInRange(stats?.STR, 10, 20, 10);
+  const isFighter = /\bfighter\b/i.test(String(className || raw?.className || raw?.class || ""));
+  const conModifier = Math.max(0, abilityModifier(stats?.CON));
+  return strCapacity + (isFighter && hasHaulerTalent(raw) ? conModifier : 0);
+}
+
 function getSlotsFromGear(gear, excludeFreeBackpack = true) {
   const normalizedGear = Array.isArray(gear) ? gear : [];
   let backpackUsedForFreeCarry = false;
@@ -73,7 +100,7 @@ function getSlotsFromGear(gear, excludeFreeBackpack = true) {
       continue;
     }
 
-    const perUnitSlots = isTorch ? 1 : Math.max(1, Math.floor(Number(item?.slots) || 1));
+    const perUnitSlots = isTorch ? 1 : inferGearItemSlots(name, item);
     slotsUsed += chargeForSlots * perUnitSlots;
   }
 
@@ -222,20 +249,20 @@ function normalizeAmmo(gear, raw = {}) {
   const arrowsFromGear = findGearUnits(gear, (name) => name.includes("arrow") && !name.includes("bolt"));
   const boltsFromGear = findGearUnits(gear, (name) => name.includes("bolt"));
 
-  if (raw?.ammo && Object.prototype.hasOwnProperty.call(raw.ammo, "arrows")) {
+  if (arrowsFromGear > 0) {
+    ammo.arrows = clampInt(arrowsFromGear, 0, MAX_EDITABLE_VALUE, 0);
+  } else if (raw?.ammo && Object.prototype.hasOwnProperty.call(raw.ammo, "arrows")) {
     ammo.arrows = clampInt(raw.ammo.arrows, 0, MAX_EDITABLE_VALUE, 0);
   } else if (raw && Object.prototype.hasOwnProperty.call(raw, "arrows")) {
     ammo.arrows = clampInt(raw.arrows, 0, MAX_EDITABLE_VALUE, 0);
-  } else if (arrowsFromGear > 0) {
-    ammo.arrows = clampInt(arrowsFromGear, 0, MAX_EDITABLE_VALUE, 0);
   }
 
-  if (raw?.ammo && Object.prototype.hasOwnProperty.call(raw.ammo, "bolts")) {
+  if (boltsFromGear > 0) {
+    ammo.bolts = clampInt(boltsFromGear, 0, MAX_EDITABLE_VALUE, 0);
+  } else if (raw?.ammo && Object.prototype.hasOwnProperty.call(raw.ammo, "bolts")) {
     ammo.bolts = clampInt(raw.ammo.bolts, 0, MAX_EDITABLE_VALUE, 0);
   } else if (raw && Object.prototype.hasOwnProperty.call(raw, "bolts")) {
     ammo.bolts = clampInt(raw.bolts, 0, MAX_EDITABLE_VALUE, 0);
-  } else if (boltsFromGear > 0) {
-    ammo.bolts = clampInt(boltsFromGear, 0, MAX_EDITABLE_VALUE, 0);
   }
 
   return ammo;
@@ -251,7 +278,8 @@ function normalizeCharacterSource(raw = {}, index = 0) {
   const maxHitPoints = clampInt(raw.maxHitPoints ?? raw.hp ?? 1, 0, MAX_EDITABLE_VALUE, 1);
   const hp = clampInt(raw.hp ?? maxHitPoints, 0, MAX_EDITABLE_VALUE, maxHitPoints);
   const armorClass = clampInt(raw.armorClass ?? raw.ac ?? 10, 0, MAX_EDITABLE_VALUE, 10);
-  const gearSlotsTotal = clampInRange(stats.STR, 10, 20, 10);
+  const baseArmorClass = clampInt(raw.baseArmorClass ?? raw.rawBaseArmorClass ?? raw.armorClass ?? raw.ac ?? 10, 0, MAX_EDITABLE_VALUE, 10);
+  const gearSlotsTotal = getGearSlotCapacity(stats, raw.class || raw.className || "", raw);
   const computedSlots = getSlotsFromGear(gear, true);
   const gearSlotsUsed = clampInt(computedSlots.usedSlots, 0, gearSlotsTotal, 0);
   const ammo = normalizeAmmo(gear, raw);
@@ -262,6 +290,16 @@ function normalizeCharacterSource(raw = {}, index = 0) {
   normalizedRaw.silver = money.silver;
   normalizedRaw.copper = money.copper;
   normalizedRaw.ammo = ammo;
+  normalizedRaw.lightHidden = raw.lightHidden === true;
+  normalizedRaw.baseArmorClass = baseArmorClass;
+  normalizedRaw.baseAttacks = Array.isArray(raw.baseAttacks)
+    ? clonePlain(raw.baseAttacks)
+    : Array.isArray(raw.rawBaseAttacks)
+      ? clonePlain(raw.rawBaseAttacks)
+      : Array.isArray(raw.attacks)
+        ? clonePlain(raw.attacks)
+        : [];
+  normalizedRaw.shieldReadied = raw.shieldReadied !== false;
   if (Object.prototype.hasOwnProperty.call(ammo, "arrows")) {
     normalizedRaw.arrows = ammo.arrows;
   }
@@ -284,6 +322,8 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     hp,
     maxHitPoints,
     armorClass,
+    baseArmorClass,
+    shieldReadied: raw.shieldReadied !== false,
     ammo,
     arrows: Object.prototype.hasOwnProperty.call(ammo, "arrows") ? ammo.arrows : undefined,
     bolts: Object.prototype.hasOwnProperty.call(ammo, "bolts") ? ammo.bolts : undefined,
@@ -303,6 +343,7 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     failedSpellKeys: Array.isArray(raw.failedSpellKeys) ? clonePlain(raw.failedSpellKeys) : [],
     lightSource: raw.lightSource || "",
     lightRadius: Number.isFinite(Number(raw.lightRadius)) ? Number(raw.lightRadius) : 0,
+    lightHidden: raw.lightHidden === true,
     languages: languageString,
     gold: money.gold,
     silver: money.silver,
@@ -314,6 +355,7 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     gear,
     treasures: Array.isArray(raw.treasures) ? clonePlain(raw.treasures) : [],
     magicItems: Array.isArray(raw.magicItems) ? clonePlain(raw.magicItems) : [],
+    baseAttacks: Array.isArray(normalizedRaw.baseAttacks) ? clonePlain(normalizedRaw.baseAttacks) : [],
     attacks: Array.isArray(raw.attacks) ? clonePlain(raw.attacks) : [],
     ledger: Array.isArray(raw.ledger) ? clonePlain(raw.ledger) : [],
     levels: Array.isArray(raw.levels) ? clonePlain(raw.levels) : [],
@@ -344,7 +386,7 @@ export function getCharacterGearFreeSlots(character) {
   if (!character) {
     return 0;
   }
-  const gearCapacity = clampInRange(character?.stats?.STR || 10, 10, 20, 10);
+  const gearCapacity = getGearSlotCapacity(character?.stats || {}, character?.className || "", character);
   return Math.max(0, Number(gearCapacity) - Number(character.gearSlotsUsed));
 }
 
@@ -510,7 +552,7 @@ export function normalizeCharacterState(state) {
     ? state.characters.map((character, index) => normalizeCharacterSource(character, index))
     : [];
   for (const character of characters) {
-    const gearCapacity = clampInRange(character?.stats?.STR || 10, 10, 20, 10);
+    const gearCapacity = getGearSlotCapacity(character?.stats || {}, character?.className || "", character);
     if (character.gearSlotsTotal !== gearCapacity) {
       character.gearSlotsTotal = gearCapacity;
     }

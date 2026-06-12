@@ -40,6 +40,7 @@ import {
   markCharacterSlain,
   normalizeCharacterState,
   setActiveCharacter,
+  setCharacterAmmo,
   setCharacterHp
 } from "./characters.js";
 import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression } from "./damage.js";
@@ -74,6 +75,7 @@ const ui = {
   multiplayerBtn: document.getElementById("multiplayer-btn"),
   lightTorchBtn: document.getElementById("light-torch-btn"),
   lightLanternBtn: document.getElementById("light-lantern-btn"),
+  castLightBtn: document.getElementById("cast-light-btn"),
   torchOutBtn: document.getElementById("torch-out-btn"),
   torchBtn: document.getElementById("torch-btn"),
   searchBtn: document.getElementById("search-btn"),
@@ -107,6 +109,10 @@ const ui = {
   damageContext: document.getElementById("damage-context"),
   damageExpandBtn: document.getElementById("damage-expand-btn"),
   damageDetail: document.getElementById("damage-detail"),
+  manualDiceControls: document.getElementById("manual-dice-controls"),
+  manualDieCount: document.getElementById("manual-die-count"),
+  manualDieModifier: document.getElementById("manual-die-modifier"),
+  manualDieReset: document.getElementById("manual-die-reset"),
   characterSheetModal: document.getElementById("character-sheet-modal"),
   characterSheetContent: document.getElementById("character-sheet-content"),
   characterSheetClose: document.getElementById("character-sheet-close"),
@@ -514,7 +520,7 @@ function processWanderingChecks(count) {
 
 function render() {
   renderDungeon(state, layers, {
-    forceBlackout: forceBlackoutWhenTorchOut && !state.player.torchLit
+    forceBlackout: forceBlackoutWhenTorchOut && !hasAnyVisibleLightSource()
   });
   if (ui.connectivityText) {
     ui.connectivityText.textContent = state.generation.connectivityValid ? "valid" : "invalid";
@@ -710,7 +716,7 @@ function createAttackButton(character, attack) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "damage-token attack-roll-button";
-  button.textContent = `${attack.name}${attack.flag || ""}`;
+  button.textContent = attack.name;
   button.title = `Roll attack ${attack.bonusText ? attack.bonusText : formatModifier(attack.bonus || 0)}`;
   button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -829,7 +835,7 @@ function createBackstabButton(character, attack) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "damage-token backstab-roll-button";
-  button.textContent = `${attack.name} Backstab x ${multiplier}`;
+  button.textContent = "B.stab";
   button.title = `Roll ${backstabExpression}`;
   button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -840,6 +846,48 @@ function createBackstabButton(character, attack) {
     }, `${character?.name || "Character"} backstab`);
   });
   return button;
+}
+
+function getAttackGearNote(character, attack) {
+  const attackName = String(attack?.name || "").toLowerCase();
+  const item = (Array.isArray(character?.gear) ? character.gear : []).find((candidate) => {
+    const name = String(candidate?.name || "")
+      .replace(/\s*\([^)]*\)\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    return name && attackName.includes(name);
+  });
+  const note = String(item?.description || item?.detail || item?.notes || item?.note || "").trim();
+  if (note) {
+    return note;
+  }
+  return /\bcrossbow\b/.test(attackName) ? "skip move to reload, 2H" : "";
+}
+
+function getGearHoverNote(item) {
+  const name = String(item?.name || "").toLowerCase();
+  const note = String(item?.description || item?.detail || item?.notes || item?.note || "").trim();
+  if (note) {
+    return note;
+  }
+  return /\bcrossbow\b/.test(name) ? "skip move to reload, 2H" : "";
+}
+
+function appendCompactAttackDetail(target, attack, character) {
+  const damageExpression = attack?.damageExpression || extractDamageReferences(attack?.detail || "")[0]?.expression || "";
+  const gearNote = getAttackGearNote(character, attack);
+  if (gearNote) {
+    target.title = gearNote;
+  }
+  if (!damageExpression) {
+    return;
+  }
+  target.append(document.createTextNode(", "));
+  appendDamageAwareText(target, damageExpression, {
+    sourceLabel: `${character?.name || "Character"} attack`,
+    character
+  });
 }
 
 function createAttackAwareLine(attackText, character) {
@@ -856,15 +904,14 @@ function createAttackAwareLine(attackText, character) {
   }
   const content = document.createElement("span");
   content.append(createAttackButton(character, attack));
+  if (attack.flag) {
+    content.append(document.createTextNode(attack.flag));
+  }
   if (attack.bonusText) {
     content.append(document.createTextNode(` ${attack.bonusText}`));
   }
   if (attack.detail) {
-    content.append(document.createTextNode(", "));
-    appendDamageAwareText(content, attack.detail, {
-      sourceLabel: `${character?.name || "Character"} attack`,
-      character
-    });
+    appendCompactAttackDetail(content, attack, character);
   }
   const backstabButton = createBackstabButton(character, attack);
   if (backstabButton) {
@@ -940,27 +987,448 @@ function characterHasFlintAndSteel(character) {
   return characterHasGear(character, (name) => /flint\s*(?:and|&)?\s*steel/.test(name));
 }
 
+function getCharacterGearUnitsByMatcher(character, matcher) {
+  return (Array.isArray(character?.gear) ? character.gear : []).reduce((total, item) => {
+    const name = String(item?.name || "").toLowerCase();
+    return matcher(name, item) ? total + getGearUnits(item) : total;
+  }, 0);
+}
+
+function getStackGroupSize(name) {
+  const normalized = String(name || "").toLowerCase();
+  if (/arrows?|bolts?/.test(normalized)) return 20;
+  if (/rations?/.test(normalized)) return 3;
+  if (/(?:iron\s+)?spikes?/.test(normalized)) return 10;
+  if (/torches?/.test(normalized)) return 1;
+  return 1;
+}
+
+function getGearUnits(item) {
+  const units = Number.isFinite(Number(item?.totalUnits)) && Number(item.totalUnits) > 0
+    ? Math.floor(Number(item.totalUnits))
+    : Number.isFinite(Number(item?.quantity)) && Number(item.quantity) > 0
+      ? Math.floor(Number(item.quantity))
+      : 1;
+  return Math.max(0, units);
+}
+
+function inferGearItemSlots(name, item = {}) {
+  const normalizedName = String(name || "").toLowerCase();
+  if (/\bplate\s*(?:mail|armor)?\b/.test(normalizedName)) {
+    return 3;
+  }
+  if (/(?:chainmail|bastard\s+sword|greatsword|greataxe)/.test(normalizedName)) {
+    return 2;
+  }
+  return 1;
+}
+
+function getGearAmmoType(item) {
+  const name = String(item?.name || "").toLowerCase();
+  if (/arrow/.test(name) && !/bolt/.test(name)) return "arrows";
+  if (/bolt/.test(name)) return "bolts";
+  return "";
+}
+
+function characterHasWeaponForAmmo(character, ammoType) {
+  const names = characterGearNames(character).join(" ");
+  if (ammoType === "arrows") {
+    return /\b(?:shortbow|longbow)\b/.test(names);
+  }
+  if (ammoType === "bolts") {
+    return /\bcrossbow\b/.test(names);
+  }
+  return false;
+}
+
+function attackRequiresMissingAmmo(character, attackText) {
+  const attackName = String(attackText || "").replace(/^ATTACKS?:\s*/i, "").split(":")[0].toLowerCase();
+  const ammoType = /crossbow|bolt/.test(attackName)
+    ? "bolts"
+    : /shortbow|longbow|bow|arrow/.test(attackName)
+      ? "arrows"
+      : "";
+  return Boolean(ammoType && getDisplayCharacterAmmo(character, ammoType) <= 0);
+}
+
+function getRenderableAttacks(character) {
+  return (character?.attacks || []).filter((attackText) => !isAmmoOnlyAttackText(attackText) && !attackRequiresMissingAmmo(character, attackText));
+}
+
+function isAmmoOnlyAttackText(attackText) {
+  const attack = parseAttackText(attackText);
+  if (!attack) {
+    return false;
+  }
+  return /^(?:arrows?|crossbow\s+bolts?|bolts?)$/i.test(String(attack.name || "").trim());
+}
+
+const WEAPON_PROFILES = [
+  { key: "bastard sword", pattern: /\bbastard\s+sword\b/, damage: "1d8", versatileDamage: "1d10", ability: "STR" },
+  { key: "greatsword", pattern: /\bgreatsword\b/, damage: "1d12", ability: "STR" },
+  { key: "greataxe", pattern: /\bgreataxe\b/, damage: "1d8", versatileDamage: "1d10", ability: "STR" },
+  { key: "greatclub", pattern: /\bgreatclub\b/, damage: "1d8", ability: "STR" },
+  { key: "polearm", pattern: /\bpolearm\b/, damage: "1d10", ability: "STR" },
+  { key: "halberd", pattern: /\bhalberd\b/, damage: "1d10", ability: "STR" },
+  { key: "longsword", pattern: /\blongsword\b/, damage: "1d8", ability: "STR" },
+  { key: "shortsword", pattern: /\bshortsword\b/, damage: "1d6", ability: "STR" },
+  { key: "warhammer", pattern: /\bwarhammer\b/, damage: "1d10", ability: "STR" },
+  { key: "mace", pattern: /\bmace\b/, damage: "1d6", ability: "STR" },
+  { key: "club", pattern: /\bclub\b/, damage: "1d4", ability: "STR" },
+  { key: "dagger", pattern: /\bdagger\b/, damage: "1d4", ability: "DEX" },
+  { key: "staff", pattern: /\bstaff\b/, damage: "1d4", ability: "STR" },
+  { key: "longbow", pattern: /\blongbow\b/, damage: "1d8", ability: "DEX", ammo: "arrows" },
+  { key: "shortbow", pattern: /\bshortbow\b/, damage: "1d4", ability: "DEX", ammo: "arrows" },
+  { key: "crossbow", pattern: /\bcrossbow\b/, damage: "1d6", ability: "DEX", ammo: "bolts" }
+];
+
+const ARMOR_PROFILES = [
+  { key: "mithral chainmail", pattern: /\bmithral\s+chainmail\b/, ac: 13 },
+  { key: "chainmail", pattern: /\bchainmail\b/, ac: 13 },
+  { key: "plate", pattern: /\b(?:plate\s+mail|plate armor|plate)\b/, ac: 15 },
+  { key: "half plate", pattern: /\bhalf\s+plate\b/, ac: 14 },
+  { key: "leather", pattern: /\bleather(?:\s+armor)?\b/, ac: 11 }
+];
+
+function normalizeEquipmentName(value) {
+  return String(value || "")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function getGearItemName(item) {
+  return String(item?.name || "").trim();
+}
+
+function getWeaponProfileFromText(value) {
+  const normalized = normalizeEquipmentName(value);
+  return WEAPON_PROFILES.find((profile) => profile.pattern.test(normalized)) || null;
+}
+
+function getWeaponProfile(item) {
+  return getWeaponProfileFromText(getGearItemName(item));
+}
+
+function getArmorProfile(item) {
+  const normalized = normalizeEquipmentName(getGearItemName(item));
+  return ARMOR_PROFILES.find((profile) => profile.pattern.test(normalized)) || null;
+}
+
+function isShieldItem(item) {
+  return /\bshield\b/i.test(getGearItemName(item));
+}
+
+function isWeaponItem(item) {
+  return Boolean(getWeaponProfile(item));
+}
+
+function isArmorItem(item) {
+  return Boolean(getArmorProfile(item));
+}
+
+function isVersatileWeaponItem(item) {
+  const profile = getWeaponProfile(item);
+  return Boolean(profile?.versatileDamage || /\bgreataxe\b/i.test(getGearItemName(item)) || /\(v\)|versatile|\/\s*\d*d\d+/i.test(`${item?.name || ""} ${item?.damage || ""}`));
+}
+
+function characterHasShield(character) {
+  return (Array.isArray(character?.gear) ? character.gear : []).some(isShieldItem);
+}
+
+function characterHasVersatileWeapon(character) {
+  return (Array.isArray(character?.gear) ? character.gear : []).some(isVersatileWeaponItem);
+}
+
+function shouldReadyShield(character) {
+  if (!characterHasShield(character)) {
+    return false;
+  }
+  return !characterHasVersatileWeapon(character) || character?.shieldReadied !== false;
+}
+
+function normalizeArmorMasteryTarget(value) {
+  const normalized = String(value || "").toLowerCase();
+  if (/\bshield/.test(normalized)) {
+    return "shield";
+  }
+  if (/\bleather/.test(normalized)) {
+    return "leather";
+  }
+  if (/\bchainmail/.test(normalized)) {
+    return "chainmail";
+  }
+  if (/\bplate/.test(normalized)) {
+    return "plate";
+  }
+  return "";
+}
+
+function getArmorMasteryTarget(character) {
+  const lines = [
+    ...(Array.isArray(character?.levels) ? character.levels : []).map((level) => `${level?.talentRolledName || ""}: ${level?.talentRolledDesc || ""}`),
+    ...(Array.isArray(character?.bonuses) ? character.bonuses : []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""}: ${bonus?.bonusTo || ""}`),
+    ...(Array.isArray(character?.raw?.levels) ? character.raw.levels : []).map((level) => `${level?.talentRolledName || ""}: ${level?.talentRolledDesc || ""}`),
+    ...(Array.isArray(character?.raw?.bonuses) ? character.raw.bonuses : []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""}: ${bonus?.bonusTo || ""}`)
+  ];
+  const explicit = lines.find((line) => /armor mastery/i.test(line) && !/choose one kind/i.test(line));
+  return normalizeArmorMasteryTarget(explicit);
+}
+
+function getCharacterClassKey(character) {
+  return String(character?.className || character?.class || "").toLowerCase();
+}
+
+function canUseWeapon(character, itemOrName) {
+  const profile = typeof itemOrName === "string" ? getWeaponProfileFromText(itemOrName) : getWeaponProfile(itemOrName);
+  if (!profile) {
+    return false;
+  }
+  const classKey = getCharacterClassKey(character);
+  if (/\bfighter\b/.test(classKey)) {
+    return true;
+  }
+  if (/\bwizard\b/.test(classKey)) {
+    return profile.key === "dagger" || profile.key === "staff";
+  }
+  if (/\bthief\b/.test(classKey)) {
+    return ["club", "crossbow", "shortsword", "dagger", "shortbow"].includes(profile.key);
+  }
+  if (/\bpriest\b/.test(classKey)) {
+    return !["club", "crossbow", "dagger", "mace", "longsword", "staff", "warhammer"].includes(profile.key);
+  }
+  return true;
+}
+
+function canUseArmor(character, item) {
+  const profile = getArmorProfile(item);
+  if (!profile) {
+    return false;
+  }
+  const classKey = getCharacterClassKey(character);
+  if (/\bwizard\b/.test(classKey)) {
+    return false;
+  }
+  if (/\bthief\b/.test(classKey)) {
+    return profile.key === "leather" || profile.key === "mithral chainmail";
+  }
+  return true;
+}
+
+function canUseShield(character) {
+  return !/\b(?:wizard|thief)\b/.test(getCharacterClassKey(character));
+}
+
+function ensureEquipmentBaseline(character) {
+  if (!character) {
+    return;
+  }
+  const raw = character.raw || {};
+  const currentAttacks = Array.isArray(character.attacks) ? character.attacks : [];
+  const rawBaseAttacks = Array.isArray(raw.baseAttacks) ? raw.baseAttacks : null;
+  const characterBaseAttacks = Array.isArray(character.baseAttacks) ? character.baseAttacks : null;
+  const baseAttacks = rawBaseAttacks || characterBaseAttacks || currentAttacks;
+  character.baseAttacks = JSON.parse(JSON.stringify(baseAttacks));
+  character.baseArmorClass = Number.isFinite(Number(character.baseArmorClass))
+    ? Number(character.baseArmorClass)
+    : Number.isFinite(Number(raw.baseArmorClass))
+      ? Number(raw.baseArmorClass)
+      : Number.isFinite(Number(character.armorClass))
+        ? Number(character.armorClass)
+        : 10;
+  character.raw = raw;
+  character.raw.baseAttacks = JSON.parse(JSON.stringify(character.baseAttacks));
+  character.raw.baseArmorClass = character.baseArmorClass;
+  character.raw.shieldReadied = character.shieldReadied !== false;
+}
+
+function getWeaponDisplayName(item, profile) {
+  const rawName = getGearItemName(item);
+  if (rawName) {
+    return rawName.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+  }
+  return prettifyAttackName(profile?.key || "Weapon");
+}
+
+function getWeaponDamageExpression(character, item, profile) {
+  const explicitDamage = String(item?.damage || item?.damageExpression || "").trim();
+  if (explicitDamage && !profile?.versatileDamage) {
+    return explicitDamage;
+  }
+  if (profile?.versatileDamage) {
+    return shouldReadyShield(character) ? profile.damage : profile.versatileDamage;
+  }
+  return explicitDamage || profile?.damage || "1d4";
+}
+
+function buildWeaponAttackText(character, item) {
+  const profile = getWeaponProfile(item);
+  if (!profile || !canUseWeapon(character, item)) {
+    return "";
+  }
+  const bonus = Number.isFinite(Number(item?.attackBonus))
+    ? Number(item.attackBonus)
+    : abilityScoreModifier(character?.stats?.[profile.ability || "STR"]);
+  const flag = profile.versatileDamage ? " (V)" : "";
+  return `${getWeaponDisplayName(item, profile)}${flag}: ${formatModifier(bonus)}, ${getWeaponDamageExpression(character, item, profile)}`;
+}
+
+function getAttackWeaponProfile(attackText) {
+  const attack = parseAttackText(attackText);
+  return attack ? getWeaponProfileFromText(attack.name) : null;
+}
+
+function characterCarriesWeapon(character, profile) {
+  return (Array.isArray(character?.gear) ? character.gear : [])
+    .some((item) => getWeaponProfile(item)?.key === profile?.key);
+}
+
+function mergeUniqueAttack(attacks, attackText) {
+  if (!attackText) {
+    return;
+  }
+  const attack = parseAttackText(attackText);
+  const key = attack ? `${attack.name.toLowerCase()}|${attack.flag || ""}` : String(attackText).toLowerCase();
+  const exists = attacks.some((candidate) => {
+    const parsed = parseAttackText(candidate);
+    const candidateKey = parsed ? `${parsed.name.toLowerCase()}|${parsed.flag || ""}` : String(candidate).toLowerCase();
+    return candidateKey === key;
+  });
+  if (!exists) {
+    attacks.push(attackText);
+  }
+}
+
+function rebuildCharacterAttacks(character) {
+  ensureEquipmentBaseline(character);
+  const nextAttacks = [];
+  for (const attackText of character.baseAttacks || []) {
+    const profile = getAttackWeaponProfile(attackText);
+    if (!profile) {
+      if (!isBackstabAttackText(attackText)) {
+        mergeUniqueAttack(nextAttacks, attackText);
+      }
+      continue;
+    }
+    if (characterCarriesWeapon(character, profile) && canUseWeapon(character, profile.key)) {
+      const gearItem = (character.gear || []).find((item) => getWeaponProfile(item)?.key === profile.key);
+      mergeUniqueAttack(nextAttacks, gearItem && isVersatileWeaponItem(gearItem) ? buildWeaponAttackText(character, gearItem) : attackText);
+    }
+  }
+  for (const item of character.gear || []) {
+    if (isWeaponItem(item) && canUseWeapon(character, item)) {
+      mergeUniqueAttack(nextAttacks, buildWeaponAttackText(character, item));
+    }
+  }
+  character.attacks = nextAttacks;
+  character.raw.attacks = JSON.parse(JSON.stringify(nextAttacks));
+}
+
+function rebuildCharacterArmorClass(character) {
+  ensureEquipmentBaseline(character);
+  const dexModifier = abilityScoreModifier(character?.stats?.DEX);
+  let armorClass = 10 + dexModifier;
+  let armorMasteryApplies = false;
+  const masteryTarget = getArmorMasteryTarget(character);
+  for (const item of character.gear || []) {
+    if (!isArmorItem(item) || !canUseArmor(character, item)) {
+      continue;
+    }
+    const explicit = Number(item?.armorClass ?? item?.ac);
+    const profile = getArmorProfile(item);
+    const armorDex = profile?.key === "plate" ? 0 : dexModifier;
+    const itemAc = (Number.isFinite(explicit) ? explicit : profile?.ac || 10) + armorDex;
+    if (itemAc > armorClass) {
+      armorClass = itemAc;
+      armorMasteryApplies = masteryTarget && masteryTarget === profile?.key;
+    }
+  }
+  if (characterHasShield(character) && canUseShield(character) && shouldReadyShield(character)) {
+    armorClass += 2;
+    if (masteryTarget === "shield") {
+      armorClass += 1;
+    }
+  } else if (armorMasteryApplies) {
+    armorClass += 1;
+  }
+  character.armorClass = Math.max(0, Math.min(99, armorClass));
+  character.raw.armorClass = character.armorClass;
+  character.raw.ac = character.armorClass;
+  character.raw.shieldReadied = character.shieldReadied !== false;
+}
+
+function syncCharacterEquipmentDerivedStats(character) {
+  if (!character) {
+    return;
+  }
+  if (!characterHasShield(character) || !characterHasVersatileWeapon(character)) {
+    character.shieldReadied = true;
+  }
+  rebuildCharacterAttacks(character);
+  rebuildCharacterArmorClass(character);
+}
+
+function syncAllCharacterEquipmentDerivedStats() {
+  if (!state?.characters?.length) {
+    return;
+  }
+  for (const character of state.characters) {
+    clearInvalidCharacterLight(character);
+    syncCharacterEquipmentDerivedStats(character);
+  }
+}
+
 function setCharacterLight(character, source) {
   if (!character) {
     return;
   }
+  character.lightHidden = false;
   if (source === "light-spell") {
     character.lightSource = "light-spell";
     character.lightRadius = DEFAULT_LIGHT_RADIUS;
+    character.raw = character.raw || {};
+    character.raw.lightSource = character.lightSource;
+    character.raw.lightRadius = character.lightRadius;
+    character.raw.lightHidden = false;
     return;
   }
   if (source === "lantern") {
     character.lightSource = "lantern";
     character.lightRadius = 12;
+    character.raw = character.raw || {};
+    character.raw.lightSource = character.lightSource;
+    character.raw.lightRadius = character.lightRadius;
+    character.raw.lightHidden = false;
     return;
   }
   if (source === "torch") {
     character.lightSource = "torch";
     character.lightRadius = DEFAULT_LIGHT_RADIUS;
+    character.raw = character.raw || {};
+    character.raw.lightSource = character.lightSource;
+    character.raw.lightRadius = character.lightRadius;
+    character.raw.lightHidden = false;
     return;
   }
   character.lightSource = "";
   character.lightRadius = 0;
+  character.raw = character.raw || {};
+  character.raw.lightSource = "";
+  character.raw.lightRadius = 0;
+  character.raw.lightHidden = false;
+}
+
+function hideCharacterLight(character) {
+  if (!character?.lightSource) {
+    return;
+  }
+  character.lightRadius = 0;
+  character.lightHidden = true;
+  character.raw = character.raw || {};
+  character.raw.lightSource = character.lightSource;
+  character.raw.lightRadius = 0;
+  character.raw.lightHidden = true;
 }
 
 function initializeImportedCharacterLight(character, index) {
@@ -990,6 +1458,10 @@ function syncActiveCharacterLightFromPlayer() {
     return;
   }
   if (!state.player.torchLit) {
+    if (state.player.lightSource === "lantern" && active.lightSource === "lantern") {
+      hideCharacterLight(active);
+      return;
+    }
     setCharacterLight(active, "");
     return;
   }
@@ -1021,12 +1493,443 @@ function clearActiveCharacterLight() {
   syncActiveCharacterLightFromPlayer();
 }
 
+function snuffActiveTorch() {
+  const active = getActiveCharacter(state);
+  if (!active) {
+    return false;
+  }
+  removeOneTorch(active);
+  setCharacterLight(active, "");
+  forceTorchOut(state);
+  state.player.lightSource = "";
+  state.player.lightRadius = DEFAULT_LIGHT_RADIUS;
+  normalizeCharacterState(state);
+  applyCharacterAmmoOverrides();
+  syncAllCharacterEquipmentDerivedStats();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  recomputeVisibility(state);
+  markRunDirty();
+  return true;
+}
+
+function extinguishActiveLantern() {
+  const active = getActiveCharacter(state);
+  if (!active) {
+    return false;
+  }
+  setCharacterLight(active, "");
+  forceTorchOut(state);
+  state.player.lightSource = "";
+  state.player.lightRadius = DEFAULT_LIGHT_RADIUS;
+  recomputeVisibility(state);
+  markRunDirty();
+  return true;
+}
+
+function hideActiveLantern() {
+  const active = getActiveCharacter(state);
+  if (!active || active.lightSource !== "lantern") {
+    return false;
+  }
+  hideCharacterLight(active);
+  forceTorchOut(state);
+  state.player.lightSource = "lantern";
+  state.player.lightRadius = 12;
+  recomputeVisibility(state);
+  markRunDirty();
+  return true;
+}
+
+function revealActiveLantern() {
+  const active = getActiveCharacter(state);
+  if (!active || active.lightSource !== "lantern" || active.lightHidden !== true) {
+    return false;
+  }
+  active.lightRadius = 12;
+  active.lightHidden = false;
+  active.raw = active.raw || {};
+  active.raw.lightSource = "lantern";
+  active.raw.lightRadius = 12;
+  active.raw.lightHidden = false;
+  if (active.id === state.activeCharacterId) {
+    syncPlayerLightFromActiveCharacter();
+  }
+  recomputeVisibility(state);
+  markRunDirty();
+  return true;
+}
+
+function hasAnyVisibleLightSource() {
+  if (!state) {
+    return false;
+  }
+  if ((state.characters || []).some((character) => Number(character?.lightRadius) > 0)) {
+    return true;
+  }
+  if (state.player?.torchLit === true) {
+    return true;
+  }
+  return (state.entities || []).some((entity) => (
+    entity.subtype === "dropped-equipment" &&
+    entity.collected !== true &&
+    entity.visible !== false &&
+    Number(entity.lightRadius) > 0
+  ));
+}
+
+function expireActiveLightFromTimer() {
+  const active = getActiveCharacter(state);
+  const source = active?.lightSource || state.player.lightSource || "torch";
+  if (source === "torch") {
+    snuffActiveTorch();
+    return "Torch snuffed!";
+  }
+  if (source === "lantern") {
+    extinguishActiveLantern();
+    return "Lantern went out!";
+  }
+  if (source === "light-spell") {
+    setCharacterLight(active, "");
+    state.player.lightSource = "";
+    state.player.lightRadius = DEFAULT_LIGHT_RADIUS;
+    forceTorchOut(state);
+    recomputeVisibility(state);
+    markRunDirty();
+    return "Light spell faded.";
+  }
+  clearActiveCharacterLight();
+  return "Light went out!";
+}
+
+function getGearDisplayName(item) {
+  const name = String(item?.name || "Gear").trim() || "Gear";
+  const units = Number.isFinite(Number(item?.totalUnits)) && Number(item.totalUnits) > 0
+    ? Math.floor(Number(item.totalUnits))
+    : Number.isFinite(Number(item?.quantity)) && Number(item.quantity) > 0
+      ? Math.floor(Number(item.quantity))
+      : 1;
+  return units > 1 ? `${name} x${units}` : name;
+}
+
+function isLightGearItem(item, source = "") {
+  const name = String(item?.name || "").toLowerCase();
+  if (source === "torch") {
+    return /^torch\b/.test(name);
+  }
+  if (source === "lantern") {
+    return /\blantern\b/.test(name);
+  }
+  return /^torch\b/.test(name) || /\blantern\b/.test(name);
+}
+
+function markRunDirty() {
+  if (state?.run) {
+    state.run.dirty = true;
+  }
+}
+
+function findEquipmentDropTile(character) {
+  if (hasCharacterMapPosition(character)) {
+    return {
+      x: Number(character.x),
+      y: Number(character.y),
+      roomId: character.roomId ?? getTileAt(Number(character.x), Number(character.y))?.roomId ?? null
+    };
+  }
+  const origin = hasCharacterMapPosition(character)
+    ? { x: Number(character.x), y: Number(character.y) }
+    : { x: Number(state.player.x), y: Number(state.player.y) };
+  const occupied = new Set((state.characters || [])
+    .filter((candidate) => candidate.id !== character?.id && hasCharacterMapPosition(candidate))
+    .map((candidate) => `${candidate.x},${candidate.y}`));
+  return findOpenCharacterTile(origin.x, origin.y, occupied);
+}
+
+function getPileUnits(item) {
+  return Math.min(1000, Math.max(1, getGearUnits(item)));
+}
+
+function setGearItemUnits(item, units) {
+  const nextUnits = Math.max(0, Math.floor(Number(units) || 0));
+  if (Object.prototype.hasOwnProperty.call(item, "totalUnits")) {
+    item.totalUnits = nextUnits;
+  }
+  item.quantity = nextUnits;
+}
+
+function removeOneGearUnit(character, matcher) {
+  if (!character || !Array.isArray(character.gear)) {
+    return null;
+  }
+  const index = character.gear.findIndex((item) => matcher(String(item?.name || "").toLowerCase(), item));
+  if (index === -1) {
+    return null;
+  }
+  const item = character.gear[index];
+  const removedItem = JSON.parse(JSON.stringify(item));
+  const units = getGearUnits(item);
+  setGearItemUnits(removedItem, 1);
+  if (units > 1) {
+    setGearItemUnits(item, units - 1);
+  } else {
+    character.gear.splice(index, 1);
+  }
+  return removedItem;
+}
+
+function removeOneOil(character) {
+  return removeOneGearUnit(character, (name) => /\boil\b/.test(name));
+}
+
+function removeOneTorch(character) {
+  return removeOneGearUnit(character, (name) => /^torch\b/.test(name));
+}
+
+function getLitGearIndex(character, source = character?.lightSource) {
+  if (!character || !source || !Array.isArray(character.gear)) {
+    return -1;
+  }
+  if (source === "torch") {
+    return character.gear.findIndex((item) => /^torch\b/i.test(String(item?.name || "")));
+  }
+  if (source === "lantern") {
+    return character.gear.findIndex((item) => /\blantern\b/i.test(String(item?.name || "")));
+  }
+  return -1;
+}
+
+function updateCharacterAmmoFromGearItem(character, item) {
+  const ammoType = getGearAmmoType(item);
+  if (!ammoType) {
+    return;
+  }
+  const total = (Array.isArray(character?.gear) ? character.gear : [])
+    .filter((candidate) => getGearAmmoType(candidate) === ammoType)
+    .reduce((sum, candidate) => sum + getGearUnits(candidate), 0);
+  setCharacterAmmo(character, ammoType, total);
+  const key = getCharacterAmmoOverrideKey(character, ammoType);
+  if (key) {
+    characterAmmoOverrides.set(key, total);
+  }
+}
+
+function findExistingGearStack(character, item) {
+  const groupSize = getStackGroupSize(item?.name);
+  if (groupSize <= 1 && getGearUnits(item) <= 1) {
+    return null;
+  }
+  const name = String(item?.name || "").toLowerCase();
+  return (character.gear || []).find((candidate) => String(candidate?.name || "").toLowerCase() === name) || null;
+}
+
+function getPickupSlotCost(character, item) {
+  const groupSize = getStackGroupSize(item?.name);
+  const units = getPileUnits(item);
+  if (groupSize <= 1) {
+    return units * inferGearItemSlots(item?.name, item);
+  }
+  const existing = findExistingGearStack(character, item);
+  const currentUnits = existing ? getGearUnits(existing) : 0;
+  return Math.max(0, Math.ceil((currentUnits + units) / groupSize) - Math.ceil(currentUnits / groupSize));
+}
+
+function findMergeableDroppedPile(item, tile) {
+  const name = String(item?.name || "").toLowerCase();
+  return state.entities.find((entity) => (
+    entity.subtype === "dropped-equipment" &&
+    !entity.collected &&
+    entity.x === tile.x &&
+    entity.y === tile.y &&
+    String(entity.gearItem?.name || "").toLowerCase() === name &&
+    getStackGroupSize(entity.gearItem?.name) > 1 &&
+    getGearUnits(entity.gearItem) < 1000
+  )) || null;
+}
+
+function createDroppedGearEntity(item, tile, litSource = "") {
+  const units = getPileUnits(item);
+  const droppedItem = JSON.parse(JSON.stringify(item));
+  setGearItemUnits(droppedItem, units);
+  const entity = {
+    id: `gear-drop-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    type: "treasure",
+    subtype: "dropped-equipment",
+    kind: "equipment",
+    name: getGearDisplayName(droppedItem),
+    x: tile.x,
+    y: tile.y,
+    roomId: tile.roomId,
+    visible: true,
+    revealed: true,
+    collected: false,
+    value: 0,
+    slots: Math.max(1, Math.ceil(units / getStackGroupSize(droppedItem.name))),
+    bonusSlots: 0,
+    priceless: false,
+    description: "Dropped equipment.",
+    gearItem: droppedItem
+  };
+  if (litSource === "torch" || litSource === "lantern") {
+    entity.lightSource = litSource;
+    entity.lightRadius = litSource === "lantern" ? 12 : DEFAULT_LIGHT_RADIUS;
+  }
+  return entity;
+}
+
+function addDroppedGearPile(item, tile, litSource = "") {
+  const groupSize = getStackGroupSize(item?.name);
+  const mergeable = groupSize > 1 ? findMergeableDroppedPile(item, tile) : null;
+  if (mergeable) {
+    const nextUnits = Math.min(1000, getGearUnits(mergeable.gearItem) + getPileUnits(item));
+    setGearItemUnits(mergeable.gearItem, nextUnits);
+    mergeable.name = getGearDisplayName(mergeable.gearItem);
+    mergeable.slots = Math.max(1, Math.ceil(nextUnits / groupSize));
+    if (litSource === "torch" || litSource === "lantern") {
+      mergeable.lightSource = litSource;
+      mergeable.lightRadius = litSource === "lantern" ? 12 : DEFAULT_LIGHT_RADIUS;
+    }
+    return mergeable;
+  }
+  const entity = createDroppedGearEntity(item, tile, litSource);
+  state.entities.push(entity);
+  return entity;
+}
+
+function dropCharacterGear(character, gearIndex) {
+  if (!character || !Array.isArray(character.gear)) {
+    return { message: "No character gear to drop." };
+  }
+  const index = Number.parseInt(gearIndex, 10);
+  if (!Number.isInteger(index) || index < 0 || index >= character.gear.length) {
+    return { message: "Gear item not found." };
+  }
+  const item = character.gear[index];
+  const itemName = String(item?.name || "Gear").trim() || "Gear";
+  const groupSize = getStackGroupSize(itemName);
+  const originalUnits = getGearUnits(item);
+  const droppedItem = JSON.parse(JSON.stringify(item));
+  const activeLight = character.lightSource || state.player.lightSource || "";
+  const litSource = index === getLitGearIndex(character, activeLight) && Number(character.lightRadius) > 0 && isLightGearItem(item, activeLight)
+    ? activeLight
+    : "";
+  if (originalUnits > 1) {
+    setGearItemUnits(item, originalUnits - 1);
+    setGearItemUnits(droppedItem, 1);
+  } else {
+    character.gear.splice(index, 1);
+    setGearItemUnits(droppedItem, Math.max(1, originalUnits));
+  }
+  if (litSource) {
+    setCharacterLight(character, "");
+    syncPlayerLightFromActiveCharacter();
+  }
+  const tile = findEquipmentDropTile(character);
+  addDroppedGearPile(droppedItem, tile, litSource);
+  updateCharacterAmmoFromGearItem(character, droppedItem);
+  normalizeCharacterState(state);
+  syncAllCharacterEquipmentDerivedStats();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  syncPlayerLightFromActiveCharacter();
+  recomputeVisibility(state);
+  markRunDirty();
+  return { message: `${character.name || "Character"} drops ${getGearDisplayName(droppedItem)}.` };
+}
+
+function pickupDroppedEquipment(entity) {
+  const character = getActiveCharacter(state);
+  if (!character) {
+    return { message: "Select a character to pick up equipment." };
+  }
+  const item = entity?.gearItem;
+  if (!item) {
+    return { message: "Dropped equipment is missing item data." };
+  }
+  const itemSlots = getPickupSlotCost(character, item);
+  if (getCharacterGearFreeSlots(character) < itemSlots) {
+    return { message: `${character.name || "Character"} has no room for ${getGearDisplayName(item)}.` };
+  }
+  character.gear = Array.isArray(character.gear) ? character.gear : [];
+  const existing = findExistingGearStack(character, item);
+  if (existing) {
+    setGearItemUnits(existing, getGearUnits(existing) + getPileUnits(item));
+  } else {
+    const pickupItem = JSON.parse(JSON.stringify(item));
+    setGearItemUnits(pickupItem, getPileUnits(item));
+    character.gear.push(pickupItem);
+  }
+  const pickedUpLightSource = entity.lightSource === "torch" || entity.lightSource === "lantern" ? entity.lightSource : "";
+  if (pickedUpLightSource) {
+    setCharacterLight(character, pickedUpLightSource);
+    if (character.id === state.activeCharacterId) {
+      syncPlayerLightFromActiveCharacter();
+    }
+  }
+  updateCharacterAmmoFromGearItem(character, item);
+  entity.collected = true;
+  delete entity.lightSource;
+  delete entity.lightRadius;
+  normalizeCharacterState(state);
+  syncAllCharacterEquipmentDerivedStats();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  syncPlayerLightFromActiveCharacter();
+  recomputeVisibility(state);
+  markRunDirty();
+  return { message: `${character.name || "Character"} picks up ${getGearDisplayName(item)}.` };
+}
+
 function canLightLantern(character) {
-  return characterHasLantern(character) && characterHasOil(character) && characterHasFlintAndSteel(character);
+  if (!characterHasLantern(character) || !characterHasFlintAndSteel(character)) {
+    return false;
+  }
+  if (character?.lightSource === "lantern" && character.lightHidden === true) {
+    return false;
+  }
+  return characterHasOil(character);
 }
 
 function canLightTorch(character) {
-  return characterHasTorch(character) && characterHasFlintAndSteel(character);
+  if (!characterHasFlintAndSteel(character)) {
+    return false;
+  }
+  const torchUnits = getCharacterGearUnitsByMatcher(character, (name) => /^torch\b/.test(name));
+  const litTorchUnits = character?.lightSource === "torch" ? 1 : 0;
+  return torchUnits > litTorchUnits;
+}
+
+function getExplicitActiveCharacter(stateValue = state) {
+  if (!stateValue?.activeCharacterId) {
+    return null;
+  }
+  return stateValue.characters?.find((character) => character.id === stateValue.activeCharacterId) || null;
+}
+
+function characterHasLightSpell(character) {
+  const text = [
+    character?.spellsKnown || "",
+    ...(Array.isArray(character?.levels) ? character.levels : []).map((level) => `${level?.talentRolledName || ""} ${level?.talentRolledDesc || ""}`),
+    ...(Array.isArray(character?.bonuses) ? character.bonuses : []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""} ${bonus?.bonusTo || ""}`)
+  ].join(" ");
+  return /\blight\b/i.test(text);
+}
+
+function canCastLightSpell(character) {
+  return characterHasLightSpell(character) && !isCharacterSpellFailed(character, "Light");
+}
+
+function clearInvalidCharacterLight(character) {
+  if (!character?.lightSource) {
+    return;
+  }
+  if (character.lightSource === "torch" && !characterHasTorch(character)) {
+    setCharacterLight(character, "");
+  } else if (character.lightSource === "lantern" && !characterHasLantern(character)) {
+    setCharacterLight(character, "");
+  } else if (character.lightSource === "light-spell" && !characterHasLightSpell(character)) {
+    setCharacterLight(character, "");
+  }
 }
 
 function createLightSourceMarker(source) {
@@ -1070,24 +1973,64 @@ function getLightSourceLabel(source) {
 }
 
 function updateLightControlUi() {
-  const active = getActiveCharacter(state);
+  const active = getExplicitActiveCharacter(state);
+  if (!active) {
+    if (state?.characters?.length) {
+      if (ui.torchOutBtn) ui.torchOutBtn.hidden = true;
+      if (ui.lightTorchBtn) ui.lightTorchBtn.hidden = true;
+      if (ui.lightLanternBtn) ui.lightLanternBtn.hidden = true;
+      if (ui.castLightBtn) ui.castLightBtn.hidden = true;
+      if (ui.torchBtn) ui.torchBtn.hidden = true;
+      return;
+    }
+    if (ui.torchOutBtn) {
+      ui.torchOutBtn.hidden = false;
+      ui.torchOutBtn.textContent = "Torch snuffed!";
+    }
+    if (ui.lightTorchBtn) ui.lightTorchBtn.hidden = false;
+    if (ui.lightLanternBtn) ui.lightLanternBtn.hidden = false;
+    if (ui.castLightBtn) ui.castLightBtn.hidden = false;
+    if (ui.torchBtn) {
+      ui.torchBtn.hidden = false;
+      ui.torchBtn.textContent = "Hide Lantern";
+    }
+    return;
+  }
+  clearInvalidCharacterLight(active);
+  syncPlayerLightFromActiveCharacter();
+  const activeSource = active?.lightSource || "";
+  const activeIsLit = Number(active?.lightRadius) > 0;
+  const activeLanternHidden = activeSource === "lantern" && active?.lightHidden === true;
   if (ui.lightTorchBtn) {
     ui.lightTorchBtn.hidden = !canLightTorch(active);
   }
   if (ui.lightLanternBtn) {
     ui.lightLanternBtn.hidden = !canLightLantern(active);
   }
-  const lightSource = state.player.lightSource || (state.player.torchLit ? "torch" : "");
-  if (ui.torchBtn) {
-    ui.torchBtn.hidden = !state.player.torchLit && !canLightTorch(active);
+  if (ui.castLightBtn) {
+    ui.castLightBtn.hidden = !canCastLightSpell(active);
   }
-  ui.torchBtn.textContent = state.player.torchLit
-    ? lightSource === "lantern" ? "Hide Lantern" : lightSource === "light-spell" ? "Hide Light" : "Hide Torch"
-    : "Show Torch";
+  if (ui.torchOutBtn) {
+    ui.torchOutBtn.hidden = !(activeSource === "torch" || activeSource === "lantern");
+    ui.torchOutBtn.textContent = activeSource === "lantern" ? "Lantern went out!" : "Torch snuffed!";
+  }
+  if (ui.torchBtn) {
+    ui.torchBtn.hidden = !(activeSource === "lantern" && (activeIsLit || activeLanternHidden)) && !(activeSource === "light-spell" && activeIsLit);
+    ui.torchBtn.textContent = activeLanternHidden ? "Reveal Lantern" : activeSource === "lantern" ? "Hide Lantern" : "Hide Light";
+  }
 }
 
 function formatTalentSpellTextForSheet(text) {
   return String(text || "")
+    .replace(/^Thief\s+\d+:\s+Thief\s+\d+:\s+/i, "Thief 1: ")
+    .replace(/^Fighter\s+(\d+):\s*(Longbow|Shortbow|Crossbow|Dagger|Shortsword|Longsword|Bastard Sword|Greatsword|Greataxe|Mace|Club|Staff|Warhammer)\s*$/i, "Fighter $1: Mastery: $2 +1 atk/dmg")
+    .replace(/^(\w+\s+\d+):\s*([^:]+):\s*Mastery\s*$/i, "$1: Mastery: $2 +1 atk/dmg")
+    .replace(/^Fighter\s+(\d+):\s*Armor Mastery:\s*Shield\s*$/i, "Fighter $1: Armor Mastery: +1 AC from Shields")
+    .replace(/^Fighter\s+(\d+):\s*Armor Mastery:\s*(Leather(?: armor)?|Chainmail|Plate(?:mail| armor)?)\s*$/i, "Fighter $1: Armor Mastery: +1 AC from $2")
+    .replace(/^(\w+\s+\d+):\s*Melee and ranged attacks\s*$/i, "$1: +1 to hit with melee and ranged")
+    .replace(/^((?:Priest|Human Ambition)\s*\d*):\s*Ranged attacks\s*$/i, "$1: +1 to hit with Ranged")
+    .replace(/^Elf:\s*Attack Bonus:\s*RangedWeapons\s*$/i, "Elf: +1 to hit with Ranged")
+    .replace(/^(\w+\s+\d+):\s*([^:]+):\s*AdvOnCastOneSpell\s*$/i, "$1: Cast $2 at advantage")
     .replace(
       /\bBackstab Increase:\s*Your Backstab deals \+1 dice of damage\.?/gi,
       "Backstab Increase: +1 dice of damage."
@@ -1111,11 +2054,40 @@ function isSpellCheckText(text) {
   return /\b(?:wizard|priest)\s+spell\b/i.test(String(text || "")) && /\b1d20\b/i.test(String(text || ""));
 }
 
+function getCharacterKnownSpellNames(character) {
+  return String(character?.spellsKnown || "")
+    .split(/\s*,\s*/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+function getRemappedMagicMissileAdvantageSpell(character) {
+  const spells = getCharacterKnownSpellNames(character).filter((name) => getSpellKey(name) !== "magic missile");
+  if (!spells.length) {
+    return "";
+  }
+  const seed = String(character?.id || character?.name || "").split("").reduce((total, char) => total + char.charCodeAt(0), 0);
+  return spells[seed % spells.length];
+}
+
+function isMagicMissileAdvantageTalentLine(line) {
+  return /(?:gain advantage on casting\s+magic missile|magic missile:\s*advoncastonespell)/i.test(String(line || ""));
+}
+
 function shouldSuppressTalentLine(line, allLines) {
   const normalized = String(line || "").trim();
-  if (!/Backstab Increase\s*$/i.test(normalized)) {
-    return false;
+  if (/^Spells:\s*None\s*$/i.test(normalized)) {
+    return true;
   }
+  if (isMagicMissileAdvantageTalentLine(normalized)) {
+    return true;
+  }
+  if (/Armor Mastery:\s*Choose one kind of armor/i.test(normalized)) {
+    return allLines.some((candidate) => /Armor Mastery:\s*(?:Shield|Leather|Chainmail|Plate)/i.test(String(candidate || "")));
+  }
+  if (!/Backstab Increase\s*$/i.test(normalized)) {
+  return false;
+}
   const prefix = normalized.replace(/Backstab Increase\s*$/i, "Backstab Increase:");
   return allLines.some((candidate) => (
     candidate !== line &&
@@ -1724,27 +2696,18 @@ function getCharacterGearSlots(character, options = {}) {
   const freeCarry = [];
   let totalSlots = 0;
   let backpackReserved = false;
-  const strScore = clampInt(character?.stats?.STR, 10, 20, 10);
-  const capacitySlots = Math.min(maxSlots, Math.max(10, strScore || 10));
+  const capacitySlots = Math.max(10, Number(character?.gearSlotsTotal || character?.stats?.STR || 10) || 10);
 
-  const maxUsedSlots = Number.isFinite(Number(maxSlots)) ? Number(maxSlots) : 20;
+  const configuredMaxSlots = Number.isFinite(Number(maxSlots)) ? Number(maxSlots) : 20;
+  const maxUsedSlots = Math.max(configuredMaxSlots, capacitySlots);
   const items = Array.isArray(character?.gear) ? character.gear : [];
-
-  function lightweightGroupSize(name) {
-    if (/arrows?|bolts?/i.test(name)) {
-      return 20;
-    }
-    if (/rations?/i.test(name)) {
-      return 3;
-    }
-    return 1;
-  }
 
   function formatStackName(name, units, groupSize) {
     return groupSize > 1 && units > 1 ? `${name} x ${units}` : name;
   }
 
-  for (const item of items) {
+  for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+    const item = items[itemIndex];
     const rawItemName = String(item?.name || "Gear").trim() || "Gear";
     const itemName = rawItemName;
     const normalizedItemName = itemName.toLowerCase();
@@ -1763,8 +2726,8 @@ function getCharacterGearSlots(character, options = {}) {
     if (units <= 0) {
       continue;
     }
-    const groupSize = lightweightGroupSize(itemName);
-    const slotsPerUnit = isTorch ? 1 : Math.max(1, Math.floor(Number(item?.slots) || 1));
+    const groupSize = getStackGroupSize(itemName);
+    const slotsPerUnit = isTorch ? 1 : inferGearItemSlots(itemName, item);
 
     let remainingUnits = units;
     if (isBackpack && !backpackReserved && excludeBackpack !== false) {
@@ -1778,10 +2741,10 @@ function getCharacterGearSlots(character, options = {}) {
     if (groupSize > 1) {
       const slotGroups = Math.max(1, Math.ceil(remainingUnits / groupSize));
       const displayName = formatStackName(itemName, remainingUnits, groupSize);
-      lines.push({ text: displayName, available: totalSlots < capacitySlots });
+      lines.push({ text: displayName, available: totalSlots < capacitySlots, gearIndex: itemIndex, primary: true });
       totalSlots += 1;
       for (let group = 1; group < slotGroups; group += 1) {
-        lines.push({ text: `(${itemName})`, available: totalSlots < capacitySlots });
+        lines.push({ text: `   (${itemName})`, available: totalSlots < capacitySlots, gearIndex: itemIndex, primary: false });
         totalSlots += 1;
       }
       continue;
@@ -1790,7 +2753,12 @@ function getCharacterGearSlots(character, options = {}) {
     const unitText = formatStackName(itemName, 1, groupSize);
     for (let unit = 0; unit < remainingUnits; unit += 1) {
       for (let slot = 0; slot < slotsPerUnit; slot += 1) {
-        lines.push({ text: unitText, available: totalSlots < capacitySlots });
+        lines.push({
+          text: slot === 0 ? unitText : `   (${itemName})`,
+          available: totalSlots < capacitySlots,
+          gearIndex: itemIndex,
+          primary: slot === 0
+        });
         totalSlots += 1;
       }
     }
@@ -2060,6 +3028,7 @@ function refreshCharacterViews(character) {
   clearMagicLightIfIncapacitated(currentCharacter);
   normalizeCharacterState(state);
   applyCharacterAmmoOverrides();
+  syncAllCharacterEquipmentDerivedStats();
   applyCharacterColorOverrides();
   ensureCharacterPresentation();
   const refreshedCharacter = getCurrentCharacter(currentCharacter);
@@ -2200,10 +3169,23 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
         character
       });
   });
-  const attackRows = (character.attacks || [])
+  if (talentLines.some(isMagicMissileAdvantageTalentLine)) {
+    const replacementSpell = getRemappedMagicMissileAdvantageSpell(character);
+    if (replacementSpell) {
+      talentRows.push(createDamageAwareLine(`Wizard 1: Cast ${replacementSpell} at advantage`, {
+        sourceLabel: `${character.name} talent`,
+        character
+      }));
+    }
+  }
+  if (getBackstabMultiplier(character)) {
+    talentRows.unshift(document.createTextNode(`Thief 1: Backstab x ${getBackstabMultiplier(character)} (all thieves)`));
+  }
+  const attackRows = getRenderableAttacks(character)
     .filter((attackText) => !isBackstabAttackText(attackText))
     .map((attackText) => createAttackAwareLine(formatAttackForSheet(attackText), character));
-  const talents = createSdPanel("Talents / Spells", buildSheetLines(talentRows, 8), "sd-talents-panel");
+  const talentPanelTitle = getCharacterKnownSpellNames(character).length ? "Talents / Spells" : "Talents";
+  const talents = createSdPanel(talentPanelTitle, buildSheetLines(talentRows, 8), "sd-talents-panel");
   const attacks = createSdPanel("Attacks", buildSheetLines(attackRows, 8), "sd-attacks-panel");
   const gear = createSdGearPanel(character);
   const dismissal = popout ? createSdDismissPanel(character) : null;
@@ -2300,7 +3282,7 @@ function createSdDismissPanel(character) {
 function buildMiniAttackLine(character) {
   const line = document.createElement("div");
   line.className = "character-mini-attacks";
-  const attacks = (character.attacks || [])
+  const attacks = getRenderableAttacks(character)
     .filter((attack) => !isBackstabAttackText(attack))
     .map((attack) => createMiniAttackNode(String(attack), character))
     .filter(Boolean);
@@ -2345,26 +3327,17 @@ function createMiniAttackNode(attackText, character) {
     : /bow|arrow/i.test(rawName)
       ? "arrows"
       : "";
-  const ammoValue = ammoType ? getDisplayCharacterAmmo(character, ammoType) : undefined;
   const attackNode = document.createElement("span");
   attackNode.className = "character-mini-attack-entry";
   attackNode.append(createAttackButton(character, attack));
+  if (attack.flag) {
+    attackNode.append(document.createTextNode(attack.flag));
+  }
   if (attack.bonusText) {
     attackNode.append(document.createTextNode(` ${attack.bonusText}`));
   }
-  if (ammoValue !== undefined) {
-    attackNode.append(document.createTextNode(" "));
-    attackNode.append(createMiniInlineNumberField(ammoValue, 99, (value) => {
-      const currentCharacter = setDisplayCharacterAmmo(character, ammoType, value);
-      refreshCharacterViews(currentCharacter);
-    }));
-  }
   if (attack.detail) {
-    attackNode.append(document.createTextNode(", "));
-    appendDamageAwareText(attackNode, attack.detail, {
-      sourceLabel: `${character?.name || "Character"} attack`,
-      character
-    });
+    appendCompactAttackDetail(attackNode, attack, character);
   }
   const backstabButton = createBackstabButton(character, attack);
   if (backstabButton) {
@@ -2567,6 +3540,7 @@ function updateCharactersUi() {
   }
   normalizeCharacterState(state);
   applyCharacterAmmoOverrides();
+  syncAllCharacterEquipmentDerivedStats();
   applyCharacterColorOverrides();
   ensureCharacterPresentation();
   ui.charactersList.innerHTML = "";
@@ -2685,7 +3659,7 @@ async function importShadowdarklingsCharacterOneClick() {
   }
 
   ui.charactersEmpty.hidden = false;
-  ui.charactersEmpty.textContent = "Fetching one character from ShadowDarklings...";
+  ui.charactersEmpty.textContent = "A new character from ShadowDarklings enters the dungeon.";
 
   try {
     const characterJson = await importShadowdarklingsCharacter({
@@ -2779,6 +3753,18 @@ function characterHasSpellCastingAdvantage(character, spell) {
   if (spellKey === "magic missile") {
     return true;
   }
+  const remappedMagicMissileAdvantage = getRemappedMagicMissileAdvantageSpell(character);
+  if (remappedMagicMissileAdvantage && getSpellKey(remappedMagicMissileAdvantage) === spellKey) {
+    const rawTalentText = JSON.stringify([
+      character.levels || [],
+      character.bonuses || [],
+      character.raw?.levels || [],
+      character.raw?.bonuses || []
+    ]);
+    if (/magic missile/i.test(rawTalentText) && /advantage|adv on cast|advoncastonespell/i.test(rawTalentText)) {
+      return true;
+    }
+  }
 
   const advantageLines = buildTalentSpellLines(character).filter((line) => /gain advantage on casting/i.test(line));
   if (advantageLines.some((line) => normalizeSpellLookupKey(line).includes(spellKey))) {
@@ -2857,6 +3843,67 @@ function formatSignedModifier(modifier) {
   return normalized >= 0 ? `+${normalized}` : `${normalized}`;
 }
 
+function clampNumber(value, min, max, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function formatTwoDigitInputValue(value) {
+  const normalized = Number(value) || 0;
+  const sign = normalized < 0 ? "-" : "";
+  return `${sign}${String(Math.abs(normalized)).padStart(2, "0")}`;
+}
+
+function rollManualDie(sides, count, modifier) {
+  const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1);
+  const diceTotal = rolls.reduce((sum, value) => sum + value, 0);
+  return {
+    kind: "manual",
+    sides,
+    count,
+    modifier,
+    rolls,
+    total: diceTotal + modifier
+  };
+}
+
+function applyManualDieRoll(button) {
+  const sides = Number.parseInt(button.dataset.dieSides || "0", 10);
+  if (!Number.isFinite(sides) || sides <= 0 || !ui.damageResult) {
+    return;
+  }
+  const countInput = ui.manualDieCount;
+  const modifierInput = ui.manualDieModifier;
+  const count = clampNumber(countInput?.value, 1, 99, 1);
+  const modifier = clampNumber(modifierInput?.value, -99, 99, 0);
+  countInput.value = formatTwoDigitInputValue(count);
+  modifierInput.value = formatTwoDigitInputValue(modifier);
+  sizeControlField(countInput);
+  sizeControlField(modifierInput);
+
+  lastDamageRoll = rollManualDie(sides, count, modifier);
+  const label = button.textContent.trim();
+  ui.damageResult.textContent = `${lastDamageRoll.total}`;
+  ui.damageContext.textContent = `${String(count).padStart(2, "0")} ${label} ${formatSignedModifier(modifier)}`;
+  ui.damageExpandBtn.hidden = lastDamageRoll.rolls.length === 0;
+  renderDamageDetail(lastDamageRoll);
+  setDamageDetailVisibility(false);
+}
+
+function resetManualDieControls() {
+  if (ui.manualDieCount) {
+    ui.manualDieCount.value = "01";
+    sizeControlField(ui.manualDieCount);
+  }
+  if (ui.manualDieModifier) {
+    ui.manualDieModifier.value = "00";
+    sizeControlField(ui.manualDieModifier);
+  }
+}
+
 function createCheckRollToken(value, kept = false) {
   const token = document.createElement(kept ? "strong" : "span");
   token.className = "damage-breakdown-term";
@@ -2919,6 +3966,31 @@ function renderDamageDetail(roll) {
   }
   if (roll.kind === "check") {
     renderCheckDetail(roll);
+    return;
+  }
+  if (roll.kind === "manual") {
+    const line = document.createElement("div");
+    line.className = "damage-breakdown-line";
+    roll.rolls.forEach((value, index) => {
+      if (index > 0) {
+        line.append(document.createTextNode(" + "));
+      }
+      const token = document.createElement("span");
+      token.className = "damage-breakdown-term";
+      if (value === 1) {
+        token.classList.add("is-minimum");
+      }
+      if (value === roll.sides) {
+        token.classList.add("is-maximum");
+      }
+      token.textContent = `${value}`;
+      line.append(token);
+    });
+    if (roll.modifier !== 0) {
+      line.append(document.createTextNode(roll.modifier > 0 ? ` + ${roll.modifier}` : ` - ${Math.abs(roll.modifier)}`));
+    }
+    line.append(document.createTextNode(` = ${roll.total}`));
+    ui.damageDetail.append(line);
     return;
   }
 
@@ -3133,6 +4205,12 @@ function renderSpellDetail(spell, character) {
     });
     ui.spellDetailBody.append(item);
   });
+  if (currentCharacter && characterHasSpellCastingAdvantage(currentCharacter, spell)) {
+    const advantageNote = document.createElement("p");
+    advantageNote.className = "spell-advantage-note";
+    advantageNote.textContent = "You have advantage on casting this spell.";
+    ui.spellDetailBody.append(advantageNote);
+  }
   ui.spellDetailModal.hidden = false;
 }
 
@@ -3259,10 +4337,77 @@ function createSdGearPanel(character) {
     maxSlots: 20,
     excludeBackpack: true
   });
+  let litGearMarkerRendered = false;
+  rows.style.setProperty("--gear-row-count", `${Math.ceil(slots.length / 2)}`);
   slots.forEach((entry, index) => {
     const row = document.createElement("div");
     row.className = entry.available ? "" : "sd-gear-slot-unavailable";
-    row.textContent = `${index + 1}. ${entry.text || ""}`;
+    const item = Number.isInteger(entry.gearIndex) && Array.isArray(character.gear) ? character.gear[entry.gearIndex] : null;
+    const label = document.createElement("span");
+    label.className = "sd-gear-line-label";
+    if (item) {
+      const hoverNote = getGearHoverNote(item);
+      if (hoverNote) {
+        label.title = hoverNote;
+      }
+      if (isShieldItem(item) && characterHasVersatileWeapon(character) && character.shieldReadied === false) {
+        label.classList.add("is-gear-unreadied");
+      }
+    }
+    label.append(document.createTextNode(`${index + 1}. ${entry.text || ""}`));
+    if (
+      entry.text &&
+      entry.primary &&
+      item &&
+      Number(character.lightRadius) > 0 &&
+      entry.gearIndex === getLitGearIndex(character) &&
+      isLightGearItem(item, character.lightSource) &&
+      litGearMarkerRendered === false
+    ) {
+      label.append(document.createTextNode(" "), createLightSourceMarker(character.lightSource));
+      litGearMarkerRendered = true;
+    }
+    row.append(label);
+    if (entry.text && entry.primary && item && isShieldItem(item) && characterHasVersatileWeapon(character)) {
+      const shieldToggle = document.createElement("label");
+      shieldToggle.className = "sd-gear-shield-toggle";
+      shieldToggle.title = "Ready shield: adds shield AC and uses the smaller versatile weapon die.";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = character.shieldReadied !== false;
+      checkbox.addEventListener("click", (event) => event.stopPropagation());
+      checkbox.addEventListener("change", (event) => {
+        event.stopPropagation();
+        const currentCharacter = getCurrentCharacter(character);
+        currentCharacter.shieldReadied = checkbox.checked;
+        currentCharacter.raw = currentCharacter.raw || {};
+        currentCharacter.raw.shieldReadied = checkbox.checked;
+        syncCharacterEquipmentDerivedStats(currentCharacter);
+        markUserActivity();
+        setStatus(`${currentCharacter.name || "Character"} ${checkbox.checked ? "readies" : "slings"} their shield.`);
+        refreshCharacterViews(currentCharacter);
+        render();
+        updatePanels();
+      });
+      shieldToggle.append(checkbox, document.createTextNode("ready"));
+      row.append(shieldToggle);
+    }
+    if (entry.text && entry.primary && Number.isInteger(entry.gearIndex)) {
+      const dropButton = document.createElement("button");
+      dropButton.type = "button";
+      dropButton.className = "sd-gear-drop-button";
+      dropButton.textContent = "Drop";
+      dropButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const result = dropCharacterGear(character, entry.gearIndex);
+        markUserActivity();
+        setStatus(result);
+        refreshCharacterViews(character);
+        render();
+        updatePanels();
+      });
+      row.append(dropButton);
+    }
     rows.append(row);
   });
   const freeCarryPanel = document.createElement("div");
@@ -3345,6 +4490,7 @@ function createCompactInputField(label, value, max, onChange) {
 function updateRoomLootPanel() {
   ui.roomLootPanel.innerHTML = "";
   const roomLoot = getRoomLoot(state);
+  const treasureLoot = roomLoot.filter((loot) => loot.subtype !== "dropped-equipment");
   const roomFeatures = state.entities.filter((entity) => (
     entity.type === "feature" &&
     entity.subtype !== "door" &&
@@ -3356,7 +4502,7 @@ function updateRoomLootPanel() {
     return;
   }
 
-  if (roomLoot.length > 1) {
+  if (treasureLoot.length > 1) {
     const lootAllButton = document.createElement("button");
     lootAllButton.type = "button";
     lootAllButton.textContent = "Get All";
@@ -3376,9 +4522,14 @@ function updateRoomLootPanel() {
     lootButton.type = "button";
     const slotText = `${loot.slots || 1} slot${(loot.slots || 1) === 1 ? "" : "s"}`;
     const valueText = loot.priceless ? "priceless" : `${loot.value} gp`;
-    lootButton.textContent = `Get: ${loot.name || "treasure"} (${slotText}, ${valueText})`;
+    const isDroppedEquipment = loot.subtype === "dropped-equipment";
+    lootButton.textContent = isDroppedEquipment
+      ? `Pick up: ${loot.name || "equipment"} (${slotText})`
+      : `Get: ${loot.name || "treasure"} (${slotText}, ${valueText})`;
     lootButton.addEventListener("click", () => {
-      const result = collectLoot(state, loot.id);
+      const result = isDroppedEquipment
+        ? pickupDroppedEquipment(loot)
+        : collectLoot(state, loot.id);
       markUserActivity();
       setStatus(result);
       render();
@@ -3535,6 +4686,7 @@ function updateTrapPanel() {
 function updatePanels() {
   updateLootUi();
   updateCharactersUi();
+  updateLightControlUi();
   updateRoomLootPanel();
   updateMonsterPanel();
   updateTrapPanel();
@@ -3547,7 +4699,7 @@ function maybeShowFullyLooted() {
     return;
   }
   const hasUncollectedTreasure = state.entities.some((entity) => {
-    return entity.type === "treasure" && !entity.collected;
+    return entity.type === "treasure" && entity.subtype !== "dropped-equipment" && !entity.collected;
   });
   if (!hasUncollectedTreasure) {
     state.lootLog.fullyLootedShown = true;
@@ -3637,10 +4789,7 @@ function applyTorchAdvance(result) {
     processWanderingChecks(result.crossedWanderingChecks);
   }
   if (result.expired) {
-    const source = state.player.lightSource === "lantern" ? "Lantern" : "Torch";
-    syncActiveCharacterLightFromPlayer();
-    recomputeVisibility(state);
-    setStatus(`${source} went out!`);
+    setStatus(expireActiveLightFromTimer());
   }
 }
 
@@ -3677,7 +4826,11 @@ function performGet() {
     return;
   }
   const [loot] = getRoomLoot(state);
-  const result = loot ? collectLoot(state, loot.id) : { message: "No revealed treasure to get." };
+  const result = loot
+    ? loot.subtype === "dropped-equipment"
+      ? pickupDroppedEquipment(loot)
+      : collectLoot(state, loot.id)
+    : { message: "No revealed treasure to get." };
   markUserActivity();
   setStatus(result);
   render();
@@ -4054,6 +5207,14 @@ function hookInputEvents() {
       zoomMapBy(1 / 1.16);
       return;
     }
+    if (event.key === "i" || event.key === "I") {
+      const active = getExplicitActiveCharacter(state);
+      if (active) {
+        event.preventDefault();
+        openCharacterSheet(active);
+      }
+      return;
+    }
     const moves = {
       ArrowUp: [0, -1],
       ArrowDown: [0, 1],
@@ -4109,6 +5270,18 @@ function hookInputEvents() {
   ui.importCharacterBtn.addEventListener("click", () => {
     importShadowdarklingsCharacterOneClick();
   });
+  ui.manualDiceControls?.addEventListener("click", (event) => {
+    const button = event.target.closest(".manual-die-button");
+    if (button) {
+      applyManualDieRoll(button);
+    }
+  });
+  ui.manualDiceControls?.addEventListener("input", (event) => {
+    if (event.target.matches("input[type='number']")) {
+      sizeControlField(event.target);
+    }
+  });
+  ui.manualDieReset?.addEventListener("click", resetManualDieControls);
   ui.damageExpandBtn?.addEventListener("click", () => {
     setDamageDetailVisibility(ui.damageDetail.hidden);
   });
@@ -4154,51 +5327,96 @@ function hookInputEvents() {
   });
 
   ui.lightTorchBtn.addEventListener("click", () => {
-    if (!canLightTorch(getActiveCharacter(state))) {
+    const active = getActiveCharacter(state);
+    if (!canLightTorch(active)) {
       return;
     }
+    if (active?.lightSource === "torch") {
+      removeOneTorch(active);
+    }
     lightActiveCharacter("torch");
+    normalizeCharacterState(state);
+    applyCharacterAmmoOverrides();
+    syncAllCharacterEquipmentDerivedStats();
+    applyCharacterColorOverrides();
+    ensureCharacterPresentation();
     markUserActivity();
     recomputeVisibility(state);
     setStatus("New torch lit.");
     render();
+    updatePanels();
   });
 
   ui.lightLanternBtn?.addEventListener("click", () => {
-    if (!canLightLantern(getActiveCharacter(state))) {
+    const active = getActiveCharacter(state);
+    if (!canLightLantern(active)) {
       return;
     }
+    const wasHiddenLantern = active?.lightSource === "lantern" && active.lightHidden === true;
+    if (!wasHiddenLantern) {
+      removeOneOil(active);
+    }
     lightActiveCharacter("lantern");
+    normalizeCharacterState(state);
+    applyCharacterAmmoOverrides();
+    syncAllCharacterEquipmentDerivedStats();
+    applyCharacterColorOverrides();
+    ensureCharacterPresentation();
     markUserActivity();
     recomputeVisibility(state);
-    setStatus("Lantern is lit!");
+    setStatus(wasHiddenLantern ? "Lantern uncovered." : "Lantern is lit!");
     render();
+    updatePanels();
+  });
+
+  ui.castLightBtn?.addEventListener("click", async () => {
+    const active = getActiveCharacter(state);
+    if (!canCastLightSpell(active)) {
+      return;
+    }
+    await ensureSpellLibraryLoaded();
+    const spell = findSpellRecord("Light") || { name: "Light", tier: 1 };
+    performSpellCast(active, spell);
+    render();
+    updatePanels();
   });
 
   ui.torchOutBtn.addEventListener("click", () => {
-    const source = state.player.lightSource === "lantern" ? "Lantern" : "Torch";
-    clearActiveCharacterLight();
+    const active = getActiveCharacter(state);
+    if (active?.lightSource === "lantern") {
+      extinguishActiveLantern();
+      setStatus("Lantern went out!");
+    } else if (active?.lightSource === "torch") {
+      snuffActiveTorch();
+      setStatus("Torch snuffed!");
+    } else {
+      clearActiveCharacterLight();
+      setStatus("Light went out!");
+    }
     markUserActivity();
     recomputeVisibility(state);
-    setStatus(`${source} went out!`);
     render();
+    updatePanels();
   });
 
   ui.torchBtn.addEventListener("click", () => {
-    if (state.player.torchLit) {
-      const source = state.player.lightSource === "lantern" ? "Lantern" : "Torch";
+    const active = getActiveCharacter(state);
+    if (active?.lightSource === "lantern" && Number(active.lightRadius) > 0) {
+      hideActiveLantern();
+      setStatus("Lantern hidden.");
+    } else if (active?.lightSource === "lantern" && active.lightHidden === true) {
+      revealActiveLantern();
+      setStatus("Lantern revealed.");
+    } else if (active?.lightSource === "light-spell" && Number(active.lightRadius) > 0) {
       clearActiveCharacterLight();
-      setStatus(`${source} extinguished.`);
-    } else {
-      if (!canLightTorch(getActiveCharacter(state))) {
-        return;
-      }
-      lightActiveCharacter("torch");
       recomputeVisibility(state);
-      setStatus("Torch relit.");
+      setStatus("Light hidden.");
+    } else {
+      return;
     }
     markUserActivity();
     render();
+    updatePanels();
   });
 
   ui.searchModifierInput.addEventListener("change", () => {
@@ -4434,8 +5652,7 @@ function startClock() {
       changed = true;
     }
     if (result.expired) {
-      recomputeVisibility(state);
-      setStatus("Torch went out!");
+      setStatus(expireActiveLightFromTimer());
       changed = true;
     }
     if (!changed) {

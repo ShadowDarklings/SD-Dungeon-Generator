@@ -28,11 +28,12 @@
             <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
           </label>
           <div class="sidebar-row sidebar-row--wrap">
-            <button id="torch-out-btn" type="button">Torch went out!</button>
+            <button id="torch-out-btn" type="button">Torch snuffed!</button>
             <button id="light-torch-btn" type="button">Light New Torch</button>
-            <button id="light-lantern-btn" type="button" hidden>Light Lantern</button>
+            <button id="light-lantern-btn" type="button">Light Lantern</button>
+            <button id="cast-light-btn" type="button">Cast Light</button>
           </div>
-          <button id="torch-btn" type="button">Hide Torch</button>
+          <button id="torch-btn" type="button">Hide Lantern</button>
           <label class="toggle">
             <input id="blackout-toggle" type="checkbox" checked />
             Full blackout when torch is out
@@ -89,6 +90,24 @@
           </div>
 
           <h2>Dice Roller</h2>
+          <div id="manual-dice-controls" class="manual-dice-controls" aria-label="Manual dice roller">
+            <div class="manual-die-button-row">
+              <button class="manual-die-button" type="button" data-die-sides="100">d%</button>
+              <button class="manual-die-button" type="button" data-die-sides="20">d20</button>
+              <button class="manual-die-button" type="button" data-die-sides="12">d12</button>
+              <button class="manual-die-button" type="button" data-die-sides="10">d10</button>
+              <button class="manual-die-button" type="button" data-die-sides="8">d8</button>
+              <button class="manual-die-button" type="button" data-die-sides="6">d6</button>
+              <button class="manual-die-button" type="button" data-die-sides="4">d4</button>
+            </div>
+            <label class="manual-die-roll-row">
+              <span>roll</span>
+              <input id="manual-die-count" type="number" min="1" max="99" value="01" data-autosize-field data-size-chars="2" aria-label="Dice count" />
+              <span>+</span>
+              <input id="manual-die-modifier" type="number" min="-99" max="99" value="00" data-autosize-field data-size-chars="2" aria-label="Dice modifier" />
+              <button id="manual-die-reset" type="button">reset</button>
+            </label>
+          </div>
           <section class="damage-panel" aria-live="polite">
             <div class="damage-result-row">
               <span id="damage-result" class="damage-result-value">none</span>

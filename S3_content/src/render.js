@@ -1326,6 +1326,43 @@ function drawEntity(entity, ctx, state) {
     return;
   }
 
+  if (entity.subtype === "dropped-equipment" && Number(entity.lightRadius) > 0) {
+    ctx.save();
+    const isLantern = entity.lightSource === "lantern";
+    ctx.fillStyle = "rgba(255, 209, 78, 0.22)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.9, 0, Math.PI * 2);
+    ctx.fill();
+    if (isLantern) {
+      ctx.fillStyle = "#9ea3aa";
+      ctx.strokeStyle = "#ffd14e";
+      ctx.lineWidth = Math.max(1, TILE_SIZE_PX * 0.05);
+      ctx.fillRect(cx - radius * 0.65, cy - radius * 0.8, radius * 1.3, radius * 1.55);
+      ctx.strokeRect(cx - radius * 0.65, cy - radius * 0.8, radius * 1.3, radius * 1.55);
+      ctx.fillStyle = "#ffd14e";
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = "#6f2d16";
+      ctx.lineWidth = Math.max(2, TILE_SIZE_PX * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(cx - radius * 0.45, cy + radius * 0.85);
+      ctx.lineTo(cx + radius * 0.35, cy - radius * 0.65);
+      ctx.stroke();
+      ctx.fillStyle = "#ffd14e";
+      ctx.beginPath();
+      ctx.arc(cx + radius * 0.42, cy - radius * 0.82, radius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#c53320";
+      ctx.beginPath();
+      ctx.arc(cx + radius * 0.42, cy - radius * 0.82, radius * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
   switch (entity.type) {
     case ENTITY_TYPES.MONSTER:
       ctx.fillStyle = "#be2d2d";
