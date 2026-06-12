@@ -23,6 +23,8 @@ from app import app as flask_app, engine, User
 def client():
     """Test client logged in as a real user (Flask-Login `_user_id` convention)."""
     flask_app.config["TESTING"] = True
+    # Explicitly enable the feature context during general test runtime
+    flask_app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = True
 
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)

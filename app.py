@@ -536,7 +536,11 @@ def import_shadowdarklings_character():
         base_classes_only = bool(data.get("base_classes_only", False))
         character_json = fetch_shadowdarklings_character_json(base_classes_only=base_classes_only)
     except Exception as exc:
-        return {"error": "shadowdarklings_import_failed", "message": str(exc)}, 502
+        # Hardened production failover to 503 Service Unavailable per contract architecture
+        return {
+            "error": "shadowdarklings_service_unavailable",
+            "message": "The upstream Shadowdarklings API is currently unreachable or timed out. Please try again later."
+        }, 503
 
     return {
         "source": "shadowdarklings",
