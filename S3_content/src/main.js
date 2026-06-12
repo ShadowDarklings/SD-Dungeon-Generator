@@ -1198,7 +1198,7 @@ function canUseWeapon(character, itemOrName) {
     return ["club", "crossbow", "shortsword", "dagger", "shortbow"].includes(profile.key);
   }
   if (/\bpriest\b/.test(classKey)) {
-    return !["club", "crossbow", "dagger", "mace", "longsword", "staff", "warhammer"].includes(profile.key);
+    return ["club", "crossbow", "dagger", "mace", "longsword", "staff", "warhammer"].includes(profile.key);
   }
   return true;
 }
