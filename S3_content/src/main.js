@@ -177,6 +177,8 @@ let multiplayerSession = {
   players: [],
   assignments: []
 };
+let multiplayerRefreshTimer = null;
+let multiplayerRefreshInFlight = false;
 
 const BASE_CLASSES_ONLY_STORAGE_KEY = "shadowspawner.baseClassesOnly";
 const SHADOWDARKLINGS_SOURCE_SWITCHES = [
@@ -5072,9 +5074,15 @@ function renderMultiplayerUi() {
     ui.multiplayerCharacterSelect.append(option);
   }
 
-  const canAssign = Boolean(hasInvite && ui.multiplayerPlayerSelect.value && ui.multiplayerCharacterSelect.value);
+  const canAssign = Boolean(
+    hasInvite &&
+    multiplayerSession.role === "host" &&
+    ui.multiplayerPlayerSelect.value &&
+    ui.multiplayerCharacterSelect.value
+  );
   ui.multiplayerAssignBtn.disabled = !canAssign;
   ui.multiplayerRefreshBtn.disabled = !hasInvite;
+  ensureMultiplayerRefreshLoop();
 }
 
 function openMultiplayerModal() {
@@ -5091,6 +5099,26 @@ function openMultiplayerModal() {
 
 function closeMultiplayerModal() {
   ui.multiplayerModal.hidden = true;
+}
+
+function ensureMultiplayerRefreshLoop() {
+  const shouldPoll = Boolean(multiplayerSession.inviteCode && multiplayerSession.role);
+  if (!shouldPoll) {
+    if (multiplayerRefreshTimer) {
+      window.clearInterval(multiplayerRefreshTimer);
+      multiplayerRefreshTimer = null;
+    }
+    return;
+  }
+  if (multiplayerRefreshTimer) {
+    return;
+  }
+  multiplayerRefreshTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    refreshMultiplayerSession({ silent: true });
+  }, 5000);
 }
 
 function openInviteFromUrlIfPresent() {
@@ -5144,20 +5172,36 @@ async function joinMultiplayerHost() {
   }
 }
 
-async function refreshMultiplayerSession() {
+async function refreshMultiplayerSession(options = {}) {
   if (!multiplayerSession.inviteCode) {
-    setMultiplayerStatus("No active host link to refresh.", "error");
+    if (!options.silent) {
+      setMultiplayerStatus("No active host link to refresh.", "error");
+    }
     return;
   }
-  setMultiplayerStatus("Refreshing session...");
+  if (multiplayerRefreshInFlight) {
+    return;
+  }
+  multiplayerRefreshInFlight = true;
+  if (!options.silent) {
+    setMultiplayerStatus("Refreshing session...");
+  }
   try {
     const session = await getHostSession(multiplayerSession.inviteCode);
     multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
-    setMultiplayerStatus("Session refreshed.", "success");
+    if (!options.silent) {
+      setMultiplayerStatus("Session refreshed.", "success");
+    }
     renderMultiplayerUi();
   } catch (error) {
-    setMultiplayerStatus(error.message, "error");
+    if (!options.silent) {
+      setMultiplayerStatus(error.message, "error");
+    } else {
+      console.warn("Multiplayer refresh failed.", error);
+    }
     renderMultiplayerUi();
+  } finally {
+    multiplayerRefreshInFlight = false;
   }
 }
 
@@ -5167,7 +5211,8 @@ async function assignMultiplayerDot() {
     await assignSessionCharacter(
       multiplayerSession.inviteCode,
       ui.multiplayerPlayerSelect.value,
-      ui.multiplayerCharacterSelect.value
+      ui.multiplayerCharacterSelect.value,
+      { state }
     );
     await refreshMultiplayerSession();
   } catch (error) {

@@ -216,6 +216,58 @@ def test_reassignment_moves_character_to_one_holder(env):
     assert holders == [bob_player_id]
 
 
+def test_host_assignment_accepts_browser_string_player_id(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    created = create_session(alice).get_json()
+    code = created["invite_code"]
+    bob_join = bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+    bob_player_id = next(
+        p["id"] for p in bob_join.get_json()["players"] if p["role"] == "player"
+    )
+
+    r = alice.post(f"/api/multiplayer/sessions/{code}/assignments",
+                   json={"player_id": str(bob_player_id), "character_id": "char-1"})
+
+    assert r.status_code == 200
+    assert {"player_id": bob_player_id, "character_id": "char-1"} in r.get_json()["assignments"]
+
+
+def test_host_assignment_refreshes_current_state_before_validating_dot(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    created = create_session(alice).get_json()
+    code = created["invite_code"]
+    bob_join = bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+    bob_player_id = next(
+        p["id"] for p in bob_join.get_json()["players"] if p["role"] == "player"
+    )
+    updated_state = {
+        "characters": [
+            {"id": "char-1", "name": "Glaz"},
+            {"id": "late-import", "name": "Late Import"},
+        ],
+        "tiles": [],
+    }
+
+    r = alice.post(f"/api/multiplayer/sessions/{code}/assignments",
+                   json={
+                       "player_id": str(bob_player_id),
+                       "character_id": "late-import",
+                       "state_json": updated_state,
+                   })
+
+    assert r.status_code == 200
+    assert {"player_id": bob_player_id, "character_id": "late-import"} in r.get_json()["assignments"]
+
+    fetch = bob.get(f"/api/multiplayer/sessions/{code}").get_json()
+    assert {"id": "late-import", "name": "Late Import"} in fetch["state_json"]["characters"]
+
+
 # ── 7. Invite-code quality ──────────────────────────────────────────────────
 
 def test_invite_codes_are_high_entropy_and_non_sequential(env):

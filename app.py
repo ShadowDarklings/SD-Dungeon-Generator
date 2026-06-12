@@ -905,6 +905,15 @@ def _state_character_ids(state_json) -> set:
     return {c.get("id") for c in chars if isinstance(c, dict) and c.get("id")}
 
 
+def _coerce_positive_int(value):
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, str) and value.isdigit():
+        parsed = int(value)
+        return parsed if parsed > 0 else None
+    return None
+
+
 def _load_open_session(db, invite_code):
     """Return the open session for this code, lazily closing stale ones (§16.6).
 
@@ -1150,12 +1159,19 @@ def assign_multiplayer_character(invite_code):
 
     player_id = data.get("player_id")
     character_id = data.get("character_id")
+    submitted_state = data.get("state_json")
+
+    if isinstance(submitted_state, dict):
+        mp.state_json = submitted_state
+        mp.updated_at = datetime.now(timezone.utc)
+        db.add(mp)
 
     target = None
-    if isinstance(player_id, int):
+    parsed_player_id = _coerce_positive_int(player_id)
+    if parsed_player_id is not None:
         target = db.exec(
             select(MultiplayerPlayer).where(
-                MultiplayerPlayer.id == player_id,
+                MultiplayerPlayer.id == parsed_player_id,
                 MultiplayerPlayer.session_id == mp.id,
             )
         ).first()
