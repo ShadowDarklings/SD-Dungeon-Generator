@@ -49,6 +49,19 @@ Fixed in the previous pass and still in place (regression-tested): CSRF enforcem
 5. **e2e gap** — Playwright suite runs over HTTP/SQLite; Secure-cookie and Postgres-specific behavior aren't e2e-exercised (§15.11).
 6. **Attack-path suite not CI-gated** — runs only against a live stack; run manually pre-submission.
 
+## 4a. Addendum — post-PR #23 re-review (2026-06-12)
+
+PR #23 replaced `@login_required` on `/api/shadowdarklings/import` with a manual auth check plus a
+documented local-dev bypass (`ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1`, see AGENTS.md). Reviewed and
+**accepted with conditions**: the variable is absent from `docker-compose.yml` and commented out in
+`.env.example`, the production feature gate (503 `feature_disabled`) fires before the auth check
+regardless, and both behaviors are regression-tested (`test_shadowdarklings_import_requires_login`,
+`test_shadowdarklings_import_allows_explicit_local_dev_bypass`). Contract §2 updated to record the
+bypass. Residual risk: a misconfigured non-production deployment that sets both
+`SHADOWDARKLINGS_IMPORT_ENABLED=1` and the bypass would expose the headless-browser DoS surface
+anonymously — deployment checklists must treat both variables as dev-only. PR #20/#23 frontend
+surfaces (new state fields, `innerHTML` usage, `display_name` rendering, CSP) re-checked clean.
+
 ## 5. Evidence
 
 - `pytest tests/ --ignore=tests/e2e` → 40 passed, 21 skipped (2026-06-11).
