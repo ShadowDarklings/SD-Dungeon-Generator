@@ -622,7 +622,7 @@ export function collectLoot(state, lootId) {
 }
 
 export function collectRoomLoot(state) {
-  const loot = getRoomLoot(state);
+  const loot = getRoomLoot(state).filter((entity) => entity.subtype !== "dropped-equipment");
   let totalValue = 0;
   let collected = 0;
 

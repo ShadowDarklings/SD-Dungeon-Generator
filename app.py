@@ -627,7 +627,6 @@ def fetch_shadowdarklings_character_json(base_classes_only: bool = False) -> str
             page = context.new_page()
             page.goto(SHADOWDARKLINGS_CREATE_URL, wait_until="networkidle")
             page.get_by_role("button", name="Random 1").click()
-            page.get_by_role("button", name="Best Fit").click()
             set_shadowdarklings_source_switches(page, not base_classes_only)
             page.get_by_role("button", name="Generate a Random Character").click()
             page.get_by_role("button", name="JSON").click()
