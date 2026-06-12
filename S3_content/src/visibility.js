@@ -5,12 +5,53 @@ function isWithinRadius(x1, y1, x2, y2, radius) {
   return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2)) <= radius;
 }
 
+function getRotundaLightBlock(state, x, y) {
+  for (const room of state.rooms || []) {
+    if (room.rotunda !== true) {
+      continue;
+    }
+    const size = Number(room.rotundaSize || room.width || room.height || 7) === 5 ? 5 : 7;
+    const drawSize = size === 5 ? 5 : 9;
+    const artX = Number(room.x) - (size === 5 ? 0 : 1);
+    const artY = Number(room.y) - (size === 5 ? 0 : 1);
+    if (x < artX || y < artY || x >= artX + drawSize || y >= artY + drawSize) {
+      continue;
+    }
+    if (size === 5) {
+      const localX = x - artX;
+      const localY = y - artY;
+      const openings = new Set((Array.isArray(room.rotundaOpenings) && room.rotundaOpenings.length
+        ? room.rotundaOpenings
+        : [room.rotundaOpening || room.opening || "south"]
+      ).map((opening) => String(opening || "")[0].toLowerCase()));
+      const isInnerRotunda = localX >= 1 && localX <= 3 && localY >= 1 && localY <= 3;
+      const isExit =
+        (openings.has("n") && localX === 2 && localY === 0) ||
+        (openings.has("s") && localX === 2 && localY === 4) ||
+        (openings.has("w") && localX === 0 && localY === 2) ||
+        (openings.has("e") && localX === 4 && localY === 2);
+      return !(isInnerRotunda || isExit);
+    }
+    const centerX = artX + drawSize / 2;
+    const centerY = artY + drawSize / 2;
+    const dx = (x + 0.5) - centerX;
+    const dy = (y + 0.5) - centerY;
+    const radius = size / 2;
+    return Math.sqrt(dx * dx + dy * dy) >= radius;
+  }
+  return null;
+}
+
 function isLightBlockingTile(state, x, y) {
   const tile = state.tiles[y * state.map.width + x];
   if (!tile) {
     return true;
   }
   if (tile.type === TILE_TYPES.WALL || tile.type === TILE_TYPES.VOID) {
+    const rotundaBlock = getRotundaLightBlock(state, x, y);
+    if (rotundaBlock !== null) {
+      return rotundaBlock;
+    }
     return true;
   }
   return false;
@@ -55,6 +96,16 @@ function getDoorBetween(state, fromX, fromY, toX, toY) {
     const { hall, room } = getDoorTiles(entity);
     return (sameTile(from, hall) && sameTile(to, room)) || (sameTile(from, room) && sameTile(to, hall));
   }) || null;
+}
+
+function isClosedDoorHallTarget(state, x, y) {
+  return state.entities.some((entity) => {
+    if (entity.subtype !== "door" || entity.doorState === DOOR_STATES.OPEN) {
+      return false;
+    }
+    const { hall } = getDoorTiles(entity);
+    return hall.x === x && hall.y === y;
+  });
 }
 
 function rangesOverlap(minA, maxA, minB, maxB) {
@@ -140,10 +191,6 @@ export function hasLineOfSight(state, x, y) {
   const px = state.player.x;
   const py = state.player.y;
 
-  if (isAcrossClosedDoor(state, px, py, x, y)) {
-    return false;
-  }
-
   const points = getLineBetween(px, py, x, y);
   for (let i = 1; i < points.length; i += 1) {
     const prev = points[i - 1];
@@ -153,11 +200,11 @@ export function hasLineOfSight(state, x, y) {
     }
     const door = getDoorBetween(state, prev.x, prev.y, curr.x, curr.y);
     if (door && door.doorState !== DOOR_STATES.OPEN) {
-      return false;
+      return i === points.length - 1 && isClosedDoorHallTarget(state, x, y);
     }
   }
 
-  return true;
+  return !isAcrossClosedDoor(state, px, py, x, y) || isClosedDoorHallTarget(state, x, y);
 }
 
 export function isTileVisible(state, x, y) {

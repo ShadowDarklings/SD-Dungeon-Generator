@@ -67,6 +67,8 @@ const ui = {
   levelInput: document.getElementById("level-input"),
   seedInput: document.getElementById("seed-input"),
   generateBtn: document.getElementById("generate-btn"),
+  zoomInBtn: document.getElementById("zoom-in-btn"),
+  zoomOutBtn: document.getElementById("zoom-out-btn"),
   saveBtn: document.getElementById("save-btn"),
   loadBtn: document.getElementById("load-btn"),
   multiplayerBtn: document.getElementById("multiplayer-btn"),
@@ -184,7 +186,7 @@ const SHADOWDARKLINGS_SOURCE_SWITCHES = [
 let viewport = {
   scale: 1,
   minScale: 1,
-  maxScale: 1.5,
+  maxScale: 2.4,
   width: 0,
   height: 0,
   panX: 0,
@@ -337,6 +339,14 @@ function pointerInMapView(panel, clientX, clientY) {
   };
 }
 
+function getMapViewCenter(panel) {
+  const { width, height } = getMapViewSize(panel);
+  return {
+    x: width / 2,
+    y: height / 2
+  };
+}
+
 function updateViewportBounds() {
   const panel = ui.mapHost.parentElement;
   const { width: availableWidth, height: availableHeight } = getMapViewSize(panel);
@@ -400,6 +410,14 @@ function applyViewportScale(nextScale, anchor = null) {
   ui.mapHost.style.marginRight = "";
   ui.mapHost.style.marginBottom = "";
   commitViewportTransform();
+}
+
+function zoomMapBy(multiplier) {
+  if (!state) {
+    return;
+  }
+  const panel = ui.mapHost.parentElement;
+  applyViewportScale(viewport.scale * multiplier, getMapViewCenter(panel));
 }
 
 function setStatus(resultOrMessage) {
@@ -699,6 +717,107 @@ function createAttackButton(character, attack) {
     applyAttackRoll(character, attack);
   });
   return button;
+}
+
+function getMonsterAttackDisplayName(monster) {
+  const rawName = String(monster?.name || "monster").trim();
+  return rawName ? rawName.toLowerCase() : "monster";
+}
+
+function applyMonsterAttackRoll(monster, attack) {
+  if (!ui.damageResult || !attack) {
+    return;
+  }
+  const result = rollCheck(attack.bonus || 0);
+  const monsterName = getMonsterAttackDisplayName(monster);
+  const message = `The ${monsterName} attacks and rolls a ${result.total}.`;
+  markUserActivity();
+  setStatus(message);
+  showCheckResult(result, "Attack", {
+    headline: message,
+    message: `${attack.name} ${attack.bonusText || formatModifier(attack.bonus || 0)}`
+  });
+}
+
+function createMonsterAttackButton(monster, attack) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "damage-token attack-roll-button";
+  button.textContent = attack.name;
+  button.title = `Roll attack ${attack.bonusText || formatModifier(attack.bonus || 0)}`;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    applyMonsterAttackRoll(monster, attack);
+  });
+  return button;
+}
+
+function parseMonsterAttackSegment(segment) {
+  const value = String(segment || "").trim();
+  if (!value) {
+    return null;
+  }
+  const match = value.match(/^(\d+\s+)?(.+?)\s*(\([^)]+\)\s*)?([+\-]\d+)\b(.*)$/);
+  if (!match) {
+    return null;
+  }
+  const [, count = "", rawName = "", range = "", bonusText = "", detail = ""] = match;
+  const name = prettifyAttackName(rawName.trim());
+  if (!name) {
+    return null;
+  }
+  return {
+    count,
+    name,
+    range,
+    bonus: Number.parseInt(bonusText, 10) || 0,
+    bonusText,
+    detail
+  };
+}
+
+function appendMonsterAttackSegment(target, segment, monster) {
+  const attack = parseMonsterAttackSegment(segment);
+  if (!attack) {
+    appendDamageAwareText(target, segment, {
+      sourceLabel: `${monster?.name || "Monster"} attack`
+    });
+    return;
+  }
+  if (attack.count) {
+    target.append(document.createTextNode(attack.count));
+  }
+  target.append(createMonsterAttackButton(monster, attack));
+  if (attack.range) {
+    target.append(document.createTextNode(` ${attack.range.trim()}`));
+  }
+  target.append(document.createTextNode(` ${attack.bonusText}`));
+  if (attack.detail) {
+    appendDamageAwareText(target, attack.detail, {
+      sourceLabel: `${monster?.name || "Monster"} attack`
+    });
+  }
+}
+
+function createMonsterAttackContent(monster) {
+  const content = document.createElement("span");
+  const value = String(monster?.attack || "").trim();
+  if (!value) {
+    content.textContent = "unknown";
+    return content;
+  }
+  const parts = value.split(/(\s+\b(?:or|and)\b\s+)/i);
+  for (const part of parts) {
+    if (!part) {
+      continue;
+    }
+    if (/^\s+\b(?:or|and)\b\s+$/i.test(part)) {
+      content.append(document.createTextNode(part));
+      continue;
+    }
+    appendMonsterAttackSegment(content, part, monster);
+  }
+  return content;
 }
 
 function createBackstabButton(character, attack) {
@@ -3226,8 +3345,14 @@ function createCompactInputField(label, value, max, onChange) {
 function updateRoomLootPanel() {
   ui.roomLootPanel.innerHTML = "";
   const roomLoot = getRoomLoot(state);
-  if (!state.player.roomId || roomLoot.length === 0) {
-    ui.roomLootPanel.textContent = "No revealed treasure in this room.";
+  const roomFeatures = state.entities.filter((entity) => (
+    entity.type === "feature" &&
+    entity.subtype !== "door" &&
+    entity.visible !== false &&
+    entity.roomId === state.player.roomId
+  ));
+  if (!state.player.roomId || (roomLoot.length === 0 && roomFeatures.length === 0)) {
+    ui.roomLootPanel.textContent = "No revealed treasure or features in this room.";
     return;
   }
 
@@ -3262,6 +3387,15 @@ function updateRoomLootPanel() {
     });
     ui.roomLootPanel.append(lootButton);
   }
+
+  for (const feature of roomFeatures) {
+    const card = document.createElement("article");
+    card.className = "trap-card";
+    const title = document.createElement("h3");
+    title.textContent = feature.name || "Dungeon feature";
+    card.append(title);
+    ui.roomLootPanel.append(card);
+  }
 }
 
 function createStatRow(term, value, options = {}) {
@@ -3278,6 +3412,16 @@ function createStatRow(term, value, options = {}) {
   } else {
     dd.textContent = displayValue;
   }
+  fragment.append(dt, dd);
+  return fragment;
+}
+
+function createMonsterAttackStatRow(monster) {
+  const fragment = document.createDocumentFragment();
+  const dt = document.createElement("dt");
+  dt.textContent = "ATK";
+  const dd = document.createElement("dd");
+  dd.append(createMonsterAttackContent(monster));
   fragment.append(dt, dd);
   return fragment;
 }
@@ -3306,11 +3450,7 @@ function updateMonsterPanel() {
     stats.append(
       createStatRow("AC", monster.ac),
       createStatRow("HP", monster.hp),
-      createStatRow("ATK", monster.attack, {
-        damageAware: true,
-        sourceLabel: monster.name,
-        references: monster.damage
-      })
+      createMonsterAttackStatRow(monster)
     );
     card.append(stats);
 
@@ -3334,14 +3474,8 @@ function updateMonsterPanel() {
 function updateTrapPanel() {
   ui.trapPanel.innerHTML = "";
   const traps = getRoomTraps(state);
-  const roomFeatures = state.entities.filter((entity) => (
-    entity.type === "feature" &&
-    entity.subtype !== "door" &&
-    entity.visible !== false &&
-    entity.roomId === state.player.roomId
-  ));
-  if (!state.player.roomId || (traps.length === 0 && roomFeatures.length === 0)) {
-    ui.trapPanel.textContent = "No revealed traps or features in this room.";
+  if (!state.player.roomId || traps.length === 0) {
+    ui.trapPanel.textContent = "No revealed traps in this room.";
     return;
   }
 
@@ -3394,15 +3528,6 @@ function updateTrapPanel() {
       card.append(disarmButton);
     }
 
-    ui.trapPanel.append(card);
-  }
-
-  for (const feature of roomFeatures) {
-    const card = document.createElement("article");
-    card.className = "trap-card";
-    const title = document.createElement("h3");
-    title.textContent = feature.name || "Dungeon feature";
-    card.append(title);
     ui.trapPanel.append(card);
   }
 }
@@ -3919,6 +4044,16 @@ function hookInputEvents() {
     if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(event.target.tagName)) {
       return;
     }
+    if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      zoomMapBy(1.16);
+      return;
+    }
+    if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      zoomMapBy(1 / 1.16);
+      return;
+    }
     const moves = {
       ArrowUp: [0, -1],
       ArrowDown: [0, 1],
@@ -4207,7 +4342,20 @@ function hookMapViewportInteractions() {
     applyViewportScale(viewport.scale * zoomStep, pointerInMapView(panel, event.clientX, event.clientY));
   }, { passive: false });
 
+  ui.zoomInBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    zoomMapBy(1.16);
+  });
+
+  ui.zoomOutBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    zoomMapBy(1 / 1.16);
+  });
+
   panel.addEventListener("pointerdown", (event) => {
+    if (event.target?.closest?.(".map-zoom-controls")) {
+      return;
+    }
     if (event.button !== 0) {
       return;
     }

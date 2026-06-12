@@ -4,6 +4,7 @@ import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibi
 
 const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
 const DEFAULT_INVENTORY_SLOTS = 10;
+const MONSTER_LOOT_DROP_CHANCE = 0.75;
 
 function ensureInventory(state) {
   if (!state.inventory) {
@@ -116,6 +117,22 @@ function findDoorTouchingTile(state, x, y) {
 
 function getDoorAt(state, x, y) {
   return findDoorTouchingTile(state, x, y);
+}
+
+function isDoorPassable(door) {
+  return door?.doorState === DOOR_STATES.OPEN ||
+    door?.doorState === "gone" ||
+    door?.gone === true ||
+    door?.destroyed === true;
+}
+
+function findBlockingDoorAtTile(state, x, y) {
+  return state.entities.find((entity) => (
+    entity.subtype === "door" &&
+    !isDoorPassable(entity) &&
+    entity.x === x &&
+    entity.y === y
+  )) || null;
 }
 
 function findActiveTrapForTarget(state, targetType, targetEntityId = null) {
@@ -237,14 +254,56 @@ function addFeature(state, x, y, roomId, name) {
   });
 }
 
+function isBlockingPillarAt(state, x, y) {
+  const columns = Array.isArray(state.decor?.columns) ? state.decor.columns : [];
+  return columns.some((column) => (
+    column?.blocksMovement === true &&
+    String(column.placement || "center") === "center" &&
+    Number(column.x) === x &&
+    Number(column.y) === y
+  ));
+}
+
 function isWalkable(state, tile) {
   if (!tile) {
     return { ok: false, message: "Blocked by stone wall." };
+  }
+  if (isBlockingPillarAt(state, tile.x, tile.y)) {
+    return { ok: false, message: "Blocked by a pillar." };
   }
   if (tile.type === TILE_TYPES.FLOOR) {
     return { ok: true, message: "Moved." };
   }
   return { ok: false, message: "Blocked by stone wall." };
+}
+
+function addMonsterLootDrop(state, monster) {
+  if (Math.random() >= MONSTER_LOOT_DROP_CHANCE) {
+    return null;
+  }
+  const level = Math.max(1, Number(monster.level ?? state.level ?? 1) || 1);
+  const value = Math.max(5, level * 8 + Math.floor(Math.random() * (level * 12 + 8)));
+  const loot = {
+    id: `monster-loot-${state.entities.length}-${Date.now()}`,
+    type: ENTITY_TYPES.TREASURE,
+    subtype: "monster-loot",
+    kind: "coin-cache",
+    x: monster.x,
+    y: monster.y,
+    roomId: monster.roomId,
+    visible: true,
+    revealed: true,
+    collected: false,
+    name: `${monster.name || "monster"} loot`,
+    value,
+    searchDc: 0,
+    slots: 1,
+    bonusSlots: 0,
+    priceless: false,
+    description: "Coins, oddments, or useful salvage dropped by a defeated monster."
+  };
+  state.entities.push(loot);
+  return loot;
 }
 
 function openClosedDoorFromMovement(state, door) {
@@ -319,7 +378,7 @@ function movePlayerInDarkness(state, dx, dy) {
   const door = getDoorBetween(state, state.player.x, state.player.y, nextX, nextY);
 
   if (door) {
-    if (door.doorState === DOOR_STATES.OPEN) {
+    if (isDoorPassable(door)) {
       return moveToTileInDarkness(state, tile);
     }
 
@@ -351,9 +410,37 @@ function movePlayerInDarkness(state, dx, dy) {
     return { moved: false, message: "door open", darknessMessage: "door open" };
   }
 
-  if (!tile || tile.type !== TILE_TYPES.FLOOR) {
+  const blockingDoor = findBlockingDoorAtTile(state, nextX, nextY);
+  if (blockingDoor) {
+    const trap = findActiveTrapForTarget(state, "door", blockingDoor.id);
+    if (trap) {
+      const result = revealAndTriggerTrap(trap);
+      setDoorState(blockingDoor, DOOR_STATES.OPEN);
+      state.darkness.pendingDoorKey = null;
+      return {
+        moved: false,
+        trapSprung: true,
+        message: `you've run into a trapped door! ${result.message}`,
+        darknessMessage: "you've run into a trapped door!"
+      };
+    }
+    if (blockingDoor.doorState === DOOR_STATES.LOCKED) {
+      return lockedDoorResult(state, blockingDoor);
+    }
+    if (state.darkness.pendingDoorKey === blockingDoor.id && blockingDoor.doorState === DOOR_STATES.CLOSED) {
+      setDoorState(blockingDoor, DOOR_STATES.OPEN);
+      clearLockedDoorAction(state);
+      state.darkness.pendingDoorKey = null;
+      return { moved: false, message: "door open", darknessMessage: "door open" };
+    }
+    state.darkness.pendingDoorKey = blockingDoor.id;
+    return { moved: false, message: "you've run into a door.", darknessMessage: "you've run into a door." };
+  }
+
+  if (!tile || tile.type !== TILE_TYPES.FLOOR || isBlockingPillarAt(state, nextX, nextY)) {
     state.darkness.pendingDoorKey = null;
-    return { moved: false, message: "You've run into a wall!", darknessMessage: "You've run into a wall!" };
+    const message = isBlockingPillarAt(state, nextX, nextY) ? "You've run into a pillar!" : "You've run into a wall!";
+    return { moved: false, message, darknessMessage: message };
   }
 
   return moveToTileInDarkness(state, tile);
@@ -369,11 +456,25 @@ export function movePlayer(state, dx, dy) {
   const tile = getTile(state, nextX, nextY);
   const door = getDoorBetween(state, state.player.x, state.player.y, nextX, nextY);
 
-  if (door?.doorState === DOOR_STATES.LOCKED) {
-    return lockedDoorResult(state, door);
+  if (door && !isDoorPassable(door)) {
+    if (door.doorState === DOOR_STATES.LOCKED) {
+      return lockedDoorResult(state, door);
+    }
+    if (door.doorState === DOOR_STATES.CLOSED) {
+      return openClosedDoorFromMovement(state, door);
+    }
+    return { moved: false, message: "Blocked by a door." };
   }
-  if (door?.doorState === DOOR_STATES.CLOSED) {
-    return openClosedDoorFromMovement(state, door);
+
+  const blockingDoor = findBlockingDoorAtTile(state, nextX, nextY);
+  if (blockingDoor) {
+    if (blockingDoor.doorState === DOOR_STATES.LOCKED) {
+      return lockedDoorResult(state, blockingDoor);
+    }
+    if (blockingDoor.doorState === DOOR_STATES.CLOSED) {
+      return openClosedDoorFromMovement(state, blockingDoor);
+    }
+    return { moved: false, message: "Blocked by a door." };
   }
 
   const walkable = isWalkable(state, tile);
@@ -439,7 +540,12 @@ export function clickEntity(state, x, y) {
   if (entity.type === ENTITY_TYPES.MONSTER) {
     entity.defeated = true;
     addFeature(state, entity.x, entity.y, entity.roomId, `dead ${entity.name}`);
-    return { message: `Monster defeated: dead ${entity.name}.` };
+    const loot = addMonsterLootDrop(state, entity);
+    return {
+      message: loot
+        ? `Monster defeated: dead ${entity.name}. It dropped ${loot.name}.`
+        : `Monster defeated: dead ${entity.name}.`
+    };
   }
 
   if (entity.type === ENTITY_TYPES.TREASURE) {
@@ -589,7 +695,7 @@ export function getRoomTraps(state) {
     return (
       entity.type === ENTITY_TYPES.TRAP &&
       entity.revealed &&
-      (entity.roomId === state.player.roomId || entity.wasSprung)
+      entity.roomId === state.player.roomId
     );
   });
 }

@@ -103,7 +103,8 @@
           <p class="hint">
             Controls: arrow keys move player, S searches, G gets treasure, L leaves carried treasure,
             and click a revealed trap's Disarm? button to disarm it. Click map tokens to interact with
-            monsters, doors, features, and traps. Left-click and drag the map to pan; use the mouse wheel to zoom.
+            monsters, doors, features, and traps. Drag the map to pan; use mouse wheel, keyboard +/-, or the map
+            zoom buttons to zoom.
           </p>
           <nav class="site-links" aria-label="Project links">
             <a href="about.html">Back to About</a>
@@ -117,6 +118,10 @@
       </section>
 
       <section class="map-panel">
+        <div class="map-zoom-controls" aria-label="Map zoom controls">
+          <button id="zoom-in-btn" type="button" aria-label="Zoom in">+</button>
+          <button id="zoom-out-btn" type="button" aria-label="Zoom out">-</button>
+        </div>
         <div id="darkness-message" class="darkness-message" aria-live="polite"></div>
         <div id="map-host" class="map-host" aria-label="Dungeon Map"></div>
       </section>
