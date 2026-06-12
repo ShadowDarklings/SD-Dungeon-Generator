@@ -51,7 +51,8 @@ import {
   createHostSession,
   getHostSession,
   joinHostSession,
-  normalizeSessionCode
+  normalizeSessionCode,
+  updateHostSessionState
 } from "./multiplayer.js";
 import {
   advanceTorchTime,
@@ -174,8 +175,10 @@ let multiplayerSession = {
   inviteCode: "",
   inviteUrl: "",
   role: "",
+  currentPlayerId: null,
   players: [],
-  assignments: []
+  assignments: [],
+  stateJson: null
 };
 let multiplayerRefreshTimer = null;
 let multiplayerRefreshInFlight = false;
@@ -5012,9 +5015,59 @@ function normalizeMultiplayerSession(raw = {}, fallback = {}) {
     inviteCode,
     inviteUrl: raw.invite_url || fallback.inviteUrl || (inviteCode ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(inviteCode)}` : ""),
     role: raw.role || fallback.role || "",
+    currentPlayerId: raw.current_player_id ?? raw.currentPlayerId ?? fallback.currentPlayerId ?? null,
     players: Array.isArray(raw.players) ? raw.players : fallback.players || [],
-    assignments: Array.isArray(raw.assignments) ? raw.assignments : fallback.assignments || []
+    assignments: Array.isArray(raw.assignments) ? raw.assignments : fallback.assignments || [],
+    stateJson: raw.state_json || raw.stateJson || fallback.stateJson || null
   };
+}
+
+function getAssignedCharacterIdForCurrentPlayer() {
+  const currentPlayerId = String(multiplayerSession.currentPlayerId ?? "");
+  if (!currentPlayerId) {
+    return "";
+  }
+  const assignment = multiplayerSession.assignments.find((entry) => {
+    return String(entry?.player_id ?? entry?.playerId ?? "") === currentPlayerId;
+  });
+  return String(assignment?.character_id ?? assignment?.characterId ?? "");
+}
+
+function getCharacterNameById(characterId) {
+  if (!characterId) {
+    return "";
+  }
+  return state?.characters?.find((character) => character.id === characterId)?.name || "";
+}
+
+function redrawFromHydratedState(message = "") {
+  if (!state) {
+    return;
+  }
+  recomputeVisibility(state);
+  setupCanvasLayers(state);
+  updatePanels();
+  updateWanderingUi();
+  render();
+  if (message) {
+    setStatus(message);
+  }
+}
+
+function applyMultiplayerSessionState(sessionPayload, options = {}) {
+  const normalized = normalizeMultiplayerSession(sessionPayload, multiplayerSession);
+  multiplayerSession = normalized;
+  if (normalized.role !== "player" || !normalized.stateJson) {
+    renderMultiplayerUi();
+    return;
+  }
+  const assignedCharacterId = getAssignedCharacterIdForCurrentPlayer();
+  const nextState = hydrateDungeonState(normalized.stateJson);
+  if (assignedCharacterId && nextState.characters?.some((character) => character.id === assignedCharacterId)) {
+    nextState.activeCharacterId = assignedCharacterId;
+  }
+  state = nextState;
+  redrawFromHydratedState(options.message || "");
 }
 
 function setMultiplayerStatus(message, tone = "") {
@@ -5051,7 +5104,9 @@ function renderMultiplayerUi() {
       name.textContent = player.display_name || player.username || player.name || `Player ${player.id}`;
       const meta = document.createElement("span");
       meta.className = "multiplayer-presence-meta";
-      meta.textContent = player.role === "host" || player.is_host ? "host" : "player";
+      const assignedName = getCharacterNameById(player.assigned_character_id || player.assignedCharacterId);
+      const roleText = player.role === "host" || player.is_host ? "host" : "player";
+      meta.textContent = assignedName ? `${roleText} - ${assignedName}` : roleText;
       row.append(name, meta);
       ui.multiplayerPresenceList.append(row);
     }
@@ -5163,7 +5218,7 @@ async function joinMultiplayerHost() {
     const session = await joinHostSession(inviteValue, {
       characterId: activeCharacter?.id || null
     });
-    multiplayerSession = normalizeMultiplayerSession(session, { role: "player" });
+    applyMultiplayerSessionState(session, { message: "Joined host dungeon." });
     setMultiplayerStatus("Joined host session.", "success");
     renderMultiplayerUi();
   } catch (error) {
@@ -5187,12 +5242,18 @@ async function refreshMultiplayerSession(options = {}) {
     setMultiplayerStatus("Refreshing session...");
   }
   try {
-    const session = await getHostSession(multiplayerSession.inviteCode);
-    multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
+    const session = multiplayerSession.role === "host" && state
+      ? await updateHostSessionState(multiplayerSession.inviteCode, state)
+      : await getHostSession(multiplayerSession.inviteCode);
+    if (multiplayerSession.role === "player") {
+      applyMultiplayerSessionState(session);
+    } else {
+      multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
+      renderMultiplayerUi();
+    }
     if (!options.silent) {
       setMultiplayerStatus("Session refreshed.", "success");
     }
-    renderMultiplayerUi();
   } catch (error) {
     if (!options.silent) {
       setMultiplayerStatus(error.message, "error");

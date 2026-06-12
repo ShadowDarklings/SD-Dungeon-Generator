@@ -129,6 +129,7 @@ def test_joined_player_can_fetch_session(env):
     fetch = bob.get(f"/api/multiplayer/sessions/{code}")
     assert fetch.status_code == 200
     assert {p["display_name"] for p in fetch.get_json()["players"]} >= {"Bob"}
+    assert fetch.get_json()["current_player_id"] is not None
 
 
 # ── 4. Idempotent join ──────────────────────────────────────────────────────
@@ -298,6 +299,46 @@ def test_session_payload_excludes_sensitive_fields(env):
 
     for forbidden in ("email", "password_hash", "provider_user_id", "@example.com"):
         assert forbidden not in payload, f"sensitive field leaked: {forbidden}"
+
+
+def test_host_can_update_session_state_and_player_fetches_it(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    code = create_session(alice).get_json()["invite_code"]
+    bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+    updated_state = {
+        "characters": [{"id": "host-live-dot", "name": "Host Live Dot"}],
+        "tiles": [{"x": 1, "y": 2, "type": "floor"}],
+    }
+
+    r = alice.put(f"/api/multiplayer/sessions/{code}/state",
+                  json={"state_json": updated_state})
+
+    assert r.status_code == 200
+    assert r.get_json()["state_json"] == updated_state
+
+    fetch = bob.get(f"/api/multiplayer/sessions/{code}").get_json()
+    assert fetch["state_json"] == updated_state
+
+
+def test_non_host_cannot_update_session_state(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+    eve = client_for("eve")
+
+    code = create_session(alice).get_json()["invite_code"]
+    bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+
+    player_update = bob.put(f"/api/multiplayer/sessions/{code}/state",
+                            json={"state_json": {"characters": []}})
+    non_member_update = eve.put(f"/api/multiplayer/sessions/{code}/state",
+                                json={"state_json": {"characters": []}})
+
+    assert player_update.status_code == 404
+    assert non_member_update.status_code == 404
 
 
 # ── 9. Content-type / JSON handling ─────────────────────────────────────────

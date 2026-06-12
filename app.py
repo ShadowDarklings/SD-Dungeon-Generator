@@ -952,8 +952,10 @@ def _get_membership(db, mp, user_id):
     ).first()
 
 
-def _session_view(db, mp, requester_role):
+def _session_view(db, mp, requester):
     """§16.2 SessionView. Exposes only the contracted player fields (§16.5)."""
+    requester_role = requester.role if hasattr(requester, "role") else str(requester or "")
+    requester_player_id = requester.id if hasattr(requester, "id") else None
     players = db.exec(
         select(MultiplayerPlayer)
         .where(MultiplayerPlayer.session_id == mp.id)
@@ -965,6 +967,7 @@ def _session_view(db, mp, requester_role):
         "invite_code": mp.invite_code,
         "invite_url": invite_url,
         "role": requester_role,
+        "current_player_id": requester_player_id,
         "players": [
             {
                 "id": p.id,
@@ -1057,7 +1060,8 @@ def create_multiplayer_session():
     ))
     db.commit()
 
-    return _session_view(db, mp, "host"), 201
+    membership = _get_membership(db, mp, current_user.id)
+    return _session_view(db, mp, membership), 201
 
 
 @app.route("/api/multiplayer/sessions/<invite_code>/join", methods=["POST"])
@@ -1079,7 +1083,7 @@ def join_multiplayer_session(invite_code):
         membership.last_seen_at = datetime.now(timezone.utc)
         db.add(membership)
         db.commit()
-        return _session_view(db, mp, membership.role), 200
+        return _session_view(db, mp, membership), 200
 
     player_count = len(db.exec(
         select(MultiplayerPlayer).where(MultiplayerPlayer.session_id == mp.id)
@@ -1116,7 +1120,8 @@ def join_multiplayer_session(invite_code):
     ))
     db.commit()
 
-    return _session_view(db, mp, "player"), 200
+    membership = _get_membership(db, mp, current_user.id)
+    return _session_view(db, mp, membership), 200
 
 
 @app.route("/api/multiplayer/sessions/<invite_code>", methods=["GET"])
@@ -1136,7 +1141,38 @@ def get_multiplayer_session(invite_code):
     db.add(membership)
     db.commit()
 
-    return _session_view(db, mp, membership.role), 200
+    return _session_view(db, mp, membership), 200
+
+
+@app.route("/api/multiplayer/sessions/<invite_code>/state", methods=["PUT"])
+@login_required
+@csrf.exempt
+def update_multiplayer_session_state(invite_code):
+    data = _json_body_or_none(required=True)
+    if data is None:
+        return _INVALID_JSON
+
+    state_json = data.get("state_json")
+    if not isinstance(state_json, dict):
+        return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
+
+    db = get_db_session()
+    mp = _load_open_session(db, invite_code)
+    if mp is None:
+        return _NOT_FOUND
+
+    membership = _get_membership(db, mp, current_user.id)
+    if membership is None or membership.role != "host":
+        return _NOT_FOUND
+
+    mp.state_json = state_json
+    mp.updated_at = datetime.now(timezone.utc)
+    membership.last_seen_at = datetime.now(timezone.utc)
+    db.add(mp)
+    db.add(membership)
+    db.commit()
+
+    return _session_view(db, mp, membership), 200
 
 
 @app.route("/api/multiplayer/sessions/<invite_code>/assignments", methods=["POST"])
@@ -1196,7 +1232,7 @@ def assign_multiplayer_character(invite_code):
     db.add(membership)
     db.commit()
 
-    view = _session_view(db, mp, "host")
+    view = _session_view(db, mp, membership)
     return {"ok": True, "players": view["players"], "assignments": view["assignments"], "error": None}, 200
 
 
