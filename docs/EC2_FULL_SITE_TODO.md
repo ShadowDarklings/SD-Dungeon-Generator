@@ -45,10 +45,10 @@ imports all work in production.
 
 - [x] Visit `/` over HTTPS from EC2 localhost.
 - [x] Visit `/site/` over HTTPS from EC2 localhost.
-- [ ] Register a user.
-- [ ] Log in with username/password.
+- [x] Register a user.
+- [x] Log in with username/password.
 - [ ] Log in with GitHub OAuth.
-- [ ] Import a ShadowDarklings character.
+- [x] Import a ShadowDarklings character.
 - [ ] Save a game.
 - [ ] Load the saved game.
 - [ ] Create a multiplayer invite.
