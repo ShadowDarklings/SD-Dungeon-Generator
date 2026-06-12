@@ -35,8 +35,8 @@ imports all work in production.
 
 ## HTTPS And Network
 
-- [ ] Point a domain or subdomain at the EC2 public IP.
-- [ ] Replace self-signed certs with Let's Encrypt certs, or switch the proxy to Caddy.
+- [x] Point a domain or subdomain at the EC2 public IP.
+- [x] Replace self-signed certs with Let's Encrypt certs, or switch the proxy to Caddy.
 - [x] Open EC2 inbound ports `80` and `443`.
 - [ ] Restrict inbound SSH `22` to trusted IPs only.
 - [x] Confirm Postgres has no public host port.
@@ -61,5 +61,5 @@ imports all work in production.
 - [ ] Add a simple `pg_dump` backup command.
 - [ ] Store backups outside the Docker volume.
 - [ ] Capture deploy commands in `DEPLOY_AWS.md`.
-- [ ] Capture final live URL in `README.md`.
+- [x] Capture final live URL in `README.md`.
 - [ ] Add a short rollback note: redeploy previous commit and keep `pgdata`.

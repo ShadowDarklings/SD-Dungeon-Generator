@@ -3,7 +3,7 @@
 **Team:** ShadowDarklings
 **Course:** TCSS 506 — Cloud Web Application Engineering with AI
 
-> **Live URL:** `https://<TBD — update before Canvas submission>`
+> **Live URL:** `https://44-252-95-80.sslip.io/site/`
 
 ## What It Is
 
