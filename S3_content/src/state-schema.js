@@ -83,6 +83,10 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
       totalValue: 0,
       fullyLootedShown: false
     },
+    decor: {
+      columns: [],
+      water: []
+    },
     characters: [],
     activeCharacterId: null,
     inventory: {
@@ -92,7 +96,11 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
     },
     generation: {
       entranceRoomId: null,
-      connectivityValid: false
+      connectivityValid: false,
+      architecture: {
+        pattern: null,
+        rolePassVersion: 1
+      }
     }
   };
 }
