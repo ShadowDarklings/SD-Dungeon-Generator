@@ -63,6 +63,7 @@ Set-Location '$repo'
 `$env:DATABASE_URL = 'sqlite:///dev.db'
 `$env:OAUTH_CLIENT_ID = 'dev-client-id'
 `$env:OAUTH_CLIENT_SECRET = 'dev-client-secret'
+`$env:SHADOWDARKLINGS_IMPORT_ENABLED = '1'
 `$env:ALLOW_ANON_SHADOWDARKLINGS_IMPORT = '1'
 & '$python' -u -c "from app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
 "@ | Set-Content -Path $launcher -Encoding UTF8
@@ -95,6 +96,7 @@ $env:SECRET_KEY = "dev-secret-not-for-production"
 $env:DATABASE_URL = "sqlite:///dev.db"
 $env:OAUTH_CLIENT_ID = "dev-client-id"
 $env:OAUTH_CLIENT_SECRET = "dev-client-secret"
+$env:SHADOWDARKLINGS_IMPORT_ENABLED = "1"
 $env:ALLOW_ANON_SHADOWDARKLINGS_IMPORT = "1"
 & "C:\Users\Dungeon Master\Desktop\Coding stuff\GCSDE\506\SD-website\.venv\Scripts\python.exe" -u -c "from app import app; app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)"
 ```
@@ -184,11 +186,22 @@ The script sets:
 - `OAUTH_CLIENT_ID=dev-client-id`
 - `OAUTH_CLIENT_SECRET=dev-client-secret`
 - `S3_CONTENT_DIR=S3_content`
+- `SHADOWDARKLINGS_IMPORT_ENABLED=1`
 - `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1`
 
 The first four main env vars are required because [app.py](./app.py) reads them
-with `os.environ[...]`. The anonymous ShadowDarklings import bypass is only for
-local frontend editing and must not be enabled in production.
+with `os.environ[...]`.
+
+`SHADOWDARKLINGS_IMPORT_ENABLED=1` keeps the one-click ShadowDarklings importer
+available during local testing. `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1` lets the
+frontend importer be tested without logging in first. Both importer flags are
+local-only conveniences and must not be enabled in production.
+
+Do not use `FLASK_ENV=production` for local browser testing unless the user is
+specifically testing production behavior. In this app, production mode disables
+the ShadowDarklings importer and makes the import button show:
+
+`Character import is not available in this environment.`
 
 ---
 
@@ -233,6 +246,20 @@ only `http://127.0.0.1:5000/`.
 Confirm JavaScript modules load:
 
 `http://127.0.0.1:5000/site/src/main.js`
+
+### Import button says feature unavailable
+
+The server was probably started with production-mode behavior. Restart with
+**One-Command Agent Launch** and confirm these env vars are set in the server
+window:
+
+```powershell
+$env:SHADOWDARKLINGS_IMPORT_ENABLED = "1"
+$env:ALLOW_ANON_SHADOWDARKLINGS_IMPORT = "1"
+```
+
+The launcher should run `app.run(..., debug=False, use_reloader=False)` instead
+of setting `FLASK_ENV=production`.
 
 ### Port already in use
 
