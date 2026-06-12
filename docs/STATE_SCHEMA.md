@@ -28,12 +28,21 @@ hydration normalization live in `S3_content/src/persistence.js`.
   lockedDoorAction: { doorId: string, ... } | null,
   visibility: { visibleNow: Set<string>, exploredEver: Set<string> },
   lootLog: { entries: LootEntry[], totalValue: number, fullyLootedShown: boolean },
+  decor: { columns: Column[], water: WaterTile[] },
   characters: Character[],
   activeCharacterId: string | null,
   inventory: Inventory,
-  generation: { entranceRoomId: string | null, connectivityValid: boolean }
+  generation: {
+    entranceRoomId: string | null,
+    connectivityValid: boolean,
+    architecture: { pattern: string | null, rolePassVersion: number }
+  }
 }
 ```
+
+> `decor` and `generation.architecture` were added by the visuals expansion
+> (PR #20). Both are defensively defaulted on access (`state.decor?.columns`,
+> `state.decor = state.decor || {}`), so pre-PR-20 saves hydrate cleanly.
 
 ## Core Objects
 
