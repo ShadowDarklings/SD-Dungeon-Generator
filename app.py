@@ -24,7 +24,7 @@ from flask_login import (
     LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 )
 from sqlalchemy import (
-    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint
+    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint, text
 )
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
@@ -112,8 +112,29 @@ oauth.register(
 
 
 def bootstrap_database() -> None:
-    """Create the SQLModel tables if they are missing."""
+    """Create tables and apply tiny compatibility migrations for old EC2 volumes."""
     SQLModel.metadata.create_all(engine)
+    migrate_existing_database()
+
+
+def migrate_existing_database() -> None:
+    """Backfill columns added after the first EC2 Postgres deployment.
+
+    SQLModel's create_all creates missing tables but does not alter existing
+    tables. The EC2 pgdata volume may survive branch upgrades, so keep these
+    migrations idempotent and narrow.
+    """
+    if not DATABASE_URL.startswith("postgresql"):
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(254)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(200)"))
+        conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE")
+        )
+        conn.execute(text("UPDATE users SET created_at = NOW() WHERE created_at IS NULL"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)"))
 
 
 # ---------------------------------------------------------------------------
