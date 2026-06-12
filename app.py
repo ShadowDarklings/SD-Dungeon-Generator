@@ -905,6 +905,26 @@ def _state_character_ids(state_json) -> set:
     return {c.get("id") for c in chars if isinstance(c, dict) and c.get("id")}
 
 
+def _first_unassigned_character_id(db, mp):
+    chars = mp.state_json.get("characters") if isinstance(mp.state_json, dict) else None
+    if not isinstance(chars, list):
+        return None
+    taken_ids = {
+        p.assigned_character_id
+        for p in db.exec(
+            select(MultiplayerPlayer).where(MultiplayerPlayer.session_id == mp.id)
+        ).all()
+        if p.assigned_character_id
+    }
+    for character in chars:
+        if not isinstance(character, dict):
+            continue
+        character_id = character.get("id")
+        if isinstance(character_id, str) and character_id and character_id not in taken_ids:
+            return character_id
+    return None
+
+
 def _coerce_positive_int(value):
     if isinstance(value, int):
         return value if value > 0 else None
@@ -1110,6 +1130,8 @@ def join_multiplayer_session(invite_code):
             character_id = None
     else:
         character_id = None
+    if character_id is None:
+        character_id = _first_unassigned_character_id(db, mp)
 
     db.add(MultiplayerPlayer(
         session_id=mp.id,

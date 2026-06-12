@@ -147,6 +147,24 @@ def test_duplicate_join_is_idempotent(env):
     assert len(second.get_json()["players"]) == 2  # host + bob, no duplicate row
 
 
+def test_join_assigns_first_unclaimed_character(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    created = alice.post(
+        "/api/multiplayer/sessions",
+        json={"seed": 42, "level": 3, "host_character_id": "char-1", "state_json": STATE},
+    ).get_json()
+    code = created["invite_code"]
+
+    joined = bob.post(f"/api/multiplayer/sessions/{code}/join", json={}).get_json()
+    bob_player = next(p for p in joined["players"] if p["role"] == "player")
+
+    assert bob_player["assigned_character_id"] == "char-2"
+    assert {"player_id": bob_player["id"], "character_id": "char-2"} in joined["assignments"]
+
+
 # ── 5 & 6. Assignment authorization and validation ──────────────────────────
 
 def test_assignment_rules(env):

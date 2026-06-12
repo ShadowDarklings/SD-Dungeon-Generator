@@ -74,6 +74,9 @@ const ui = {
   saveBtn: document.getElementById("save-btn"),
   loadBtn: document.getElementById("load-btn"),
   multiplayerBtn: document.getElementById("multiplayer-btn"),
+  multiplayerTitle: document.getElementById("multiplayer-title"),
+  multiplayerHostSection: document.getElementById("multiplayer-host-section"),
+  multiplayerJoinSection: document.getElementById("multiplayer-join-section"),
   lightTorchBtn: document.getElementById("light-torch-btn"),
   lightLanternBtn: document.getElementById("light-lantern-btn"),
   castLightBtn: document.getElementById("cast-light-btn"),
@@ -182,6 +185,7 @@ let multiplayerSession = {
 };
 let multiplayerRefreshTimer = null;
 let multiplayerRefreshInFlight = false;
+let multiplayerAutoJoinAttempted = false;
 
 const BASE_CLASSES_ONLY_STORAGE_KEY = "shadowspawner.baseClassesOnly";
 const SHADOWDARKLINGS_SOURCE_SWITCHES = [
@@ -5140,12 +5144,28 @@ function renderMultiplayerUi() {
   ensureMultiplayerRefreshLoop();
 }
 
+function setMultiplayerInviteMode(isInviteJoinMode) {
+  if (ui.multiplayerTitle) {
+    ui.multiplayerTitle.textContent = isInviteJoinMode ? "Join Game" : "Invite Players";
+  }
+  if (ui.multiplayerBtn) {
+    ui.multiplayerBtn.textContent = isInviteJoinMode && multiplayerSession.role !== "host" ? "Join Game" : "Invite Players";
+  }
+  if (ui.multiplayerHostSection) {
+    ui.multiplayerHostSection.hidden = Boolean(isInviteJoinMode && multiplayerSession.role !== "host");
+  }
+  if (ui.multiplayerJoinBtn) {
+    ui.multiplayerJoinBtn.textContent = isInviteJoinMode ? "Join Game" : "Join Host";
+  }
+}
+
 function openMultiplayerModal() {
   ui.multiplayerModal.hidden = false;
   const codeFromUrl = normalizeSessionCode(new URL(window.location.href).searchParams.get("session") || "");
+  setMultiplayerInviteMode(Boolean(codeFromUrl));
   if (codeFromUrl && !multiplayerSession.inviteCode) {
     ui.multiplayerJoinCode.value = codeFromUrl;
-    setMultiplayerStatus("Invite code found in the URL. Click Join Host when you're ready.", "info");
+    setMultiplayerStatus("Invite link found. Joining game...", "info");
   } else if (!multiplayerSession.inviteCode) {
     setMultiplayerStatus("Create a host link, or paste a friend's code to join their dungeon.");
   }
@@ -5188,6 +5208,10 @@ function openInviteFromUrlIfPresent() {
   };
   ui.multiplayerJoinCode.value = codeFromUrl;
   openMultiplayerModal();
+  if (!multiplayerAutoJoinAttempted) {
+    multiplayerAutoJoinAttempted = true;
+    joinMultiplayerHost({ automatic: true });
+  }
 }
 
 async function createMultiplayerHost() {
@@ -5210,19 +5234,22 @@ async function createMultiplayerHost() {
   }
 }
 
-async function joinMultiplayerHost() {
+async function joinMultiplayerHost(options = {}) {
   const inviteValue = ui.multiplayerJoinCode.value;
-  setMultiplayerStatus("Joining host...");
+  setMultiplayerInviteMode(true);
+  setMultiplayerStatus(options.automatic ? "Joining game from invite link..." : "Joining game...");
   try {
-    const activeCharacter = getActiveCharacter(state);
-    const session = await joinHostSession(inviteValue, {
-      characterId: activeCharacter?.id || null
-    });
+    const session = await joinHostSession(inviteValue);
     applyMultiplayerSessionState(session, { message: "Joined host dungeon." });
-    setMultiplayerStatus("Joined host session.", "success");
+    const assignedCharacterId = getAssignedCharacterIdForCurrentPlayer();
+    const assignedName = getCharacterNameById(assignedCharacterId);
+    setMultiplayerStatus(assignedName ? `Joined game as ${assignedName}.` : "Joined game. Waiting for the host to assign a character.", "success");
     renderMultiplayerUi();
   } catch (error) {
-    setMultiplayerStatus(error.message, "error");
+    const message = options.automatic && /login|required|authentication/i.test(error.message)
+      ? "Log in or register, then return to this invite link to join the game."
+      : error.message;
+    setMultiplayerStatus(message, "error");
     renderMultiplayerUi();
   }
 }
