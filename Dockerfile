@@ -6,6 +6,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt requests responses
 
+# ShadowDarklings import uses Playwright server-side. Production images need
+# Chromium available or imports fail after deploy even though tests pass.
+RUN python -m playwright install --with-deps chromium
+
 # Copy the rest of the app.
 COPY . .
 

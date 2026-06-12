@@ -63,6 +63,10 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=14)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = (
+    os.environ.get("SHADOWDARKLINGS_IMPORT_ENABLED") == "1"
+    or os.environ.get("FLASK_ENV") != "production"
+)
 
 # MEGAN'S HARDENING: Secure cookies now activate in production over true HTTPS!
 if os.environ.get("FLASK_ENV") == "production":
@@ -521,10 +525,9 @@ def import_shadowdarklings_character():
     # login_required: this endpoint launches a headless browser server-side —
     # anonymous access would be a trivial resource-exhaustion (DoS) vector.
     #
-    # Dev-only feature (CONTRACTS.md §2, §17 item 6): the production image does
-    # not ship Playwright browsers, so the feature is cleanly disabled there
-    # instead of failing with a 502 mid-request.
-    if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", os.environ.get("FLASK_ENV") != "production"):
+    # Production-capable feature (CONTRACTS.md section 2): keep it explicit
+    # because it runs browser automation against an upstream site.
+    if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", False):
         return {
             "error": "feature_disabled",
             "message": "Character import is not available in this environment.",

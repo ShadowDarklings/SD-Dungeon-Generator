@@ -28,7 +28,7 @@ when a Dungeon Master isn't available.
 - **Loot & inventory** — collected treasure log with running total, gear-slot tracking, and
   drop-back-to-map behavior.
 - **Characters** — import characters from [ShadowDarklings.net](https://shadowdarklings.net) via
-  server-side headless browser automation (dev environments only; 503 in production), or create them
+  login-gated server-side headless browser automation, or create them
   manually. Multi-character party support with active character switching.
 - **Damage & spells** — damage rolls and a 5-tier spell system loaded from JSON.
 - **Wandering monsters** — timed encounter checks with configurable odds.
@@ -147,7 +147,7 @@ pytest tests/e2e -v
 | `test_backend_random_table_proxy` | 4 | Timeout, malformed JSON, level validation, per-level mapping |
 | `test_backend_runs_api` | 1 | Create saved run contract |
 | `test_frontend_saved_runs_ui` | 4 | Save/load/overwrite controls, multiplayer modal structure |
-| `test_shadowdarklings_import` | 3 | Auth guard, JSON copy, production-disabled 503 |
+| `test_shadowdarklings_import` | 3 | Auth guard, JSON copy, feature-disabled 503 |
 
 ## Local Development (without the production stack)
 
@@ -178,7 +178,7 @@ Browse to `http://localhost:5000/site/` for the dungeon frontend.
   cert ownership note.
 - No CI/CD deploy pipeline; documented as intended only.
 - Postgres app user is superuser, not least-privilege.
-- ShadowDarklings character import is dev-only (503 in production) — runs a headless browser per
-  request.
+- ShadowDarklings character import runs a headless browser per
+  request and must be explicitly enabled in production with `SHADOWDARKLINGS_IMPORT_ENABLED=1`.
 - Multiplayer is host-authoritative with no real-time sync yet (§16.7).
 - Playwright e2e runs over HTTP + SQLite, not the full HTTPS + Postgres stack.

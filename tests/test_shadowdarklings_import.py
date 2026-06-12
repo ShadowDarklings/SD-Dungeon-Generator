@@ -88,7 +88,7 @@ def test_shadowdarklings_import_endpoint_returns_copied_json(client, monkeypatch
     assert data["generated_at"]
 
 
-def test_shadowdarklings_import_disabled_in_production(client):
+def test_shadowdarklings_import_disabled_when_feature_flag_is_off(client):
     """Contract §2: when the feature flag is off, the endpoint returns 503 feature_disabled."""
     flask_app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = False
     try:
