@@ -580,6 +580,24 @@ def import_shadowdarklings_character():
 # Saved Runs Relational DB Populate Helper
 # ---------------------------------------------------------------------------
 
+def infer_entity_kind(entity: dict) -> str:
+    """Return a non-null kind for the secondary relational snapshot."""
+    kind = entity.get("kind")
+    if isinstance(kind, str) and kind.strip():
+        return kind.strip()
+
+    entity_id = str(entity.get("id") or "")
+    if entity_id.startswith("door"):
+        return "door"
+    if entity_id.startswith("trap"):
+        return "trap"
+    if entity_id.startswith("treasure"):
+        return "treasure"
+    if entity_id.startswith("monster"):
+        return "monster"
+    return "feature"
+
+
 def populate_child_tables(db, run, state):
     """Refreshes all relational tables matching the saved run's JSON state snapshot."""
     # Delete any existing child rows for this run. ORM delete statements keep
@@ -606,7 +624,7 @@ def populate_child_tables(db, run, state):
         
     entities_data = state.get("entities", [])
     for e in entities_data:
-        entity = Entity(saved_run_id=run.id, entity_key=e.get("id"), kind=e.get("kind"), name=e.get("name"), x=e.get("x"), y=e.get("y"), defeated=bool(e.get("defeated", False)), collected=bool(e.get("collected", False)), revealed=bool(e.get("revealed", False)), triggered=bool(e.get("triggered", False)), value=e.get("value"))
+        entity = Entity(saved_run_id=run.id, entity_key=e.get("id"), kind=infer_entity_kind(e), name=e.get("name"), x=e.get("x"), y=e.get("y"), defeated=bool(e.get("defeated", False)), collected=bool(e.get("collected", False)), revealed=bool(e.get("revealed", False)), triggered=bool(e.get("triggered", False)), value=e.get("value"))
         db.add(entity)
         
     loot_data = state.get("lootLog", {}).get("entries", [])
