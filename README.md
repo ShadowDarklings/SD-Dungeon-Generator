@@ -1,90 +1,153 @@
 # SD Dungeon Generator
 
 **Team:** ShadowDarklings
+**Course:** TCSS 506 — Cloud Web Application Engineering with AI
 
-**Members:**
+> **Live URL:** `https://<TBD — update before Canvas submission>`
 
-  - **Megan** (server-side)
-  - **Charles** (client-side)
-  - **Mario** (database and security)
+## What It Is
 
-Project: SD Dungeon Generator is a web app for creating and exploring Shadowdark-inspired procedural dungeons.
+SD Dungeon Generator is a web application for creating and exploring Shadowdark-inspired procedural
+dungeons. A player picks a dungeon level (1–10), generates a tiled dungeon map, and explores it room
+by room under fog of war — revealing monsters, treasure, traps, doors, and features as they go.
 
-A user selects a dungeon level, generates a gridded dungeon map, begins in an entrance room under fog of war, and reveals rooms, doors, monsters, treasure, and traps as they explore. The app is for Shadowdark RPG players who want a solo dungeon-delving tool or a quick dungeon generator when they do not have a Dungeon Master available.
+The app serves tabletop RPG players who want a solo dungeon-delving tool or a quick dungeon generator
+when a Dungeon Master isn't available.
 
-MVP: In version 1, the site will generate a random square-grid dungeon with rooms, hallways, doors, rock/wall space, a starting room, fog of war, and simple click-to-reveal exploration. 
+## Features
 
-Dungeon level 1-10 will affect JSON-based random tables for room contents, encounters, treasure, traps, and door states. 
+- **Procedural dungeon generation** — deterministic seed-based maps on a tile grid with rooms,
+  hallways, doors (open / closed / locked / secret / trap / portcullis), stairs, water features,
+  and rotundas rendered with custom pixel-art sprites.
+- **Fog of war & line-of-sight** — `visibleNow` / `exploredEver` visibility model; walls and
+  closed/locked doors block light. Light sources: torch (1h real-time burn) and lantern.
+- **Per-level monster tables** — levels 1–10 each pull from their own `monsters-N.json` table,
+  served from the team's S3 bucket and mirrored locally.
+- **Traps & search** — hidden traps trigger on movement or interaction; search rolls with modifier
+  input and hover tooltip for the roll breakdown.
+- **Loot & inventory** — collected treasure log with running total, gear-slot tracking, and
+  drop-back-to-map behavior.
+- **Characters** — import characters from [ShadowDarklings.net](https://shadowdarklings.net) via
+  server-side headless browser automation (dev environments only; 503 in production), or create them
+  manually. Multi-character party support with active character switching.
+- **Damage & spells** — damage rolls and a 5-tier spell system loaded from JSON.
+- **Wandering monsters** — timed encounter checks with configurable odds.
+- **Save / load** — Postgres-backed saved runs with full state serialization and hydration.
+  Last-write-wins updates; ownership-enforced access (OWASP BOLA 404 rule).
+- **Multiplayer host links** — invite-code sessions: host creates a session, shares a link, players
+  join and get assigned character dots. Host-authoritative state; real-time sync is future work.
+- **GitHub OAuth** — "Sign in with GitHub" alongside password auth; auto-link on email match.
+- **Session hardening** — Secure/HttpOnly/SameSite=Lax cookies, 2h sessions, 14-day remember-me,
+  CSRF on all form routes, JSON APIs exempt under SameSite + content-type.
+- **Production security** — HSTS, X-Frame-Options DENY, nosniff, CSP with `script-src 'self'`
+  (no inline scripts), rate limiting on auth and multiplayer endpoints, 20-path attack-path scanner
+  test, Postgres behind a trust boundary (no host port).
 
-The first version will prioritize a working playable map, readable generated room data, and deployment to AWS; player accounts, saved games, real-time torch tracking, curved rooms, advanced line-of-sight, and expanded procedural art are stretch goals if time allows.
+## Architecture
 
-External APIs: Our main external platform will be AWS, likely using static hosting through Amplify or S3/CloudFront and, if time allows, API Gateway/Lambda/DynamoDB for save files. 
-Our backup is a static client-only version that uses local JSON data and browser localStorage, which avoids auth, rate limits, and free-tier database concerns. 
+```
+┌─────────────┐       ┌────────────────┐       ┌──────────────┐       ┌──────────────┐
+│   Browser   │──────▶│  nginx :443/80 │──────▶│  gunicorn    │──────▶│ Postgres 16  │
+│  (JS SPA)   │ HTTPS │  TLS, headers, │ unix  │  Flask app   │  SQL  │  (pgdata vol)│
+│             │◀──────│  rate limits,  │ sock  │  SQLModel    │◀─────│              │
+│  index.html │       │  static files  │       │              │       │              │
+└─────────────┘       └────────────────┘       └──────────────┘       └──────────────┘
+    S3_content/           nginx.conf            app.py + models       users, saved_runs,
+    src/*.js              nginx/certs/          gunicorn.conf.py      multiplayer_sessions,
+    assets/               static/, S3_content/  Dockerfile            multiplayer_players,
+    styles.css                                                        oauth_identities
+```
 
-Why this project? 
-We are excited because it combines game design, procedural generation, data modeling, frontend interaction, backend deployment, and security decisions in one project. 
-It also has real audience potential: tabletop RPG players don't currently have a website that can act as an automated DM. This fills that niche and could grow beyond the class into a larger public-funded dungeon generator for solo or DM-less TTRPG play.
+**Three Docker containers** orchestrated by `docker-compose.yml`:
 
-## Current MVP Prototype
+| Container | Image | Role |
+|---|---|---|
+| **nginx** | `nginx:1.27-alpine` | TLS termination, reverse proxy, security headers, rate limiting, serves `/static/` and `/site/` directly |
+| **app** | Custom (Python 3.12-slim) | Flask under gunicorn (sync workers, unix socket), all API routes, SQLModel ORM |
+| **db** | `postgres:16-alpine` | Persistent storage, no host port exposure (trust boundary) |
 
-The prototype now includes:
-- Deterministic procedural room/hall generation on a 46x31 tile grid (52px tiles).
-- Layered canvas renderer for topology, tokens, and fog-of-war.
-- Line-of-sight fog model with `visibleNow` and `exploredEver` memory.
-- Walls and closed/locked doors block light.
-- Interactive map tokens: defeat monsters, collect treasure, reveal traps.
-- Door states affect play: open doors pass movement/light, closed and locked doors block them.
-- Monster names and basic stats load from the existing level JSON tables.
-- Hidden traps load from `traps.json`, can be triggered by tile movement, doors, or treasure, and reveal their stats when found or triggered.
-- Search rolls support a one-digit modifier and show the total with a hover tooltip for the roll breakdown.
-- Loot log with running total and drop-back-to-map behavior.
+**Frontend** (`S3_content/`): vanilla JS single-page app with canvas rendering. 15 modules
+(`main.js`, `generator.js`, `render.js`, `visibility.js`, `interactions.js`, `persistence.js`,
+`characters.js`, `multiplayer.js`, `damage.js`, `spells.js`, `timers.js`, `wandering.js`,
+`state-schema.js`, `constants.js`, `rng.js`).
+
+**Backend** (`app.py`): Flask with SQLModel/SQLAlchemy, Flask-Login, Flask-WTF CSRF, Authlib
+(GitHub OAuth), ProxyFix for forwarded headers behind nginx.
+
+**Extensibility:** the frontend talks to the backend through a documented JSON API contract
+(`CONTRACTS.md`). Persistence is behind SQLModel — domain logic never issues raw SQL. Configuration
+is external (`.env`, `docker-compose.yml` env vars). The app could move hosts or add a second
+gunicorn instance without code changes.
+
+## Team & Work Split
+
+| Role | Member | Responsibilities |
+|---|---|---|
+| **Frontend** | Charles | Dungeon canvas renderer, procedural generator (Watabou-style rewrite), sprite assets, fog-of-war/visibility JS, interactions, UI controls (save/load/multiplayer modals), `styles.css`, `about.html`, coordinator duties, e2e smoke test |
+| **Backend** | Megan | Flask route handlers, S3 random-table proxy, Authlib GitHub OAuth wiring, ShadowDarklings headless import, `gunicorn.conf.py`, `Dockerfile`, ProxyFix, backend API tests, remember-me wiring |
+| **DB / Security** | Mario | SQLModel schema & migrations, Flask-Login setup, ownership 404 rules, session hardening (cookies/CSRF), `nginx.conf` (TLS, headers, CSP, rate limits), `docker-compose.yml`, multiplayer security tests (§16.9), `SECURITY_ASSESSMENT.md`, attack-path scanner, EC2 deployment & verification |
+
+Every member has traceable contributions via feature branches and PR history.
 
 ## Running the Production Stack
 
-The production stack runs **nginx → gunicorn → Flask → Postgres** over HTTPS with a self-signed certificate.
+The production stack runs **nginx → gunicorn → Flask → Postgres** over HTTPS.
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- A `.env` file in the repo root (see `.env.example` for required variables)
-- Port 443 and 80 free on your machine
+- A `.env` file (see `.env.example` for required variables)
+- Ports 443 and 80 free
 
 ### Setup
 
-1. **Create your `.env`** from the example:
-   ```shell
-   cp .env.example .env
-   # Fill in SECRET_KEY, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET
-   ```
-
-2. **Generate a self-signed TLS certificate** (generated locally, never committed):
-   ```shell
-   mkdir -p nginx/certs
-   openssl req -x509 -newkey rsa:2048 -nodes \
-     -keyout nginx/certs/key.pem -out nginx/certs/cert.pem \
-     -days 365 -subj "/CN=localhost"
-   ```
-
-3. **Start the stack:**
-   ```shell
-   docker compose up --build
-   ```
-
-4. **Visit** `https://localhost` (accept the self-signed certificate warning).
-
-The stack brings up three containers:
-- **nginx** — TLS termination, reverse proxy, security headers, rate limiting, static asset serving
-- **app** — Flask under gunicorn (sync workers, unix socket)
-- **db** — Postgres 16 (data persisted in a named Docker volume, not exposed to the host network)
-
-### Running the attack-path test
-
-With the stack running:
 ```shell
-pytest tests/test_attack_paths.py -v
+# 1. Create your .env
+cp .env.example .env
+# Fill in SECRET_KEY, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET
+
+# 2. Generate a self-signed TLS certificate (never committed)
+mkdir -p nginx/certs
+openssl req -x509 -newkey rsa:2048 -nodes \
+  -keyout nginx/certs/key.pem -out nginx/certs/cert.pem \
+  -days 365 -subj "/CN=localhost"
+
+# 3. Start the stack
+docker compose up --build
+
+# 4. Visit https://localhost (accept the self-signed certificate warning)
 ```
 
-This tests 20 known scanner paths (`/wp-login.php`, `/.env`, `/.git/config`, etc.) against nginx and asserts they all return 404/403.
+### Running Tests
+
+```shell
+# Unit + contract + security tests (from host, with venv)
+pytest tests/ --ignore=tests/e2e -v
+
+# Or inside the app container (tests dir excluded from prod image;
+# run from host or mount tests/ manually)
+docker compose exec app pytest -v --ignore=tests/e2e
+
+# Attack-path scanner (requires the full stack running)
+pytest tests/test_attack_paths.py -v
+
+# Playwright e2e (requires host-side Playwright + chromium)
+pytest tests/e2e -v
+```
+
+**Test inventory (60 tests):**
+
+| Suite | Tests | Covers |
+|---|---|---|
+| `test_attack_paths` | 21 | nginx blocks 20 scanner paths; flask-never-saw assertion |
+| `test_auth` | 8 | CSRF rejection, registration, login, remember-me cookie |
+| `test_security_multiplayer` | 11 | Full §16.9 checklist: auth, 404 rules, idempotent join, assignment, caps, privacy |
+| `test_security_run_ownership` | 3 | BOLA 404 on non-owned runs |
+| `test_security_schema_and_login` | 5 | Table existence, constraints, cascade deletes, Flask-Login |
+| `test_backend_random_table_proxy` | 4 | Timeout, malformed JSON, level validation, per-level mapping |
+| `test_backend_runs_api` | 1 | Create saved run contract |
+| `test_frontend_saved_runs_ui` | 4 | Save/load/overwrite controls, multiplayer modal structure |
+| `test_shadowdarklings_import` | 3 | Auth guard, JSON copy, production-disabled 503 |
 
 ## Local Development (without the production stack)
 
@@ -94,22 +157,28 @@ For quick local development without nginx or TLS:
 docker compose up -d
 ```
 
-Then browse to `http://localhost:5000`.
+Browse to `http://localhost:5000/site/` for the dungeon frontend.
 
-The Flask app provides the home page, auth flow, About page, and `/site/` route.
-The dungeon frontend is committed in `S3_content/` and is served at
-`http://localhost:5000/site/`.
+## Documentation
 
-Run the local tests with:
+| Document | Purpose |
+|---|---|
+| [`CONTRACTS.md`](CONTRACTS.md) | Full API contracts, schema, authorization rules, session hardening, production stack, multiplayer spec |
+| [`SECURITY_ASSESSMENT.md`](SECURITY_ASSESSMENT.md) | Security audit: findings fixed, posture by area, residual risks |
+| [`AGENTS.md`](AGENTS.md) | AI agent guide for launching and working with the project |
+| [`docs/STATE_SCHEMA.md`](docs/STATE_SCHEMA.md) | Canonical dungeon state object shape and serialization rules |
+| [`docs/VERIFICATION_RUNBOOK.md`](docs/VERIFICATION_RUNBOOK.md) | Live-stack security & integration checklist |
+| [`docs/EC2_VERIFICATION_WALKTHROUGH.md`](docs/EC2_VERIFICATION_WALKTHROUGH.md) | EC2 deployment test results and manual verification report |
+| [`DEPLOY_AWS.md`](DEPLOY_AWS.md) | AWS deployment notes |
+| [`.env.example`](.env.example) | Environment variable documentation |
 
-```shell
-docker compose exec app pytest -v
-```
+## Known Limitations
 
-## Additional Docs
-
-- State schema: `docs/STATE_SCHEMA.md`
-- AWS deployment notes: `DEPLOY_AWS.md`
-- Week 5 group setup: `WEEK5_GROUP_SETUP.md`
-- Contract and API documentation: `CONTRACTS.md`
-
+- Self-signed TLS certificate on the dev/test EC2; see `CONTRACTS.md` §15.11 for the submission
+  cert ownership note.
+- No CI/CD deploy pipeline; documented as intended only.
+- Postgres app user is superuser, not least-privilege.
+- ShadowDarklings character import is dev-only (503 in production) — runs a headless browser per
+  request.
+- Multiplayer is host-authoritative with no real-time sync yet (§16.7).
+- Playwright e2e runs over HTTP + SQLite, not the full HTTPS + Postgres stack.
