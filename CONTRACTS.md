@@ -279,7 +279,7 @@ All JSON responses use this error envelope when a request fails:
 | Auth | **Required.** The endpoint launches a server-side headless browser; anonymous access would be a trivial resource-exhaustion vector. 401 `login_required` for anonymous callers. |
 | Request | Optional JSON body: `{ "base_classes_only": boolean }` (default `false`). When `true`, the optional ShadowDarklings source switches (§3c) are disabled before generating. Missing/invalid body is treated as `{}`. |
 | Success | HTTP 200 JSON: `{ "source": "shadowdarklings", "character_json": "<exported JSON string>", "generated_at": "<ISO timestamp>" }`. |
-| Errors | 401 `login_required`; 503 `feature_disabled` when the feature is off (see Environments); 502 `shadowdarklings_import_failed` when the upstream site or browser automation fails. |
+| Errors | 401 `login_required`; 503 `feature_disabled` when the feature is off (see Environments); 503 `shadowdarklings_service_unavailable` when the upstream site or browser automation fails (revised from 502 `shadowdarklings_import_failed` in PR #19 — 503 better reflects a transient upstream outage; clients distinguish the two 503s by `error` code). |
 | CSRF | Exempt (JSON API, protected by `SameSite=Lax`; see §9.3). |
 | Environments | **Dev-only feature** (§17 item 6, decided). Enabled when `FLASK_ENV != production`, or explicitly via `app.config["SHADOWDARKLINGS_IMPORT_ENABLED"]`. In production it returns 503 `feature_disabled` — the prod image deliberately does not ship Playwright browsers. |
 | Known limitation | Synchronous and slow (real browser per request). One request at a time per user is the intended usage; no queueing exists. |
@@ -355,7 +355,7 @@ contract what our code does, not what the site will do.
 | Auth | None — public site. |
 | Automation steps | Click "Random 1" → "Best Fit" → set source switches → "Generate a Random Character" → "JSON" → read clipboard. |
 | Source switches | `Scroll #1-4`, `B&R&K`, `Roustabout`, `Unnatural Selection`, `Darcy`. All enabled by default; all disabled when `base_classes_only=true`. Switches the site has disabled are skipped without error. |
-| Failure handling | Any automation or upstream failure → HTTP 502 `shadowdarklings_import_failed` with the exception message. No retries. |
+| Failure handling | Any automation or upstream failure → HTTP 503 `shadowdarklings_service_unavailable` with a generic retry-later message (no raw exception text leaks to clients). No retries. |
 | Fragility | This is UI-scraping: any shadowdarklings.net redesign breaks it. Acceptable for a bonus feature; the dungeon game must function fully without it. |
 
 ## 4. Authorization Rules
@@ -861,7 +861,11 @@ building the workflow is **out of scope** for Week 10.
 
 ### 15.11 Known limitations (Week 10)
 
-- Self-signed cert only; real certs (Let's Encrypt) are out of scope.
+- Self-signed cert only on the dev/test EC2 (`54.191.130.99`, Mario's instance); real certs
+  (Let's Encrypt / Certbot) are out of scope for this instance. **For the graded submission
+  deployment:** the public TLS certificate and any DNS setup belong to whichever team member
+  provides the production EC2 that the instructor visits. If a self-signed cert is used for
+  submission, the team must document the browser-warning tradeoff in the README.
 - No CI/CD deploy is built; the release pipeline is documented as **intended** only.
 - The app connects to Postgres as the superuser `app`, not a least-privilege role.
 - `attack_paths.json` is a known-bad-string list (20 paths), not a structural audit. The companion
@@ -1050,3 +1054,5 @@ above is the authority; mark items done in the PR that lands them.
 See `SECURITY_ASSESSMENT.md` for the full security review backing this revision (residual risks §4
 there: Postgres superuser, self-signed cert, Host-header in `invite_url`, e2e HTTPS gap, attack-path
 suite not CI-gated).
+
+| 9 | Public TLS cert + DNS for the graded submission EC2: whoever hosts the submission instance owns Certbot/Let's Encrypt setup or documents the self-signed tradeoff in the README. Mario's EC2 (`54.191.130.99`) is dev/test only and is not the submitted URL. | Team (whoever hosts submission EC2) | **Open** |
