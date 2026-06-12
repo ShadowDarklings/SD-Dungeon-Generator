@@ -17,34 +17,34 @@ imports all work in production.
 - [x] Add production feature flag support for ShadowDarklings import.
 - [x] Pass `SHADOWDARKLINGS_IMPORT_ENABLED` through Docker Compose.
 - [x] Document `SHADOWDARKLINGS_IMPORT_ENABLED=1` in `.env.example`.
-- [ ] Rebuild the Docker image on EC2 with `docker compose up -d --build`.
-- [ ] Confirm the import route returns `401 login_required` when logged out, not a 502/500.
-- [ ] Confirm a logged-in user can import one ShadowDarklings character.
+- [x] Rebuild the Docker image on EC2 with `docker compose up -d --build`.
+- [x] Confirm the import route returns `401 login_required` when logged out, not a 502/500.
+- [x] Confirm the app container can import one ShadowDarklings character.
 
 ## EC2 Environment
 
-- [ ] Pull or clone the merged repo on EC2.
-- [ ] Check out `EC2-full-site` for staging, or `main` after this branch merges.
-- [ ] Create production `.env` from `.env.example`.
-- [ ] Set a strong `SECRET_KEY`.
-- [ ] Set `DATABASE_URL=postgresql://app:app@db:5432/app`.
-- [ ] Set `FLASK_ENV=production`.
-- [ ] Set `SHADOWDARKLINGS_IMPORT_ENABLED=1`.
-- [ ] Set GitHub OAuth credentials.
+- [x] Pull or clone the merged repo on EC2.
+- [x] Check out `EC2-full-site` for staging, or `main` after this branch merges.
+- [x] Create production `.env` from `.env.example`.
+- [x] Set a strong `SECRET_KEY`.
+- [x] Set `DATABASE_URL=postgresql://app:app@db:5432/app`.
+- [x] Set `FLASK_ENV=production`.
+- [x] Set `SHADOWDARKLINGS_IMPORT_ENABLED=1`.
+- [ ] Set real GitHub OAuth credentials.
 - [ ] Confirm GitHub OAuth callback is `https://<domain>/auth/github/callback`.
 
 ## HTTPS And Network
 
 - [ ] Point a domain or subdomain at the EC2 public IP.
 - [ ] Replace self-signed certs with Let's Encrypt certs, or switch the proxy to Caddy.
-- [ ] Open EC2 inbound ports `80` and `443`.
+- [ ] Open EC2 inbound ports `80` and `443`. Public checks currently time out, while EC2 localhost checks pass.
 - [ ] Restrict inbound SSH `22` to trusted IPs only.
-- [ ] Confirm Postgres has no public host port.
+- [x] Confirm Postgres has no public host port.
 
 ## Smoke Test
 
-- [ ] Visit `/` over HTTPS.
-- [ ] Visit `/site/` and generate a dungeon.
+- [x] Visit `/` over HTTPS from EC2 localhost.
+- [x] Visit `/site/` over HTTPS from EC2 localhost.
 - [ ] Register a user.
 - [ ] Log in with username/password.
 - [ ] Log in with GitHub OAuth.
