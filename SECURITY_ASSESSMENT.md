@@ -43,8 +43,8 @@ Fixed in the previous pass and still in place (regression-tested): CSRF enforcem
 ## 4. Residual risks (accepted / tracked)
 
 1. **Postgres superuser** — the app connects as `app` superuser, not a least-privilege role (§15.11, known limitation; acceptable for course scope).
-2. **Self-signed certificate** — fine for `https://localhost`; the graded deployment needs a real cert or documented browser-warning acceptance (final assignment expects HTTPS at a live URL).
-3. **`invite_url` derives from `request.url_root`** — behind our nginx the Host header is forwarded as-is. A spoofed Host could distort the convenience URL in a response (not an auth bypass — the code itself is the credential). Mitigate by setting an explicit `server_name` + default-server catch-all in nginx for the production domain.
+2. **Self-signed certificate** — *resolved 2026-06-12*: production serves a Let's Encrypt certificate at `https://44-252-95-80.sslip.io`; self-signed remains for local dev and e2e fixtures only.
+3. **`invite_url` derives from `request.url_root`** — *mitigated 2026-06-12*: nginx `server_name` now pins the production hostname. Residual: the single server block still answers any Host (no default-server catch-all), so convenience-URL distortion is reduced, not eliminated. Not an auth bypass — the invite code itself is the credential.
 4. **Host-authoritative multiplayer state** — by §16.7 design, no per-action validation exists yet; non-host players cannot write state at all, which contains the risk until validated action endpoints are built.
 5. **e2e gap** — Playwright suite runs over HTTP/SQLite; Secure-cookie and Postgres-specific behavior aren't e2e-exercised (§15.11).
 6. **Attack-path suite not CI-gated** — runs only against a live stack; run manually pre-submission.

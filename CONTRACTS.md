@@ -861,11 +861,10 @@ building the workflow is **out of scope** for Week 10.
 
 ### 15.11 Known limitations (Week 10)
 
-- Self-signed cert only on the dev/test EC2 (`54.191.130.99`, Mario's instance); real certs
-  (Let's Encrypt / Certbot) are out of scope for this instance. **For the graded submission
-  deployment:** the public TLS certificate and any DNS setup belong to whichever team member
-  provides the production EC2 that the instructor visits. If a self-signed cert is used for
-  submission, the team must document the browser-warning tradeoff in the README.
+- ~~Self-signed cert only~~ **Resolved for submission:** the production EC2 serves a real
+  Let's Encrypt certificate at `https://44-252-95-80.sslip.io` (sslip.io hostname derived from
+  the Elastic IP; issuance/renewal per `docs/DEPLOYMENT_GUIDE.md` Part 4). Self-signed certs
+  remain only for local `https://localhost` development and the e2e fixtures.
 - No CI/CD deploy is built; the release pipeline is documented as **intended** only.
 - The app connects to Postgres as the superuser `app`, not a least-privilege role.
 - `attack_paths.json` is a known-bad-string list (20 paths), not a structural audit. The companion
@@ -1055,4 +1054,4 @@ See `SECURITY_ASSESSMENT.md` for the full security review backing this revision 
 there: Postgres superuser, self-signed cert, Host-header in `invite_url`, e2e HTTPS gap, attack-path
 suite not CI-gated).
 
-| 9 | Public TLS cert + DNS for the graded submission EC2: whoever hosts the submission instance owns Certbot/Let's Encrypt setup or documents the self-signed tradeoff in the README. Mario's EC2 (`54.191.130.99`) is dev/test only and is not the submitted URL. | Team (whoever hosts submission EC2) | **Open** |
+| 9 | Public TLS cert + DNS for the graded submission EC2: whoever hosts the submission instance owns Certbot/Let's Encrypt setup or documents the self-signed tradeoff in the README. | Team | **Done** — submission instance live at `https://44-252-95-80.sslip.io` with a Let's Encrypt cert (`docs/DEPLOYMENT_GUIDE.md` Parts 3–4); the old dev/test EC2 (`54.191.130.99`) is retired. |

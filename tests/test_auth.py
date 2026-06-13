@@ -55,7 +55,7 @@ def test_home_page_loads(client):
     """Flask-rendered home page returns 200 and has the navbar."""
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Skeleton" in response.data
+    assert b"ShadowSpawner" in response.data
     # Navbar is present
     assert b"My Site" in response.data
     assert b"About" in response.data

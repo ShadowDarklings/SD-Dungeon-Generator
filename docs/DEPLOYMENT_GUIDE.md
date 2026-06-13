@@ -1,10 +1,10 @@
 # Deployment Guide — SD Dungeon Generator
 
-**Status:** The app is already live on EC2 at `https://54.191.130.99` (verified in
-`EC2_VERIFICATION_WALKTHROUGH.md`) with a **self-signed cert and no domain**.
-If that's you, skip to **Part 3 (Domain + DNS)** and **Part 4 (Real TLS)** —
-that's all that's left. Parts 1–2 document the full from-scratch path for
-teammates or a rebuild.
+**Status (2026-06-12):** ✅ **Deployed.** Live at **<https://44-252-95-80.sslip.io>**
+with a Let's Encrypt certificate (sslip.io hostname → Elastic IP). Parts 1–4
+below document how it was built and how to rebuild it from scratch; Part 6
+covers day-to-day operations until grading. The earlier verification instance
+(`54.191.130.99`, `EC2_VERIFICATION_WALKTHROUGH.md`) is superseded.
 
 ---
 
@@ -156,7 +156,7 @@ new hostname until you do. Update the homepage URL while you're there.
 
 1. Run `docs/VERIFICATION_RUNBOOK.md` §7 against `https://<DOMAIN>` (attack
    paths, browser checks, multiplayer smoke — re-test OAuth specifically).
-2. Update `README.md`: replace the `Live URL: <TBD>` placeholder.
+2. Update `README.md`: keep the Live URL current (done for `44-252-95-80.sslip.io`).
 3. Commit the `nginx.conf` server_name change + README; push; redeploy
    (`git pull && docker compose up --build -d` on the box).
 4. Canvas: submit the live URL + repo link; confirm the instructor has repo

@@ -1,5 +1,10 @@
 # EC2 Deployment Verification Report
 
+> **Note (2026-06-12):** this report covers a **superseded instance**. The
+> production deployment is now **<https://44-252-95-80.sslip.io>** (Let's
+> Encrypt cert — see `DEPLOYMENT_GUIDE.md`). Re-run `VERIFICATION_RUNBOOK.md`
+> §7 against the new hostname and append the results below before submission.
+
 **Target:** `https://54.191.130.99`
 **Date:** 2026-06-11
 **Commit:** `cb1aa1f` (main)
