@@ -5,10 +5,11 @@
 {% block content %}
 <section class="hero-shell">
     <div class="hero-copy">
-        <p class="eyebrow">Week 7 merged build</p>
+        <p class="eyebrow">Final project build</p>
         <h1 class="site-brand hero-title">ShadowSpawner</h1>
         <p class="lead">
-            A Shadowdark-inspired dungeon prototype backed by Flask, SQLModel, login and explore!
+            A Shadowdark-inspired procedural dungeon generator — generate, explore, save your
+            runs, and play together with invite links.
         </p>
         {% if user.is_authenticated %}
         <div class="hero-status hero-status-success">
@@ -24,10 +25,10 @@
     <div class="hero-grid">
         <article class="card feature-card h-100">
             <div class="card-body d-flex flex-column">
-                <h2 class="h5 card-title">Dungeon Prototype</h2>
+                <h2 class="h5 card-title">The Dungeon</h2>
                 <p class="card-text flex-grow-1">
-                    Open the static dungeon client, generate a run, and check the merged inventory,
-                    save/load, and torch controls.
+                    Generate a dungeon, explore under fog of war, fight monsters, loot treasure,
+                    and save your run — or host a multiplayer session with an invite link.
                 </p>
                 <a href="{{ url_for('site_home') }}" class="btn btn-primary btn-lg">Open Dungeon</a>
             </div>

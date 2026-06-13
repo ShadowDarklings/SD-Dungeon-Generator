@@ -3,7 +3,7 @@
 **Team:** ShadowDarklings
 **Course:** TCSS 506 — Cloud Web Application Engineering with AI
 
-> **Live URL:** `https://<TBD — update before Canvas submission>`
+> **Live URL:** **<https://44-252-95-80.sslip.io>**
 
 ## What It Is
 
@@ -169,13 +169,16 @@ Browse to `http://localhost:5000/site/` for the dungeon frontend.
 | [`docs/STATE_SCHEMA.md`](docs/STATE_SCHEMA.md) | Canonical dungeon state object shape and serialization rules |
 | [`docs/VERIFICATION_RUNBOOK.md`](docs/VERIFICATION_RUNBOOK.md) | Live-stack security & integration checklist |
 | [`docs/EC2_VERIFICATION_WALKTHROUGH.md`](docs/EC2_VERIFICATION_WALKTHROUGH.md) | EC2 deployment test results and manual verification report |
-| [`DEPLOY_AWS.md`](DEPLOY_AWS.md) | AWS deployment notes |
+| [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) | Step-by-step deployment: hosting choice, EC2 config, DNS, Let's Encrypt TLS, operations |
+| [`DEPLOY_AWS.md`](DEPLOY_AWS.md) | AWS deployment notes (legacy Week 5 path) |
 | [`.env.example`](.env.example) | Environment variable documentation |
 
 ## Known Limitations
 
-- Self-signed TLS certificate on the dev/test EC2; see `CONTRACTS.md` §15.11 for the submission
-  cert ownership note.
+- The production deployment serves a real Let's Encrypt certificate via its sslip.io hostname;
+  self-signed certificates remain only for local `https://localhost` development.
+- The sslip.io hostname is derived from the instance's Elastic IP — if the IP ever changes, the
+  URL changes with it (see `docs/DEPLOYMENT_GUIDE.md` Part 3).
 - No CI/CD deploy pipeline; documented as intended only.
 - Postgres app user is superuser, not least-privilege.
 - ShadowDarklings character import is dev-only (503 in production) — runs a headless browser per

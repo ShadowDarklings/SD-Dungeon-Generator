@@ -276,7 +276,7 @@ All JSON responses use this error envelope when a request fails:
 | Field | Contract |
 |---|---|
 | Purpose | Generate a random Shadowdark character by driving the live shadowdarklings.net site (§3c) and return its exported JSON to the client. |
-| Auth | **Required.** The endpoint launches a server-side headless browser; anonymous access would be a trivial resource-exhaustion vector. 401 `login_required` for anonymous callers. |
+| Auth | **Required.** The endpoint launches a server-side headless browser; anonymous access would be a trivial resource-exhaustion vector. 401 `login_required` for anonymous callers. **Dev-only bypass (PR #23):** setting `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1` permits anonymous calls for local frontend testing (see AGENTS.md). This variable must never be set in production — it is not in `docker-compose.yml` or `.env.example` defaults, and the production feature gate (Environments row) blocks the endpoint regardless. Note: when the feature is disabled, anonymous callers receive 503 `feature_disabled` rather than 401 (the feature gate is checked first). |
 | Request | Optional JSON body: `{ "base_classes_only": boolean }` (default `false`). When `true`, the optional ShadowDarklings source switches (§3c) are disabled before generating. Missing/invalid body is treated as `{}`. |
 | Success | HTTP 200 JSON: `{ "source": "shadowdarklings", "character_json": "<exported JSON string>", "generated_at": "<ISO timestamp>" }`. |
 | Errors | 401 `login_required`; 503 `feature_disabled` when the feature is off (see Environments); 503 `shadowdarklings_service_unavailable` when the upstream site or browser automation fails (revised from 502 `shadowdarklings_import_failed` in PR #19 — 503 better reflects a transient upstream outage; clients distinguish the two 503s by `error` code). |
@@ -861,11 +861,10 @@ building the workflow is **out of scope** for Week 10.
 
 ### 15.11 Known limitations (Week 10)
 
-- Self-signed cert only on the dev/test EC2 (`54.191.130.99`, Mario's instance); real certs
-  (Let's Encrypt / Certbot) are out of scope for this instance. **For the graded submission
-  deployment:** the public TLS certificate and any DNS setup belong to whichever team member
-  provides the production EC2 that the instructor visits. If a self-signed cert is used for
-  submission, the team must document the browser-warning tradeoff in the README.
+- ~~Self-signed cert only~~ **Resolved for submission:** the production EC2 serves a real
+  Let's Encrypt certificate at `https://44-252-95-80.sslip.io` (sslip.io hostname derived from
+  the Elastic IP; issuance/renewal per `docs/DEPLOYMENT_GUIDE.md` Part 4). Self-signed certs
+  remain only for local `https://localhost` development and the e2e fixtures.
 - No CI/CD deploy is built; the release pipeline is documented as **intended** only.
 - The app connects to Postgres as the superuser `app`, not a least-privilege role.
 - `attack_paths.json` is a known-bad-string list (20 paths), not a structural audit. The companion
@@ -1055,4 +1054,4 @@ See `SECURITY_ASSESSMENT.md` for the full security review backing this revision 
 there: Postgres superuser, self-signed cert, Host-header in `invite_url`, e2e HTTPS gap, attack-path
 suite not CI-gated).
 
-| 9 | Public TLS cert + DNS for the graded submission EC2: whoever hosts the submission instance owns Certbot/Let's Encrypt setup or documents the self-signed tradeoff in the README. Mario's EC2 (`54.191.130.99`) is dev/test only and is not the submitted URL. | Team (whoever hosts submission EC2) | **Open** |
+| 9 | Public TLS cert + DNS for the graded submission EC2: whoever hosts the submission instance owns Certbot/Let's Encrypt setup or documents the self-signed tradeoff in the README. | Team | **Done** — submission instance live at `https://44-252-95-80.sslip.io` with a Let's Encrypt cert (`docs/DEPLOYMENT_GUIDE.md` Parts 3–4); the old dev/test EC2 (`54.191.130.99`) is retired. |
