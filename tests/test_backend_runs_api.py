@@ -2,8 +2,15 @@
 Owner: Backend Role (Megan)
 Contract: Test 3 — Create saved run endpoint contract (CI Pipeline Pass).
 """
+import os
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("OAUTH_CLIENT_ID", "test-client-id")
+os.environ.setdefault("OAUTH_CLIENT_SECRET", "test-client-secret")
+
 import pytest
-from app import app as flask_app, get_db_session, User
+from app import app as flask_app, get_db_session, infer_entity_kind, User
 from sqlmodel import select
 from werkzeug.security import generate_password_hash
 
@@ -44,3 +51,18 @@ def test_create_saved_run_endpoint_contract(client):
     
     # Temporarily accept 400 to let the PR pass CI until database slice work begins
     assert response.status_code in [201, 400], "Endpoint /api/runs failed validation or not fully implemented."
+
+
+@pytest.mark.parametrize(
+    ("entity", "expected"),
+    [
+        ({"id": "door-12-15", "kind": None}, "door"),
+        ({"id": "trap-26"}, "trap"),
+        ({"id": "treasure-29", "kind": "gear"}, "gear"),
+        ({"id": "monster-1", "kind": ""}, "monster"),
+        ({"id": "strange-feature"}, "feature"),
+    ],
+)
+def test_infer_entity_kind_never_returns_null(entity, expected):
+    """Saved-run child snapshots must tolerate frontend entities without kind."""
+    assert infer_entity_kind(entity) == expected

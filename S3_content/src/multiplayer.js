@@ -99,7 +99,28 @@ export async function getHostSession(inviteValue) {
   };
 }
 
-export async function assignSessionCharacter(inviteValue, playerId, characterId) {
+export async function updateHostSessionState(inviteValue, state) {
+  const code = normalizeSessionCode(inviteValue);
+  if (!code) {
+    throw new Error("No multiplayer session code is active.");
+  }
+  const response = await fetch(`${MULTIPLAYER_BASE_PATH}/${encodeURIComponent(code)}/state`, {
+    method: "PUT",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      state_json: serializeDungeonState(state)
+    })
+  });
+  const data = await parseMultiplayerResponse(response);
+  return {
+    ...data,
+    invite_code: data.invite_code || data.code || code,
+    invite_url: data.invite_url || inviteUrlForCode(data.invite_code || data.code || code)
+  };
+}
+
+export async function assignSessionCharacter(inviteValue, playerId, characterId, options = {}) {
   const code = normalizeSessionCode(inviteValue);
   if (!code) {
     throw new Error("No multiplayer session code is active.");
@@ -113,7 +134,8 @@ export async function assignSessionCharacter(inviteValue, playerId, characterId)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       player_id: playerId,
-      character_id: characterId
+      character_id: characterId,
+      state_json: options.state ? serializeDungeonState(options.state) : undefined
     })
   });
   return parseMultiplayerResponse(response);

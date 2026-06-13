@@ -1,187 +1,168 @@
 # SD Dungeon Generator
 
 **Team:** ShadowDarklings
-**Course:** TCSS 506 — Cloud Web Application Engineering with AI
+**Course:** TCSS 506 - Cloud Web Application Engineering with AI
 
-> **Live URL:** **<https://44-252-95-80.sslip.io>**
+> **Live root:** <https://44-252-95-80.sslip.io>
+> **Dungeon frontend:** <https://44-252-95-80.sslip.io/site/>
+> **Account entry point:** <https://44-252-95-80.sslip.io/register>
 
 ## What It Is
 
-SD Dungeon Generator is a web application for creating and exploring Shadowdark-inspired procedural
-dungeons. A player picks a dungeon level (1–10), generates a tiled dungeon map, and explores it room
-by room under fog of war — revealing monsters, treasure, traps, doors, and features as they go.
+SD Dungeon Generator is a web application for creating and exploring
+Shadowdark-inspired procedural dungeons. A player picks a dungeon level (1-10),
+generates a tiled dungeon map, and explores it room by room under fog of war,
+revealing monsters, treasure, traps, doors, and features as they go.
 
-The app serves tabletop RPG players who want a solo dungeon-delving tool or a quick dungeon generator
-when a Dungeon Master isn't available.
+The app serves tabletop RPG players who want a solo dungeon-delving tool or a
+quick dungeon generator when a Dungeon Master is not available.
 
 ## Features
 
-- **Procedural dungeon generation** — deterministic seed-based maps on a tile grid with rooms,
-  hallways, doors (open / closed / locked / secret / trap / portcullis), stairs, water features,
-  and rotundas rendered with custom pixel-art sprites.
-- **Fog of war & line-of-sight** — `visibleNow` / `exploredEver` visibility model; walls and
-  closed/locked doors block light. Light sources: torch (1h real-time burn) and lantern.
-- **Per-level monster tables** — levels 1–10 each pull from their own `monsters-N.json` table,
-  served from the team's S3 bucket and mirrored locally.
-- **Traps & search** — hidden traps trigger on movement or interaction; search rolls with modifier
-  input and hover tooltip for the roll breakdown.
-- **Loot & inventory** — collected treasure log with running total, gear-slot tracking, and
-  drop-back-to-map behavior.
-- **Characters** — import characters from [ShadowDarklings.net](https://shadowdarklings.net) via
-  server-side headless browser automation (dev environments only; 503 in production), or create them
-  manually. Multi-character party support with active character switching.
-- **Damage & spells** — damage rolls and a 5-tier spell system loaded from JSON.
-- **Wandering monsters** — timed encounter checks with configurable odds.
-- **Save / load** — Postgres-backed saved runs with full state serialization and hydration.
-  Last-write-wins updates; ownership-enforced access (OWASP BOLA 404 rule).
-- **Multiplayer host links** — invite-code sessions: host creates a session, shares a link, players
-  join and get assigned character dots. Host-authoritative state; real-time sync is future work.
-- **GitHub OAuth** — "Sign in with GitHub" alongside password auth; auto-link on email match.
-- **Session hardening** — Secure/HttpOnly/SameSite=Lax cookies, 2h sessions, 14-day remember-me,
-  CSRF on all form routes, JSON APIs exempt under SameSite + content-type.
-- **Production security** — HSTS, X-Frame-Options DENY, nosniff, CSP with `script-src 'self'`
-  (no inline scripts), rate limiting on auth and multiplayer endpoints, 20-path attack-path scanner
-  test, Postgres behind a trust boundary (no host port).
+- **Procedural dungeon generation** - deterministic seed-based maps with rooms,
+  hallways, doors, stairs, water features, rotundas, and custom pixel-art sprites.
+- **Fog of war and line-of-sight** - shared `visibleNow` / `exploredEver`
+  visibility model with light sources, closed doors, and walls affecting sight.
+- **Per-level monster tables** - levels 1-10 each pull from their own
+  `monsters-N.json` table, served from the team's S3 bucket and mirrored locally.
+- **Traps and search** - hidden traps trigger on movement or interaction; search
+  rolls support modifiers and roll breakdowns.
+- **Loot and inventory** - treasure log, gear-slot tracking, droppable equipment,
+  and dropped item piles on the map.
+- **Characters** - login-gated one-click ShadowDarklings import via server-side
+  Playwright, plus multi-character party support and active character switching.
+- **Damage and spells** - dice roller, clickable attacks, damage expressions, and
+  a 5-tier spell library loaded from JSON.
+- **Save/load** - Postgres-backed saved runs with full state serialization,
+  hydration, and ownership-enforced access.
+- **Multiplayer host links** - invite-code sessions where a host shares a link,
+  players join, receive character assignments, and sync against host-authoritative
+  state by lightweight polling.
+- **Authentication and security** - password auth, GitHub OAuth support,
+  Flask-Login sessions, CSRF on form routes, Secure/HttpOnly/SameSite cookies,
+  HSTS, CSP, rate limiting, and nginx attack-path filtering.
 
 ## Architecture
 
-```
-┌─────────────┐       ┌────────────────┐       ┌──────────────┐       ┌──────────────┐
-│   Browser   │──────▶│  nginx :443/80 │──────▶│  gunicorn    │──────▶│ Postgres 16  │
-│  (JS SPA)   │ HTTPS │  TLS, headers, │ unix  │  Flask app   │  SQL  │  (pgdata vol)│
-│             │◀──────│  rate limits,  │ sock  │  SQLModel    │◀─────│              │
-│  index.html │       │  static files  │       │              │       │              │
-└─────────────┘       └────────────────┘       └──────────────┘       └──────────────┘
-    S3_content/           nginx.conf            app.py + models       users, saved_runs,
-    src/*.js              nginx/certs/          gunicorn.conf.py      multiplayer_sessions,
-    assets/               static/, S3_content/  Dockerfile            multiplayer_players,
-    styles.css                                                        oauth_identities
+The production stack is:
+
+```text
+Browser JS SPA
+  -> nginx :443/:80 (TLS, headers, rate limits, static files)
+  -> gunicorn over unix socket
+  -> Flask + SQLModel
+  -> Postgres 16 with persistent pgdata volume
 ```
 
-**Three Docker containers** orchestrated by `docker-compose.yml`:
+**Three Docker containers** are orchestrated by `docker-compose.yml`:
 
 | Container | Image | Role |
 |---|---|---|
-| **nginx** | `nginx:1.27-alpine` | TLS termination, reverse proxy, security headers, rate limiting, serves `/static/` and `/site/` directly |
-| **app** | Custom (Python 3.12-slim) | Flask under gunicorn (sync workers, unix socket), all API routes, SQLModel ORM |
-| **db** | `postgres:16-alpine` | Persistent storage, no host port exposure (trust boundary) |
+| `nginx` | `nginx:1.27-alpine` | TLS termination, reverse proxy, security headers, rate limiting, serves `/static/` and `/site/` |
+| `app` | Custom Python 3.12 Bookworm image | Flask under gunicorn, API routes, SQLModel ORM, Playwright Chromium runtime |
+| `db` | `postgres:16-alpine` | Persistent Postgres storage with no public host port |
 
-**Frontend** (`S3_content/`): vanilla JS single-page app with canvas rendering. 15 modules
-(`main.js`, `generator.js`, `render.js`, `visibility.js`, `interactions.js`, `persistence.js`,
-`characters.js`, `multiplayer.js`, `damage.js`, `spells.js`, `timers.js`, `wandering.js`,
-`state-schema.js`, `constants.js`, `rng.js`).
+**Frontend:** `S3_content/` is a vanilla JS single-page app with canvas
+rendering. It is organized into modules including `main.js`, `generator.js`,
+`render.js`, `visibility.js`, `interactions.js`, `persistence.js`,
+`characters.js`, `multiplayer.js`, `damage.js`, `spells.js`, `timers.js`,
+`wandering.js`, `state-schema.js`, `constants.js`, and `rng.js`.
 
-**Backend** (`app.py`): Flask with SQLModel/SQLAlchemy, Flask-Login, Flask-WTF CSRF, Authlib
-(GitHub OAuth), ProxyFix for forwarded headers behind nginx.
+**Backend:** `app.py` provides Flask routes, SQLModel models, Flask-Login,
+Flask-WTF CSRF, Authlib GitHub OAuth wiring, ProxyFix support behind nginx, and
+JSON APIs for saved runs, multiplayer, random tables, and ShadowDarklings import.
 
-**Extensibility:** the frontend talks to the backend through a documented JSON API contract
-(`CONTRACTS.md`). Persistence is behind SQLModel — domain logic never issues raw SQL. Configuration
-is external (`.env`, `docker-compose.yml` env vars). The app could move hosts or add a second
-gunicorn instance without code changes.
+**Extensibility:** the frontend communicates with the backend through documented
+JSON contracts in `CONTRACTS.md`. Persistence is concentrated behind SQLModel
+models and helper functions. Configuration comes from environment variables and
+`.env`, so the app can move hosts or scale app containers without hard-coded
+deployment values.
 
-## Team & Work Split
+## Team and Work Split
 
 | Role | Member | Responsibilities |
 |---|---|---|
-| **Frontend** | Charles | Dungeon canvas renderer, procedural generator (Watabou-style rewrite), sprite assets, fog-of-war/visibility JS, interactions, UI controls (save/load/multiplayer modals), `styles.css`, `about.html`, coordinator duties, e2e smoke test |
-| **Backend** | Megan | Flask route handlers, S3 random-table proxy, Authlib GitHub OAuth wiring, ShadowDarklings headless import, `gunicorn.conf.py`, `Dockerfile`, ProxyFix, backend API tests, remember-me wiring |
-| **DB / Security** | Mario | SQLModel schema & migrations, Flask-Login setup, ownership 404 rules, session hardening (cookies/CSRF), `nginx.conf` (TLS, headers, CSP, rate limits), `docker-compose.yml`, multiplayer security tests (§16.9), `SECURITY_ASSESSMENT.md`, attack-path scanner, EC2 deployment & verification |
+| Frontend | Charles | Dungeon canvas renderer, procedural generator rewrite, sprite assets, fog-of-war/visibility JS, interactions, UI controls, `styles.css`, `about.html`, coordination, e2e smoke testing |
+| Backend | Megan | Flask route handlers, S3 random-table proxy, GitHub OAuth wiring, ShadowDarklings headless import, `gunicorn.conf.py`, Dockerfile, ProxyFix, backend API tests, remember-me wiring |
+| DB/Security | Mario | SQLModel schema and migrations, Flask-Login setup, ownership 404 rules, session hardening, `nginx.conf`, `docker-compose.yml`, multiplayer security tests, `SECURITY_ASSESSMENT.md`, attack-path scanner, EC2 deployment and verification |
 
-Every member has traceable contributions via feature branches and PR history.
+Every member has traceable contributions through feature branches and PR history.
 
 ## Running the Production Stack
 
-The production stack runs **nginx → gunicorn → Flask → Postgres** over HTTPS.
-
-### Prerequisites
+Prerequisites:
 
 - Docker and Docker Compose
-- A `.env` file (see `.env.example` for required variables)
-- Ports 443 and 80 free
+- A `.env` file based on `.env.example`
+- Ports 80 and 443 available
 
-### Setup
+Setup:
 
 ```shell
-# 1. Create your .env
 cp .env.example .env
-# Fill in SECRET_KEY, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET
+# Fill in SECRET_KEY, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, and DATABASE_URL.
 
-# 2. Generate a self-signed TLS certificate (never committed)
 mkdir -p nginx/certs
 openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout nginx/certs/key.pem -out nginx/certs/cert.pem \
   -days 365 -subj "/CN=localhost"
 
-# 3. Start the stack
 docker compose up --build
-
-# 4. Visit https://localhost (accept the self-signed certificate warning)
 ```
 
-### Running Tests
+Visit <https://localhost> for a local TLS stack, or use
+<http://localhost:5000/site/> for quick non-nginx development.
+
+## Running Tests
 
 ```shell
-# Unit + contract + security tests (from host, with venv)
 pytest tests/ --ignore=tests/e2e -v
-
-# Or inside the app container (tests dir excluded from prod image;
-# run from host or mount tests/ manually)
-docker compose exec app pytest -v --ignore=tests/e2e
-
-# Attack-path scanner (requires the full stack running)
 pytest tests/test_attack_paths.py -v
-
-# Playwright e2e (requires host-side Playwright + chromium)
 pytest tests/e2e -v
 ```
 
-**Test inventory (60 tests):**
+Current non-e2e collection: **72 tests**.
 
 | Suite | Tests | Covers |
-|---|---|---|
-| `test_attack_paths` | 21 | nginx blocks 20 scanner paths; flask-never-saw assertion |
-| `test_auth` | 8 | CSRF rejection, registration, login, remember-me cookie |
-| `test_security_multiplayer` | 11 | Full §16.9 checklist: auth, 404 rules, idempotent join, assignment, caps, privacy |
-| `test_security_run_ownership` | 3 | BOLA 404 on non-owned runs |
-| `test_security_schema_and_login` | 5 | Table existence, constraints, cascade deletes, Flask-Login |
-| `test_backend_random_table_proxy` | 4 | Timeout, malformed JSON, level validation, per-level mapping |
-| `test_backend_runs_api` | 1 | Create saved run contract |
-| `test_frontend_saved_runs_ui` | 4 | Save/load/overwrite controls, multiplayer modal structure |
-| `test_shadowdarklings_import` | 3 | Auth guard, JSON copy, production-disabled 503 |
-
-## Local Development (without the production stack)
-
-For quick local development without nginx or TLS:
-
-```shell
-docker compose up -d
-```
-
-Browse to `http://localhost:5000/site/` for the dungeon frontend.
+|---|---:|---|
+| `test_attack_paths` | 21 | nginx blocks scanner paths; Flask never sees them |
+| `test_auth` | 9 | CSRF, page rendering, registration, login, remember-me |
+| `test_backend_random_table_proxy` | 4 | Timeout, malformed JSON, invalid level, per-level tables |
+| `test_backend_runs_api` | 6 | Saved-run contract and entity kind inference |
+| `test_frontend_saved_runs_ui` | 4 | Save/load controls and multiplayer modal structure |
+| `test_security_multiplayer` | 16 | Auth, 404 privacy, idempotent join, auto-assignment, host sync, assignment, caps, payload privacy |
+| `test_security_run_ownership` | 3 | BOLA-style 404 for non-owned runs |
+| `test_security_schema_and_login` | 5 | Tables, constraints, cascade deletes, Flask-Login |
+| `test_shadowdarklings_import` | 4 | Auth guard, local bypass, JSON copy, feature-disabled 503 |
 
 ## Documentation
 
 | Document | Purpose |
 |---|---|
-| [`CONTRACTS.md`](CONTRACTS.md) | Full API contracts, schema, authorization rules, session hardening, production stack, multiplayer spec |
-| [`SECURITY_ASSESSMENT.md`](SECURITY_ASSESSMENT.md) | Security audit: findings fixed, posture by area, residual risks |
-| [`AGENTS.md`](AGENTS.md) | AI agent guide for launching and working with the project |
-| [`docs/STATE_SCHEMA.md`](docs/STATE_SCHEMA.md) | Canonical dungeon state object shape and serialization rules |
-| [`docs/VERIFICATION_RUNBOOK.md`](docs/VERIFICATION_RUNBOOK.md) | Live-stack security & integration checklist |
-| [`docs/EC2_VERIFICATION_WALKTHROUGH.md`](docs/EC2_VERIFICATION_WALKTHROUGH.md) | EC2 deployment test results and manual verification report |
-| [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) | Step-by-step deployment: hosting choice, EC2 config, DNS, Let's Encrypt TLS, operations |
-| [`DEPLOY_AWS.md`](DEPLOY_AWS.md) | AWS deployment notes (legacy Week 5 path) |
-| [`.env.example`](.env.example) | Environment variable documentation |
+| `CONTRACTS.md` | API contracts, schema, authorization rules, hardening, production stack, multiplayer spec |
+| `SECURITY_ASSESSMENT.md` | Security audit, fixed findings, residual risks |
+| `AGENTS.md` | AI agent guide for launching and working with the project locally |
+| `docs/STATE_SCHEMA.md` | Canonical dungeon state object and serialization rules |
+| `docs/VERIFICATION_RUNBOOK.md` | Live-stack verification checklist |
+| `docs/EC2_VERIFICATION_WALKTHROUGH.md` | EC2 deployment test results and manual verification report |
+| `docs/DEPLOYMENT_GUIDE.md` | Hosting choice, EC2 config, DNS, Let's Encrypt TLS, operations |
+| `docs/EC2_FULL_SITE_TODO.md` | Full-site EC2 deployment checklist |
+| `.env.example` | Environment variable documentation |
 
 ## Known Limitations
 
-- The production deployment serves a real Let's Encrypt certificate via its sslip.io hostname;
-  self-signed certificates remain only for local `https://localhost` development.
-- The sslip.io hostname is derived from the instance's Elastic IP — if the IP ever changes, the
-  URL changes with it (see `docs/DEPLOYMENT_GUIDE.md` Part 3).
-- No CI/CD deploy pipeline; documented as intended only.
+- The submitted EC2 deployment uses a Let's Encrypt certificate for
+  `https://44-252-95-80.sslip.io/`; local `https://localhost` development uses
+  a self-signed certificate.
+- The sslip.io hostname is derived from the instance's Elastic IP. If the IP
+  changes, the URL changes with it.
+- No CI/CD deploy pipeline; deployment is documented and manual.
 - Postgres app user is superuser, not least-privilege.
-- ShadowDarklings character import is dev-only (503 in production) — runs a headless browser per
-  request.
-- Multiplayer is host-authoritative with no real-time sync yet (§16.7).
+- GitHub OAuth code paths are present, but the submitted EC2 URL currently
+  relies on username/password auth unless production OAuth credentials are
+  configured.
+- ShadowDarklings character import runs a headless browser per request and must
+  be explicitly enabled in production with `SHADOWDARKLINGS_IMPORT_ENABLED=1`.
+- Multiplayer is host-authoritative and syncs by polling rather than
+  WebSockets/SSE.
 - Playwright e2e runs over HTTP + SQLite, not the full HTTPS + Postgres stack.

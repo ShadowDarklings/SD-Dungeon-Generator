@@ -24,7 +24,7 @@ from flask_login import (
     LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 )
 from sqlalchemy import (
-    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint
+    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint, text
 )
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
@@ -63,6 +63,10 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=14)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = (
+    os.environ.get("SHADOWDARKLINGS_IMPORT_ENABLED") == "1"
+    or os.environ.get("FLASK_ENV") != "production"
+)
 
 # MEGAN'S HARDENING: Secure cookies now activate in production over true HTTPS!
 if os.environ.get("FLASK_ENV") == "production":
@@ -108,8 +112,29 @@ oauth.register(
 
 
 def bootstrap_database() -> None:
-    """Create the SQLModel tables if they are missing."""
+    """Create tables and apply tiny compatibility migrations for old EC2 volumes."""
     SQLModel.metadata.create_all(engine)
+    migrate_existing_database()
+
+
+def migrate_existing_database() -> None:
+    """Backfill columns added after the first EC2 Postgres deployment.
+
+    SQLModel's create_all creates missing tables but does not alter existing
+    tables. The EC2 pgdata volume may survive branch upgrades, so keep these
+    migrations idempotent and narrow.
+    """
+    if not DATABASE_URL.startswith("postgresql"):
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(254)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(200)"))
+        conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE")
+        )
+        conn.execute(text("UPDATE users SET created_at = NOW() WHERE created_at IS NULL"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)"))
 
 
 # ---------------------------------------------------------------------------
@@ -521,10 +546,9 @@ def import_shadowdarklings_character():
     # login_required: this endpoint launches a headless browser server-side —
     # anonymous access would be a trivial resource-exhaustion (DoS) vector.
     #
-    # Dev-only feature (CONTRACTS.md §2, §17 item 6): the production image does
-    # not ship Playwright browsers, so the feature is cleanly disabled there
-    # instead of failing with a 502 mid-request.
-    if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", os.environ.get("FLASK_ENV") != "production"):
+    # Production-capable feature (CONTRACTS.md section 2): keep it explicit
+    # because it runs browser automation against an upstream site.
+    if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", False):
         return {
             "error": "feature_disabled",
             "message": "Character import is not available in this environment.",
@@ -556,6 +580,24 @@ def import_shadowdarklings_character():
 # Saved Runs Relational DB Populate Helper
 # ---------------------------------------------------------------------------
 
+def infer_entity_kind(entity: dict) -> str:
+    """Return a non-null kind for the secondary relational snapshot."""
+    kind = entity.get("kind")
+    if isinstance(kind, str) and kind.strip():
+        return kind.strip()
+
+    entity_id = str(entity.get("id") or "")
+    if entity_id.startswith("door"):
+        return "door"
+    if entity_id.startswith("trap"):
+        return "trap"
+    if entity_id.startswith("treasure"):
+        return "treasure"
+    if entity_id.startswith("monster"):
+        return "monster"
+    return "feature"
+
+
 def populate_child_tables(db, run, state):
     """Refreshes all relational tables matching the saved run's JSON state snapshot."""
     # Delete any existing child rows for this run. ORM delete statements keep
@@ -582,7 +624,7 @@ def populate_child_tables(db, run, state):
         
     entities_data = state.get("entities", [])
     for e in entities_data:
-        entity = Entity(saved_run_id=run.id, entity_key=e.get("id"), kind=e.get("kind"), name=e.get("name"), x=e.get("x"), y=e.get("y"), defeated=bool(e.get("defeated", False)), collected=bool(e.get("collected", False)), revealed=bool(e.get("revealed", False)), triggered=bool(e.get("triggered", False)), value=e.get("value"))
+        entity = Entity(saved_run_id=run.id, entity_key=e.get("id"), kind=infer_entity_kind(e), name=e.get("name"), x=e.get("x"), y=e.get("y"), defeated=bool(e.get("defeated", False)), collected=bool(e.get("collected", False)), revealed=bool(e.get("revealed", False)), triggered=bool(e.get("triggered", False)), value=e.get("value"))
         db.add(entity)
         
     loot_data = state.get("lootLog", {}).get("entries", [])
@@ -863,6 +905,35 @@ def _state_character_ids(state_json) -> set:
     return {c.get("id") for c in chars if isinstance(c, dict) and c.get("id")}
 
 
+def _first_unassigned_character_id(db, mp):
+    chars = mp.state_json.get("characters") if isinstance(mp.state_json, dict) else None
+    if not isinstance(chars, list):
+        return None
+    taken_ids = {
+        p.assigned_character_id
+        for p in db.exec(
+            select(MultiplayerPlayer).where(MultiplayerPlayer.session_id == mp.id)
+        ).all()
+        if p.assigned_character_id
+    }
+    for character in chars:
+        if not isinstance(character, dict):
+            continue
+        character_id = character.get("id")
+        if isinstance(character_id, str) and character_id and character_id not in taken_ids:
+            return character_id
+    return None
+
+
+def _coerce_positive_int(value):
+    if isinstance(value, int):
+        return value if value > 0 else None
+    if isinstance(value, str) and value.isdigit():
+        parsed = int(value)
+        return parsed if parsed > 0 else None
+    return None
+
+
 def _load_open_session(db, invite_code):
     """Return the open session for this code, lazily closing stale ones (§16.6).
 
@@ -901,8 +972,10 @@ def _get_membership(db, mp, user_id):
     ).first()
 
 
-def _session_view(db, mp, requester_role):
+def _session_view(db, mp, requester):
     """§16.2 SessionView. Exposes only the contracted player fields (§16.5)."""
+    requester_role = requester.role if hasattr(requester, "role") else str(requester or "")
+    requester_player_id = requester.id if hasattr(requester, "id") else None
     players = db.exec(
         select(MultiplayerPlayer)
         .where(MultiplayerPlayer.session_id == mp.id)
@@ -914,6 +987,7 @@ def _session_view(db, mp, requester_role):
         "invite_code": mp.invite_code,
         "invite_url": invite_url,
         "role": requester_role,
+        "current_player_id": requester_player_id,
         "players": [
             {
                 "id": p.id,
@@ -1006,7 +1080,8 @@ def create_multiplayer_session():
     ))
     db.commit()
 
-    return _session_view(db, mp, "host"), 201
+    membership = _get_membership(db, mp, current_user.id)
+    return _session_view(db, mp, membership), 201
 
 
 @app.route("/api/multiplayer/sessions/<invite_code>/join", methods=["POST"])
@@ -1028,7 +1103,7 @@ def join_multiplayer_session(invite_code):
         membership.last_seen_at = datetime.now(timezone.utc)
         db.add(membership)
         db.commit()
-        return _session_view(db, mp, membership.role), 200
+        return _session_view(db, mp, membership), 200
 
     player_count = len(db.exec(
         select(MultiplayerPlayer).where(MultiplayerPlayer.session_id == mp.id)
@@ -1055,6 +1130,8 @@ def join_multiplayer_session(invite_code):
             character_id = None
     else:
         character_id = None
+    if character_id is None:
+        character_id = _first_unassigned_character_id(db, mp)
 
     db.add(MultiplayerPlayer(
         session_id=mp.id,
@@ -1065,7 +1142,8 @@ def join_multiplayer_session(invite_code):
     ))
     db.commit()
 
-    return _session_view(db, mp, "player"), 200
+    membership = _get_membership(db, mp, current_user.id)
+    return _session_view(db, mp, membership), 200
 
 
 @app.route("/api/multiplayer/sessions/<invite_code>", methods=["GET"])
@@ -1085,7 +1163,38 @@ def get_multiplayer_session(invite_code):
     db.add(membership)
     db.commit()
 
-    return _session_view(db, mp, membership.role), 200
+    return _session_view(db, mp, membership), 200
+
+
+@app.route("/api/multiplayer/sessions/<invite_code>/state", methods=["PUT"])
+@login_required
+@csrf.exempt
+def update_multiplayer_session_state(invite_code):
+    data = _json_body_or_none(required=True)
+    if data is None:
+        return _INVALID_JSON
+
+    state_json = data.get("state_json")
+    if not isinstance(state_json, dict):
+        return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
+
+    db = get_db_session()
+    mp = _load_open_session(db, invite_code)
+    if mp is None:
+        return _NOT_FOUND
+
+    membership = _get_membership(db, mp, current_user.id)
+    if membership is None or membership.role != "host":
+        return _NOT_FOUND
+
+    mp.state_json = state_json
+    mp.updated_at = datetime.now(timezone.utc)
+    membership.last_seen_at = datetime.now(timezone.utc)
+    db.add(mp)
+    db.add(membership)
+    db.commit()
+
+    return _session_view(db, mp, membership), 200
 
 
 @app.route("/api/multiplayer/sessions/<invite_code>/assignments", methods=["POST"])
@@ -1108,12 +1217,19 @@ def assign_multiplayer_character(invite_code):
 
     player_id = data.get("player_id")
     character_id = data.get("character_id")
+    submitted_state = data.get("state_json")
+
+    if isinstance(submitted_state, dict):
+        mp.state_json = submitted_state
+        mp.updated_at = datetime.now(timezone.utc)
+        db.add(mp)
 
     target = None
-    if isinstance(player_id, int):
+    parsed_player_id = _coerce_positive_int(player_id)
+    if parsed_player_id is not None:
         target = db.exec(
             select(MultiplayerPlayer).where(
-                MultiplayerPlayer.id == player_id,
+                MultiplayerPlayer.id == parsed_player_id,
                 MultiplayerPlayer.session_id == mp.id,
             )
         ).first()
@@ -1138,7 +1254,7 @@ def assign_multiplayer_character(invite_code):
     db.add(membership)
     db.commit()
 
-    view = _session_view(db, mp, "host")
+    view = _session_view(db, mp, membership)
     return {"ok": True, "players": view["players"], "assignments": view["assignments"], "error": None}, 200
 
 

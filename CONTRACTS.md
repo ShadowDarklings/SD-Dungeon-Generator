@@ -281,7 +281,7 @@ All JSON responses use this error envelope when a request fails:
 | Success | HTTP 200 JSON: `{ "source": "shadowdarklings", "character_json": "<exported JSON string>", "generated_at": "<ISO timestamp>" }`. |
 | Errors | 401 `login_required`; 503 `feature_disabled` when the feature is off (see Environments); 503 `shadowdarklings_service_unavailable` when the upstream site or browser automation fails (revised from 502 `shadowdarklings_import_failed` in PR #19 — 503 better reflects a transient upstream outage; clients distinguish the two 503s by `error` code). |
 | CSRF | Exempt (JSON API, protected by `SameSite=Lax`; see §9.3). |
-| Environments | **Dev-only feature** (§17 item 6, decided). Enabled when `FLASK_ENV != production`, or explicitly via `app.config["SHADOWDARKLINGS_IMPORT_ENABLED"]`. In production it returns 503 `feature_disabled` — the prod image deliberately does not ship Playwright browsers. |
+| Environments | Enabled by default outside production. Production deployments must explicitly set `SHADOWDARKLINGS_IMPORT_ENABLED=1`; otherwise the endpoint returns 503 `feature_disabled`. The production image ships Playwright Chromium so EC2 full-site deployments can enable importer support. |
 | Known limitation | Synchronous and slow (real browser per request). One request at a time per user is the intended usage; no queueing exists. |
 
 ## 3. External API Contracts
@@ -1046,7 +1046,7 @@ above is the authority; mark items done in the PR that lands them.
 | 3 | Drop `'unsafe-inline'` from `style-src` in `nginx/nginx.conf` (§15.5 — no longer needed). | DB/sec (Mario) | **Done** |
 | 4 | Build the multiplayer backend per §16. | Back end (Megan) | **Done** (hardening PR; Megan reviews) |
 | 5 | Multiplayer security tests per §16.9 + nginx rate limits (§16.6). | DB/sec (Mario) | **Done** — `tests/test_security_multiplayer.py` |
-| 6 | Decide: install Playwright browsers in the production image or document the shadowdarklings import as dev-only (§2). | Back end (Megan) + team | **Decided: dev-only** — 503 `feature_disabled` in production (§2) |
+| 6 | Decide production handling for ShadowDarklings browser automation (§2). | Back end (Megan) + team | **Decided: production-capable behind flag**; install Playwright Chromium in the image and require `SHADOWDARKLINGS_IMPORT_ENABLED=1` in production (§2) |
 | 7 | `docs/STATE_SCHEMA.md` synced with `state-schema.js` (run/timers/wandering/characters/inventory/lightSource fields). | DB/sec (Mario) | Done |
 | 8 | Wire the login page "Remember me" checkbox to `login_user(remember=…)` (§5 Week 7 item, still unwired). | Back end (Megan) | **Done** (hardening PR) |
 

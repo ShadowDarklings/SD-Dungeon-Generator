@@ -129,6 +129,7 @@ def test_joined_player_can_fetch_session(env):
     fetch = bob.get(f"/api/multiplayer/sessions/{code}")
     assert fetch.status_code == 200
     assert {p["display_name"] for p in fetch.get_json()["players"]} >= {"Bob"}
+    assert fetch.get_json()["current_player_id"] is not None
 
 
 # ── 4. Idempotent join ──────────────────────────────────────────────────────
@@ -144,6 +145,24 @@ def test_duplicate_join_is_idempotent(env):
 
     assert first.status_code == second.status_code == 200
     assert len(second.get_json()["players"]) == 2  # host + bob, no duplicate row
+
+
+def test_join_assigns_first_unclaimed_character(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    created = alice.post(
+        "/api/multiplayer/sessions",
+        json={"seed": 42, "level": 3, "host_character_id": "char-1", "state_json": STATE},
+    ).get_json()
+    code = created["invite_code"]
+
+    joined = bob.post(f"/api/multiplayer/sessions/{code}/join", json={}).get_json()
+    bob_player = next(p for p in joined["players"] if p["role"] == "player")
+
+    assert bob_player["assigned_character_id"] == "char-2"
+    assert {"player_id": bob_player["id"], "character_id": "char-2"} in joined["assignments"]
 
 
 # ── 5 & 6. Assignment authorization and validation ──────────────────────────
@@ -216,6 +235,58 @@ def test_reassignment_moves_character_to_one_holder(env):
     assert holders == [bob_player_id]
 
 
+def test_host_assignment_accepts_browser_string_player_id(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    created = create_session(alice).get_json()
+    code = created["invite_code"]
+    bob_join = bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+    bob_player_id = next(
+        p["id"] for p in bob_join.get_json()["players"] if p["role"] == "player"
+    )
+
+    r = alice.post(f"/api/multiplayer/sessions/{code}/assignments",
+                   json={"player_id": str(bob_player_id), "character_id": "char-1"})
+
+    assert r.status_code == 200
+    assert {"player_id": bob_player_id, "character_id": "char-1"} in r.get_json()["assignments"]
+
+
+def test_host_assignment_refreshes_current_state_before_validating_dot(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    created = create_session(alice).get_json()
+    code = created["invite_code"]
+    bob_join = bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+    bob_player_id = next(
+        p["id"] for p in bob_join.get_json()["players"] if p["role"] == "player"
+    )
+    updated_state = {
+        "characters": [
+            {"id": "char-1", "name": "Glaz"},
+            {"id": "late-import", "name": "Late Import"},
+        ],
+        "tiles": [],
+    }
+
+    r = alice.post(f"/api/multiplayer/sessions/{code}/assignments",
+                   json={
+                       "player_id": str(bob_player_id),
+                       "character_id": "late-import",
+                       "state_json": updated_state,
+                   })
+
+    assert r.status_code == 200
+    assert {"player_id": bob_player_id, "character_id": "late-import"} in r.get_json()["assignments"]
+
+    fetch = bob.get(f"/api/multiplayer/sessions/{code}").get_json()
+    assert {"id": "late-import", "name": "Late Import"} in fetch["state_json"]["characters"]
+
+
 # ── 7. Invite-code quality ──────────────────────────────────────────────────
 
 def test_invite_codes_are_high_entropy_and_non_sequential(env):
@@ -246,6 +317,46 @@ def test_session_payload_excludes_sensitive_fields(env):
 
     for forbidden in ("email", "password_hash", "provider_user_id", "@example.com"):
         assert forbidden not in payload, f"sensitive field leaked: {forbidden}"
+
+
+def test_host_can_update_session_state_and_player_fetches_it(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+
+    code = create_session(alice).get_json()["invite_code"]
+    bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+    updated_state = {
+        "characters": [{"id": "host-live-dot", "name": "Host Live Dot"}],
+        "tiles": [{"x": 1, "y": 2, "type": "floor"}],
+    }
+
+    r = alice.put(f"/api/multiplayer/sessions/{code}/state",
+                  json={"state_json": updated_state})
+
+    assert r.status_code == 200
+    assert r.get_json()["state_json"] == updated_state
+
+    fetch = bob.get(f"/api/multiplayer/sessions/{code}").get_json()
+    assert fetch["state_json"] == updated_state
+
+
+def test_non_host_cannot_update_session_state(env):
+    client_for, _ = env
+    alice = client_for("alice")
+    bob = client_for("bob")
+    eve = client_for("eve")
+
+    code = create_session(alice).get_json()["invite_code"]
+    bob.post(f"/api/multiplayer/sessions/{code}/join", json={})
+
+    player_update = bob.put(f"/api/multiplayer/sessions/{code}/state",
+                            json={"state_json": {"characters": []}})
+    non_member_update = eve.put(f"/api/multiplayer/sessions/{code}/state",
+                                json={"state_json": {"characters": []}})
+
+    assert player_update.status_code == 404
+    assert non_member_update.status_code == 404
 
 
 # ── 9. Content-type / JSON handling ─────────────────────────────────────────

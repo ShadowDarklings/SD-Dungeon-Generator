@@ -51,7 +51,8 @@ import {
   createHostSession,
   getHostSession,
   joinHostSession,
-  normalizeSessionCode
+  normalizeSessionCode,
+  updateHostSessionState
 } from "./multiplayer.js";
 import {
   advanceTorchTime,
@@ -73,6 +74,9 @@ const ui = {
   saveBtn: document.getElementById("save-btn"),
   loadBtn: document.getElementById("load-btn"),
   multiplayerBtn: document.getElementById("multiplayer-btn"),
+  multiplayerTitle: document.getElementById("multiplayer-title"),
+  multiplayerHostSection: document.getElementById("multiplayer-host-section"),
+  multiplayerJoinSection: document.getElementById("multiplayer-join-section"),
   lightTorchBtn: document.getElementById("light-torch-btn"),
   lightLanternBtn: document.getElementById("light-lantern-btn"),
   castLightBtn: document.getElementById("cast-light-btn"),
@@ -174,9 +178,14 @@ let multiplayerSession = {
   inviteCode: "",
   inviteUrl: "",
   role: "",
+  currentPlayerId: null,
   players: [],
-  assignments: []
+  assignments: [],
+  stateJson: null
 };
+let multiplayerRefreshTimer = null;
+let multiplayerRefreshInFlight = false;
+let multiplayerAutoJoinAttempted = false;
 
 const BASE_CLASSES_ONLY_STORAGE_KEY = "shadowspawner.baseClassesOnly";
 const SHADOWDARKLINGS_SOURCE_SWITCHES = [
@@ -1196,7 +1205,7 @@ function canUseWeapon(character, itemOrName) {
     return ["club", "crossbow", "shortsword", "dagger", "shortbow"].includes(profile.key);
   }
   if (/\bpriest\b/.test(classKey)) {
-    return !["club", "crossbow", "dagger", "mace", "longsword", "staff", "warhammer"].includes(profile.key);
+    return ["club", "crossbow", "dagger", "mace", "longsword", "staff", "warhammer"].includes(profile.key);
   }
   return true;
 }
@@ -5010,9 +5019,59 @@ function normalizeMultiplayerSession(raw = {}, fallback = {}) {
     inviteCode,
     inviteUrl: raw.invite_url || fallback.inviteUrl || (inviteCode ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(inviteCode)}` : ""),
     role: raw.role || fallback.role || "",
+    currentPlayerId: raw.current_player_id ?? raw.currentPlayerId ?? fallback.currentPlayerId ?? null,
     players: Array.isArray(raw.players) ? raw.players : fallback.players || [],
-    assignments: Array.isArray(raw.assignments) ? raw.assignments : fallback.assignments || []
+    assignments: Array.isArray(raw.assignments) ? raw.assignments : fallback.assignments || [],
+    stateJson: raw.state_json || raw.stateJson || fallback.stateJson || null
   };
+}
+
+function getAssignedCharacterIdForCurrentPlayer() {
+  const currentPlayerId = String(multiplayerSession.currentPlayerId ?? "");
+  if (!currentPlayerId) {
+    return "";
+  }
+  const assignment = multiplayerSession.assignments.find((entry) => {
+    return String(entry?.player_id ?? entry?.playerId ?? "") === currentPlayerId;
+  });
+  return String(assignment?.character_id ?? assignment?.characterId ?? "");
+}
+
+function getCharacterNameById(characterId) {
+  if (!characterId) {
+    return "";
+  }
+  return state?.characters?.find((character) => character.id === characterId)?.name || "";
+}
+
+function redrawFromHydratedState(message = "") {
+  if (!state) {
+    return;
+  }
+  recomputeVisibility(state);
+  setupCanvasLayers(state);
+  updatePanels();
+  updateWanderingUi();
+  render();
+  if (message) {
+    setStatus(message);
+  }
+}
+
+function applyMultiplayerSessionState(sessionPayload, options = {}) {
+  const normalized = normalizeMultiplayerSession(sessionPayload, multiplayerSession);
+  multiplayerSession = normalized;
+  if (normalized.role !== "player" || !normalized.stateJson) {
+    renderMultiplayerUi();
+    return;
+  }
+  const assignedCharacterId = getAssignedCharacterIdForCurrentPlayer();
+  const nextState = hydrateDungeonState(normalized.stateJson);
+  if (assignedCharacterId && nextState.characters?.some((character) => character.id === assignedCharacterId)) {
+    nextState.activeCharacterId = assignedCharacterId;
+  }
+  state = nextState;
+  redrawFromHydratedState(options.message || "");
 }
 
 function setMultiplayerStatus(message, tone = "") {
@@ -5049,7 +5108,9 @@ function renderMultiplayerUi() {
       name.textContent = player.display_name || player.username || player.name || `Player ${player.id}`;
       const meta = document.createElement("span");
       meta.className = "multiplayer-presence-meta";
-      meta.textContent = player.role === "host" || player.is_host ? "host" : "player";
+      const assignedName = getCharacterNameById(player.assigned_character_id || player.assignedCharacterId);
+      const roleText = player.role === "host" || player.is_host ? "host" : "player";
+      meta.textContent = assignedName ? `${roleText} - ${assignedName}` : roleText;
       row.append(name, meta);
       ui.multiplayerPresenceList.append(row);
     }
@@ -5072,17 +5133,39 @@ function renderMultiplayerUi() {
     ui.multiplayerCharacterSelect.append(option);
   }
 
-  const canAssign = Boolean(hasInvite && ui.multiplayerPlayerSelect.value && ui.multiplayerCharacterSelect.value);
+  const canAssign = Boolean(
+    hasInvite &&
+    multiplayerSession.role === "host" &&
+    ui.multiplayerPlayerSelect.value &&
+    ui.multiplayerCharacterSelect.value
+  );
   ui.multiplayerAssignBtn.disabled = !canAssign;
   ui.multiplayerRefreshBtn.disabled = !hasInvite;
+  ensureMultiplayerRefreshLoop();
+}
+
+function setMultiplayerInviteMode(isInviteJoinMode) {
+  if (ui.multiplayerTitle) {
+    ui.multiplayerTitle.textContent = isInviteJoinMode ? "Join Game" : "Invite Players";
+  }
+  if (ui.multiplayerBtn) {
+    ui.multiplayerBtn.textContent = isInviteJoinMode && multiplayerSession.role !== "host" ? "Join Game" : "Invite Players";
+  }
+  if (ui.multiplayerHostSection) {
+    ui.multiplayerHostSection.hidden = Boolean(isInviteJoinMode && multiplayerSession.role !== "host");
+  }
+  if (ui.multiplayerJoinBtn) {
+    ui.multiplayerJoinBtn.textContent = isInviteJoinMode ? "Join Game" : "Join Host";
+  }
 }
 
 function openMultiplayerModal() {
   ui.multiplayerModal.hidden = false;
   const codeFromUrl = normalizeSessionCode(new URL(window.location.href).searchParams.get("session") || "");
+  setMultiplayerInviteMode(Boolean(codeFromUrl));
   if (codeFromUrl && !multiplayerSession.inviteCode) {
     ui.multiplayerJoinCode.value = codeFromUrl;
-    setMultiplayerStatus("Invite code found in the URL. Click Join Host when you're ready.", "info");
+    setMultiplayerStatus("Invite link found. Joining game...", "info");
   } else if (!multiplayerSession.inviteCode) {
     setMultiplayerStatus("Create a host link, or paste a friend's code to join their dungeon.");
   }
@@ -5091,6 +5174,26 @@ function openMultiplayerModal() {
 
 function closeMultiplayerModal() {
   ui.multiplayerModal.hidden = true;
+}
+
+function ensureMultiplayerRefreshLoop() {
+  const shouldPoll = Boolean(multiplayerSession.inviteCode && multiplayerSession.role);
+  if (!shouldPoll) {
+    if (multiplayerRefreshTimer) {
+      window.clearInterval(multiplayerRefreshTimer);
+      multiplayerRefreshTimer = null;
+    }
+    return;
+  }
+  if (multiplayerRefreshTimer) {
+    return;
+  }
+  multiplayerRefreshTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    refreshMultiplayerSession({ silent: true });
+  }, 5000);
 }
 
 function openInviteFromUrlIfPresent() {
@@ -5105,6 +5208,10 @@ function openInviteFromUrlIfPresent() {
   };
   ui.multiplayerJoinCode.value = codeFromUrl;
   openMultiplayerModal();
+  if (!multiplayerAutoJoinAttempted) {
+    multiplayerAutoJoinAttempted = true;
+    joinMultiplayerHost({ automatic: true });
+  }
 }
 
 async function createMultiplayerHost() {
@@ -5127,37 +5234,62 @@ async function createMultiplayerHost() {
   }
 }
 
-async function joinMultiplayerHost() {
+async function joinMultiplayerHost(options = {}) {
   const inviteValue = ui.multiplayerJoinCode.value;
-  setMultiplayerStatus("Joining host...");
+  setMultiplayerInviteMode(true);
+  setMultiplayerStatus(options.automatic ? "Joining game from invite link..." : "Joining game...");
   try {
-    const activeCharacter = getActiveCharacter(state);
-    const session = await joinHostSession(inviteValue, {
-      characterId: activeCharacter?.id || null
-    });
-    multiplayerSession = normalizeMultiplayerSession(session, { role: "player" });
-    setMultiplayerStatus("Joined host session.", "success");
+    const session = await joinHostSession(inviteValue);
+    applyMultiplayerSessionState(session, { message: "Joined host dungeon." });
+    const assignedCharacterId = getAssignedCharacterIdForCurrentPlayer();
+    const assignedName = getCharacterNameById(assignedCharacterId);
+    setMultiplayerStatus(assignedName ? `Joined game as ${assignedName}.` : "Joined game. Waiting for the host to assign a character.", "success");
     renderMultiplayerUi();
   } catch (error) {
-    setMultiplayerStatus(error.message, "error");
+    const message = options.automatic && /login|required|authentication/i.test(error.message)
+      ? "Log in or register, then return to this invite link to join the game."
+      : error.message;
+    setMultiplayerStatus(message, "error");
     renderMultiplayerUi();
   }
 }
 
-async function refreshMultiplayerSession() {
+async function refreshMultiplayerSession(options = {}) {
   if (!multiplayerSession.inviteCode) {
-    setMultiplayerStatus("No active host link to refresh.", "error");
+    if (!options.silent) {
+      setMultiplayerStatus("No active host link to refresh.", "error");
+    }
     return;
   }
-  setMultiplayerStatus("Refreshing session...");
+  if (multiplayerRefreshInFlight) {
+    return;
+  }
+  multiplayerRefreshInFlight = true;
+  if (!options.silent) {
+    setMultiplayerStatus("Refreshing session...");
+  }
   try {
-    const session = await getHostSession(multiplayerSession.inviteCode);
-    multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
-    setMultiplayerStatus("Session refreshed.", "success");
-    renderMultiplayerUi();
+    const session = multiplayerSession.role === "host" && state
+      ? await updateHostSessionState(multiplayerSession.inviteCode, state)
+      : await getHostSession(multiplayerSession.inviteCode);
+    if (multiplayerSession.role === "player") {
+      applyMultiplayerSessionState(session);
+    } else {
+      multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
+      renderMultiplayerUi();
+    }
+    if (!options.silent) {
+      setMultiplayerStatus("Session refreshed.", "success");
+    }
   } catch (error) {
-    setMultiplayerStatus(error.message, "error");
+    if (!options.silent) {
+      setMultiplayerStatus(error.message, "error");
+    } else {
+      console.warn("Multiplayer refresh failed.", error);
+    }
     renderMultiplayerUi();
+  } finally {
+    multiplayerRefreshInFlight = false;
   }
 }
 
@@ -5167,7 +5299,8 @@ async function assignMultiplayerDot() {
     await assignSessionCharacter(
       multiplayerSession.inviteCode,
       ui.multiplayerPlayerSelect.value,
-      ui.multiplayerCharacterSelect.value
+      ui.multiplayerCharacterSelect.value,
+      { state }
     );
     await refreshMultiplayerSession();
   } catch (error) {
