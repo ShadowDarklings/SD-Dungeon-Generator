@@ -540,6 +540,18 @@ def about():
     return render_template("about.html")
 
 
+@app.route("/healthz")
+def healthz():
+    """Lightweight liveness/readiness check for nginx and Docker Compose."""
+    try:
+        with Session(engine) as db:
+            db.exec(text("SELECT 1"))
+        return {"status": "ok", "database": "ok"}, 200
+    except Exception as exc:
+        app.logger.warning("Health check failed: %s", exc)
+        return {"status": "degraded", "database": "unavailable"}, 503
+
+
 @app.route("/api/shadowdarklings/import", methods=["POST"])
 @csrf.exempt
 def import_shadowdarklings_character():

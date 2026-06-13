@@ -1,12 +1,19 @@
 # gunicorn.conf.py
-import multiprocessing
+import os
 
-# Bind to a Unix domain socket inside a shared volume with Nginx
-bind = "unix:/tmp/gunicorn.sock"
+# Bind to the Unix socket used by nginx and a loopback port for health checks.
+bind = ["unix:/tmp/gunicorn.sock", "127.0.0.1:8000"]
 
-# Standard production worker equation
-workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"
+# Keep the live EC2 box predictable: a small fixed worker pool is much less
+# likely to thrash memory than the default CPU-based formula on a 1-2 GB host.
+workers = int(os.environ.get("GUNICORN_WORKERS", "2"))
+threads = int(os.environ.get("GUNICORN_THREADS", "2"))
+worker_class = "gthread"
+timeout = int(os.environ.get("GUNICORN_TIMEOUT", "60"))
+graceful_timeout = int(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", "30"))
+keepalive = int(os.environ.get("GUNICORN_KEEPALIVE", "5"))
+max_requests = int(os.environ.get("GUNICORN_MAX_REQUESTS", "500"))
+max_requests_jitter = int(os.environ.get("GUNICORN_MAX_REQUESTS_JITTER", "50"))
 
 # Production logging setup (stdout/stderr captured by Docker)
 accesslog = "-"

@@ -158,14 +158,15 @@ new hostname until you do. Update the homepage URL while you're there.
    paths, browser checks, multiplayer smoke — re-test OAuth specifically).
 2. Update `README.md`: keep the Live URL current (done for `44-252-95-80.sslip.io`).
 3. Commit the `nginx.conf` server_name change + README; push; redeploy
-   (`git pull && docker compose up --build -d` on the box).
+   (`git pull --ff-only && docker compose up -d --build` on the box).
 4. Canvas: submit the live URL + repo link; confirm the instructor has repo
    access and PR history is visible.
 
 ## Part 6 — Operations until grading day
 
-- **Update:** `git pull && docker compose up --build -d` (state survives — pgdata
-  is a named volume).
+- **Update workflow:** `git pull --ff-only && docker compose up -d --build` (state survives — pgdata
+  is a named volume). Then verify with `docker compose ps`,
+  `docker compose logs --tail=50 app`, and `curl -k https://<DOMAIN>/healthz`.
 - **Backup before risky changes:**
   `docker compose exec db pg_dump -U app app > backup_$(date +%F).sql`
 - **Logs:** `docker compose logs -f app` / `nginx`.

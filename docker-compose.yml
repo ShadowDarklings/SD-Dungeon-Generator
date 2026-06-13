@@ -25,7 +25,8 @@ services:
       - ./static:/app/static:ro
       - ./S3_content:/app/S3_content:ro
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
 
   app:
@@ -37,6 +38,8 @@ services:
     environment:
       DATABASE_URL: postgresql://app:app@db:5432/app
       FLASK_ENV: production
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-2}
       SHADOWDARKLINGS_IMPORT_ENABLED: ${SHADOWDARKLINGS_IMPORT_ENABLED:-0}
     env_file:
       - path: .env
@@ -44,6 +47,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import requests,sys; sys.exit(0 if requests.get('http://127.0.0.1:8000/healthz', timeout=5).ok else 1)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   db:

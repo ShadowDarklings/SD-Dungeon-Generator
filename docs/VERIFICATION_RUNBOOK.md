@@ -25,6 +25,7 @@ docker compose ps
 
 - [ ] Three containers running: nginx, app, db
 - [ ] `docker compose logs app | tail` shows gunicorn workers booted, no tracebacks
+- [ ] `curl -k https://localhost/healthz` returns `{"status":"ok","database":"ok"}`
 - [ ] `https://localhost` loads (accept the self-signed warning)
 - [ ] `http://localhost` 301-redirects to https
 
