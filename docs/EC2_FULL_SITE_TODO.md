@@ -6,7 +6,7 @@ imports all work in production.
 
 ## Branch Scope
 
-- Branch: `EC2-full-site`
+- Branch: `EC2-full-site` for staging; final submission should deploy from `main`
 - Base: merged `main` after the ShadowSpawner frontend PR
 - Deployment target: EC2 Docker Compose stack
 - Public app route: `/site/`
@@ -38,7 +38,7 @@ imports all work in production.
 - [x] Point a domain or subdomain at the EC2 public IP.
 - [x] Replace self-signed certs with Let's Encrypt certs, or switch the proxy to Caddy.
 - [x] Open EC2 inbound ports `80` and `443`.
-- [ ] Restrict inbound SSH `22` to trusted IPs only.
+- [x] Restrict inbound SSH `22` to trusted IPs only.
 - [x] Confirm Postgres has no public host port.
 
 ## Smoke Test
@@ -49,17 +49,17 @@ imports all work in production.
 - [x] Log in with username/password.
 - [ ] Log in with GitHub OAuth.
 - [x] Import a ShadowDarklings character.
-- [ ] Save a game.
-- [ ] Load the saved game.
-- [ ] Create a multiplayer invite.
-- [ ] Join invite as another account/session.
-- [ ] Assign a character to the joined player.
-- [ ] Restart containers and confirm saves persist.
+- [x] Save a game.
+- [x] Load the saved game.
+- [x] Create a multiplayer invite.
+- [x] Join invite as another account/session.
+- [x] Assign a character to the joined player.
+- [x] Restart containers and confirm app/database containers recover with pgdata intact.
 
 ## Operations
 
 - [ ] Add a simple `pg_dump` backup command.
 - [ ] Store backups outside the Docker volume.
-- [ ] Capture deploy commands in `DEPLOY_AWS.md`.
+- [x] Capture deploy commands in `DEPLOY_AWS.md`.
 - [x] Capture final live URL in `README.md`.
 - [ ] Add a short rollback note: redeploy previous commit and keep `pgdata`.

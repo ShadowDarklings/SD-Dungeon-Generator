@@ -4,6 +4,7 @@
 **Course:** TCSS 506 — Cloud Web Application Engineering with AI
 
 > **Live URL:** `https://44-252-95-80.sslip.io/site/`
+> **Account entry point:** `https://44-252-95-80.sslip.io/register`
 
 ## What It Is
 
@@ -35,8 +36,9 @@ when a Dungeon Master isn't available.
 - **Save / load** — Postgres-backed saved runs with full state serialization and hydration.
   Last-write-wins updates; ownership-enforced access (OWASP BOLA 404 rule).
 - **Multiplayer host links** — invite-code sessions: host creates a session, shares a link, players
-  join and get assigned character dots. Host-authoritative state; real-time sync is future work.
-- **GitHub OAuth** — "Sign in with GitHub" alongside password auth; auto-link on email match.
+  join and get assigned character dots. Host-authoritative state is synced with lightweight polling.
+- **GitHub OAuth support** — OAuth wiring is present alongside password auth; production credentials
+  are environment-configured and may be left disabled for the submitted EC2 URL.
 - **Session hardening** — Secure/HttpOnly/SameSite=Lax cookies, 2h sessions, 14-day remember-me,
   CSRF on all form routes, JSON APIs exempt under SameSite + content-type.
 - **Production security** — HSTS, X-Frame-Options DENY, nosniff, CSP with `script-src 'self'`
@@ -63,7 +65,7 @@ when a Dungeon Master isn't available.
 | Container | Image | Role |
 |---|---|---|
 | **nginx** | `nginx:1.27-alpine` | TLS termination, reverse proxy, security headers, rate limiting, serves `/static/` and `/site/` directly |
-| **app** | Custom (Python 3.12-slim) | Flask under gunicorn (sync workers, unix socket), all API routes, SQLModel ORM |
+| **app** | Custom (Python 3.12-bookworm) | Flask under gunicorn (sync workers, unix socket), all API routes, SQLModel ORM, Playwright Chromium runtime |
 | **db** | `postgres:16-alpine` | Persistent storage, no host port exposure (trust boundary) |
 
 **Frontend** (`S3_content/`): vanilla JS single-page app with canvas rendering. 15 modules
@@ -135,19 +137,19 @@ pytest tests/test_attack_paths.py -v
 pytest tests/e2e -v
 ```
 
-**Test inventory (60 tests):**
+**Test inventory (72 non-e2e tests collected):**
 
 | Suite | Tests | Covers |
 |---|---|---|
 | `test_attack_paths` | 21 | nginx blocks 20 scanner paths; flask-never-saw assertion |
-| `test_auth` | 8 | CSRF rejection, registration, login, remember-me cookie |
-| `test_security_multiplayer` | 11 | Full §16.9 checklist: auth, 404 rules, idempotent join, assignment, caps, privacy |
+| `test_auth` | 9 | CSRF rejection, page rendering, registration, login, remember-me cookie |
+| `test_security_multiplayer` | 16 | Full §16.9 checklist: auth, 404 rules, idempotent join, auto-assignment, host state sync, assignment, caps, privacy |
 | `test_security_run_ownership` | 3 | BOLA 404 on non-owned runs |
 | `test_security_schema_and_login` | 5 | Table existence, constraints, cascade deletes, Flask-Login |
 | `test_backend_random_table_proxy` | 4 | Timeout, malformed JSON, level validation, per-level mapping |
-| `test_backend_runs_api` | 1 | Create saved run contract |
+| `test_backend_runs_api` | 6 | Create saved run contract and entity kind inference for Postgres persistence |
 | `test_frontend_saved_runs_ui` | 4 | Save/load/overwrite controls, multiplayer modal structure |
-| `test_shadowdarklings_import` | 3 | Auth guard, JSON copy, feature-disabled 503 |
+| `test_shadowdarklings_import` | 4 | Auth guard, local-dev bypass, JSON copy, feature-disabled 503 |
 
 ## Local Development (without the production stack)
 
@@ -174,11 +176,13 @@ Browse to `http://localhost:5000/site/` for the dungeon frontend.
 
 ## Known Limitations
 
-- Self-signed TLS certificate on the dev/test EC2; see `CONTRACTS.md` §15.11 for the submission
-  cert ownership note.
+- The submitted EC2 deployment uses a Let's Encrypt certificate for
+  `https://44-252-95-80.sslip.io/`; local development may still use a self-signed certificate.
 - No CI/CD deploy pipeline; documented as intended only.
 - Postgres app user is superuser, not least-privilege.
+- GitHub OAuth code paths are present, but the submitted EC2 URL currently relies on
+  username/password auth unless production OAuth credentials are configured.
 - ShadowDarklings character import runs a headless browser per
   request and must be explicitly enabled in production with `SHADOWDARKLINGS_IMPORT_ENABLED=1`.
-- Multiplayer is host-authoritative with no real-time sync yet (§16.7).
+- Multiplayer is host-authoritative and syncs by polling rather than WebSockets/SSE.
 - Playwright e2e runs over HTTP + SQLite, not the full HTTPS + Postgres stack.
