@@ -12,6 +12,7 @@ import {
   getTile,
   setTileType,
 } from "./state-schema.js";
+import { createTreasureDetails } from "./treasure.js";
 
 const RECT_GRAPH_DIRECTIONS = Object.freeze({
   north: Object.freeze({ x: 0, y: -1 }),
@@ -907,22 +908,10 @@ function pickLootTemplate(rng, level, lootCatalog = {}) {
   return loot;
 }
 
-function createLootDetails(rng, level, lootCatalog = {}) {
-  const loot = pickLootTemplate(rng, level, lootCatalog);
-  if (loot) {
-    loot.searchDc = rng.nextInt(8, 14);
-    return loot;
-  }
-  return {
-    name: "treasure",
-    kind: "coin-cache",
-    value: rng.nextInt(5, 100),
-    slots: 1,
-    bonusSlots: 0,
-    priceless: false,
-    description: "",
-    searchDc: rng.nextInt(8, 14)
-  };
+function createLootDetails(rng, state, lootCatalog = {}) {
+  const loot = createTreasureDetails(state, rng);
+  loot.searchDc = rng.nextInt(8, 14);
+  return loot;
 }
 
 function tileDistanceFromStart(state, x, y) {
@@ -1016,7 +1005,7 @@ function findFurthestTreasureFromStart(state) {
 }
 
 function spawnTreasureAtTile(state, rng, room, tile, extra = {}, lootCatalog = {}) {
-  const loot = createLootDetails(rng, state.level, lootCatalog);
+  const loot = createLootDetails(rng, state, lootCatalog);
   const treasureId = extra.id || `treasure-${state.entities.length}`;
   const entity = {
     id: treasureId,
@@ -1046,7 +1035,7 @@ function trySpawnRoomTreasure(state, rng, room, trapTable, lootCatalog = {}, spa
   if (rng.nextFloat() >= spawnChance) {
     return null;
   }
-  const loot = createLootDetails(rng, state.level, lootCatalog);
+  const loot = createLootDetails(rng, state, lootCatalog);
   const treasureId = `treasure-${state.entities.length}`;
   const treasure = spawnEntity(state, rng, room, "treasure", ENTITY_TYPES.TREASURE, "coin-cache", false, {
     id: treasureId,

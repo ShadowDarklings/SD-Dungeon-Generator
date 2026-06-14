@@ -1,6 +1,8 @@
 import { DOOR_STATES, ENTITY_TYPES, TILE_TYPES } from "./constants.js";
 import { getTile } from "./state-schema.js";
+import { SeededRng } from "./rng.js";
 import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibility.js";
+import { createTreasureDetails, formatTreasureValue } from "./treasure.js";
 
 const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
 const DEFAULT_INVENTORY_SLOTS = 10;
@@ -36,7 +38,7 @@ function getItemBonusSlots(item) {
 }
 
 function getLootValueLabel(item) {
-  return item?.priceless === true ? "priceless" : `${item?.value ?? 0} gp`;
+  return item?.priceless === true ? "priceless" : formatTreasureValue(item?.value ?? 0);
 }
 
 function recomputeInventory(state) {
@@ -278,29 +280,36 @@ function isWalkable(state, tile) {
 }
 
 function addMonsterLootDrop(state, monster) {
-  if (Math.random() >= MONSTER_LOOT_DROP_CHANCE) {
+  const dropChance = monster?.wandering === true ? 0.5 : MONSTER_LOOT_DROP_CHANCE;
+  if (Math.random() >= dropChance) {
     return null;
   }
   const level = Math.max(1, Number(monster.level ?? state.level ?? 1) || 1);
-  const value = Math.max(5, level * 8 + Math.floor(Math.random() * (level * 12 + 8)));
+  const rngSeed = (Number(state.seed) || 0)
+    + (level * 97)
+    + (Number(monster.x) || 0) * 17
+    + (Number(monster.y) || 0) * 31
+    + state.entities.length * 13;
+  const rng = new SeededRng(rngSeed);
+  const treasure = createTreasureDetails({ ...state, level }, rng);
   const loot = {
     id: `monster-loot-${state.entities.length}-${Date.now()}`,
     type: ENTITY_TYPES.TREASURE,
     subtype: "monster-loot",
-    kind: "coin-cache",
+    kind: treasure.kind,
     x: monster.x,
     y: monster.y,
     roomId: monster.roomId,
     visible: true,
     revealed: true,
     collected: false,
-    name: `${monster.name || "monster"} loot`,
-    value,
-    searchDc: 0,
-    slots: 1,
-    bonusSlots: 0,
-    priceless: false,
-    description: "Coins, oddments, or useful salvage dropped by a defeated monster."
+    name: treasure.name,
+    value: treasure.value,
+    searchDc: treasure.searchDc ?? 0,
+    slots: treasure.slots ?? 1,
+    bonusSlots: treasure.bonusSlots ?? 0,
+    priceless: treasure.priceless === true,
+    description: treasure.description || "Coins, oddments, or useful salvage dropped by a defeated monster."
   };
   state.entities.push(loot);
   return loot;
@@ -642,7 +651,7 @@ export function collectRoomLoot(state) {
   }
   return {
     collected,
-    message: `Got ${collected} item${collected === 1 ? "" : "s"} (${totalValue} gp total).`
+    message: `Got ${collected} item${collected === 1 ? "" : "s"} (${formatTreasureValue(totalValue)} total).`
   };
 }
 
@@ -762,8 +771,8 @@ export function searchForTraps(state, modifier, options = {}) {
           if (entity.type === ENTITY_TYPES.TRAP) {
             return `${entity.name} (trigger: ${entity.trigger}; effect: ${entity.effect})`;
           }
-          return `${entity.name} (${entity.value} gp)`;
-        }).join("; ")}`
+          return `${entity.name} (${formatTreasureValue(entity.value)})`;
+        }).join("; ")}` 
       : `Search ${check.total}: no hidden traps or treasure found.`
   };
 }

@@ -14,6 +14,7 @@ import {
   rollCheck,
   searchForTraps
 } from "./interactions.js";
+import { formatTreasureValue } from "./treasure.js";
 import {
   createRun,
   hydrateDungeonState,
@@ -567,7 +568,7 @@ function updateLootUi() {
     const item = document.createElement("li");
     item.className = "loot-item";
     const slotText = `${entry.slots || 1} slot${(entry.slots || 1) === 1 ? "" : "s"}`;
-    const valueText = entry.priceless ? "priceless" : `${entry.value} gp`;
+    const valueText = entry.priceless ? "priceless" : formatTreasureValue(entry.value);
     item.textContent = `${entry.name} (${slotText}, ${valueText})`;
     const dropBtn = document.createElement("button");
     dropBtn.textContent = "Leave";
@@ -581,7 +582,7 @@ function updateLootUi() {
     item.append(" ", dropBtn);
     ui.lootList.append(item);
   }
-  ui.totalValue.textContent = `${state.lootLog.totalValue}`;
+  ui.totalValue.textContent = formatTreasureValue(state.lootLog.totalValue);
   if (ui.inventorySlots) {
     const inventory = state.inventory || { baseSlots: 10, bonusSlots: 0, usedSlots: 0 };
     const capacity = Number(inventory.baseSlots ?? 10) + Number(inventory.bonusSlots ?? 0);
@@ -4530,11 +4531,10 @@ function updateRoomLootPanel() {
     const lootButton = document.createElement("button");
     lootButton.type = "button";
     const slotText = `${loot.slots || 1} slot${(loot.slots || 1) === 1 ? "" : "s"}`;
-    const valueText = loot.priceless ? "priceless" : `${loot.value} gp`;
     const isDroppedEquipment = loot.subtype === "dropped-equipment";
     lootButton.textContent = isDroppedEquipment
       ? `Pick up: ${loot.name || "equipment"} (${slotText})`
-      : `Get: ${loot.name || "treasure"} (${slotText}, ${valueText})`;
+      : `Get: ${loot.name || "treasure"} (${slotText})`;
     lootButton.addEventListener("click", () => {
       const result = isDroppedEquipment
         ? pickupDroppedEquipment(loot)
