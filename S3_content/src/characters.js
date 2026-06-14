@@ -1,5 +1,6 @@
 const ABILITY_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 const MAX_EDITABLE_VALUE = 99;
+const MAX_COIN_VALUE = 2000;
 const SHADOWDARK_LANGUAGES = [
   "Dwarvish",
   "Elvish",
@@ -22,6 +23,21 @@ function clampInRange(value, min, max, fallback = min) {
 
 function inferGearItemSlots(name, item = {}) {
   const normalizedName = String(name || "").toLowerCase();
+  const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
+  if (item?.treasureItem === true || treasureKind) {
+    if (treasureKind === "herbs" || treasureKind === "clothing" || treasureKind === "jewels") {
+      return 0;
+    }
+    if (treasureKind === "platemail") {
+      return 3;
+    }
+    if (treasureKind === "chainmail") {
+      return 2;
+    }
+    if (treasureKind === "leather") {
+      return 1;
+    }
+  }
   if (/\bplate\s*(?:mail|armor)?\b/.test(normalizedName)) {
     return 3;
   }
@@ -214,9 +230,9 @@ function normalizeMoney(raw) {
   );
   if (hasExplicitMoney) {
     return {
-      gold: Math.max(0, parseMoneyInput(raw.gold) ?? 0),
-      silver: Math.max(0, parseMoneyInput(raw.silver) ?? 0),
-      copper: Math.max(0, parseMoneyInput(raw.copper) ?? 0)
+      gold: Math.max(0, Math.min(MAX_COIN_VALUE, parseMoneyInput(raw.gold) ?? 0)),
+      silver: Math.max(0, Math.min(MAX_COIN_VALUE, parseMoneyInput(raw.silver) ?? 0)),
+      copper: Math.max(0, Math.min(MAX_COIN_VALUE, parseMoneyInput(raw.copper) ?? 0))
     };
   }
 
@@ -242,6 +258,17 @@ function normalizeMoney(raw) {
   }
 
   return { gold: 0, silver: 0, copper: 0 };
+}
+
+function getCoinTotal(money = {}) {
+  const gold = Math.max(0, Number(money.gold) || 0);
+  const silver = Math.max(0, Number(money.silver) || 0);
+  const copper = Math.max(0, Number(money.copper) || 0);
+  return (gold * 100) + (silver * 10) + copper;
+}
+
+function getCoinBagSlots(money = {}) {
+  return getCoinTotal(money) > 100 ? 1 : 0;
 }
 
 function normalizeAmmo(gear, raw = {}) {
@@ -281,7 +308,7 @@ function normalizeCharacterSource(raw = {}, index = 0) {
   const baseArmorClass = clampInt(raw.baseArmorClass ?? raw.rawBaseArmorClass ?? raw.armorClass ?? raw.ac ?? 10, 0, MAX_EDITABLE_VALUE, 10);
   const gearSlotsTotal = getGearSlotCapacity(stats, raw.class || raw.className || "", raw);
   const computedSlots = getSlotsFromGear(gear, true);
-  const gearSlotsUsed = clampInt(computedSlots.usedSlots, 0, gearSlotsTotal, 0);
+  const gearSlotsUsed = clampInt(computedSlots.usedSlots + getCoinBagSlots(money), 0, gearSlotsTotal, 0);
   const ammo = normalizeAmmo(gear, raw);
   const rawName = typeof raw.name === "string" ? raw.name.trim() : "";
   const name = rawName || `Character ${index + 1}`;
@@ -387,7 +414,8 @@ export function getCharacterGearFreeSlots(character) {
     return 0;
   }
   const gearCapacity = getGearSlotCapacity(character?.stats || {}, character?.className || "", character);
-  return Math.max(0, Number(gearCapacity) - Number(character.gearSlotsUsed));
+  const usedSlots = Number(character.gearSlotsUsed || 0);
+  return Math.max(0, Number(gearCapacity) - usedSlots);
 }
 
 export function getCharacterAttackSummary(character) {
@@ -480,6 +508,14 @@ export function getCharacterRuleText(character) {
     lines.push(`Spells: ${spellText}`);
   }
   return lines.join("\n");
+}
+
+export function getCharacterCoinTotal(character) {
+  return getCoinTotal(character || {});
+}
+
+export function getCharacterCoinBagSlots(character) {
+  return getCoinBagSlots(character || {});
 }
 
 export function extractShadowdarkCharacters(text) {

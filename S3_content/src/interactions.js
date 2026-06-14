@@ -2,11 +2,13 @@ import { DOOR_STATES, ENTITY_TYPES, TILE_TYPES } from "./constants.js";
 import { getTile } from "./state-schema.js";
 import { SeededRng } from "./rng.js";
 import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibility.js";
+import { getCharacterGearFreeSlots } from "./characters.js";
 import { createTreasureDetails, formatTreasureValue } from "./treasure.js";
 
 const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
 const DEFAULT_INVENTORY_SLOTS = 10;
 const MONSTER_LOOT_DROP_CHANCE = 0.75;
+const MAX_COIN_VALUE = 2000;
 
 function ensureInventory(state) {
   if (!state.inventory) {
@@ -41,11 +43,36 @@ function getLootValueLabel(item) {
   return item?.priceless === true ? "priceless" : formatTreasureValue(item?.value ?? 0);
 }
 
+function getTreasureSlotCost(entity) {
+  const kind = String(entity?.kind || entity?.treasureKind || "").toLowerCase();
+  if (kind === "herbs" || kind === "clothing" || kind === "jewels") {
+    return 0;
+  }
+  if (kind === "chainmail") {
+    return 2;
+  }
+  if (kind === "platemail") {
+    return 3;
+  }
+  return 1;
+}
+
+function clampCoinValue(value) {
+  return Math.max(0, Math.min(MAX_COIN_VALUE, Math.floor(Number(value) || 0)));
+}
+
 function recomputeInventory(state) {
   const inventory = ensureInventory(state);
   inventory.usedSlots = state.lootLog.entries.reduce((total, entry) => total + getItemSlots(entry), 0);
   inventory.bonusSlots = state.lootLog.entries.reduce((total, entry) => total + getItemBonusSlots(entry), 0);
   return inventory;
+}
+
+function getActiveCarrier(state) {
+  if (!Array.isArray(state?.characters) || !state.characters.length) {
+    return null;
+  }
+  return state.characters.find((character) => character.id === state.activeCharacterId) || state.characters[0] || null;
 }
 
 function findEntityAt(state, x, y) {
@@ -600,33 +627,52 @@ export function collectLoot(state, lootId) {
     };
   }
 
-  const inventory = ensureInventory(state);
-  const itemSlots = getItemSlots(entity);
-  const capacity = getInventoryCapacity(state);
-  if (inventory.usedSlots + itemSlots > capacity) {
+  const character = getActiveCarrier(state);
+  if (!character) {
+    return { collected: 0, message: "Select a character to carry treasure." };
+  }
+
+  const itemSlots = getTreasureSlotCost(entity);
+  if (getCharacterGearFreeSlots(character) < itemSlots) {
     return {
       collected: 0,
-      message: `Not enough inventory slots. Carrying ${inventory.usedSlots}/${capacity} slots.`
+      message: `${character.name || "Character"} has no room for ${entity.name || "treasure"}.`
     };
   }
 
   entity.collected = true;
-  state.lootLog.entries.push({
+  const treasureName = entity.name || "treasure";
+  if (entity.coinBreakdown) {
+    character.gold = clampCoinValue(Number(character.gold || 0) + Number(entity.coinBreakdown.gold || 0));
+    character.silver = clampCoinValue(Number(character.silver || 0) + Number(entity.coinBreakdown.silver || 0));
+    character.copper = clampCoinValue(Number(character.copper || 0) + Number(entity.coinBreakdown.copper || 0));
+    character.raw = character.raw || {};
+    character.raw.gold = character.gold;
+    character.raw.silver = character.silver;
+    character.raw.copper = character.copper;
+    return {
+      collected: 1,
+      message: `Got: ${treasureName} (${getLootValueLabel(entity)}).`
+    };
+  }
+
+  character.gear = Array.isArray(character.gear) ? character.gear : [];
+  character.gear.push({
     id: entity.id,
-    name: entity.name || "loot",
-    kind: entity.kind || entity.subtype || "treasure",
-    value: entity.value,
+    name: treasureName,
+    quantity: 1,
+    totalUnits: 1,
+    value: Math.max(0, Number(entity.value) || 0),
     slots: itemSlots,
     bonusSlots: getItemBonusSlots(entity),
     priceless: entity.priceless === true,
     description: entity.description || "",
-    originTile: { x: entity.x, y: entity.y }
+    treasureItem: true,
+    treasureKind: entity.kind || entity.subtype || "treasure"
   });
-  state.lootLog.totalValue += entity.value;
-  recomputeInventory(state);
   return {
     collected: 1,
-    message: `Got: ${entity.name || "treasure"} (${getLootValueLabel(entity)}).`
+    message: `Got: ${treasureName} (${getLootValueLabel(entity)}).`
   };
 }
 
@@ -656,32 +702,38 @@ export function collectRoomLoot(state) {
 }
 
 export function dropLootAtPlayer(state, lootId) {
-  const entryIndex = state.lootLog.entries.findIndex((item) => item.id === lootId);
-  if (entryIndex === -1) {
+  const character = getActiveCarrier(state);
+  if (!character || !Array.isArray(character.gear)) {
+    return { message: "No carried treasure to leave." };
+  }
+  const index = character.gear.findIndex((item) => String(item?.id || "") === String(lootId));
+  if (index === -1) {
     return { message: "Loot item not found." };
   }
-
-  const [entry] = state.lootLog.entries.splice(entryIndex, 1);
-  state.lootLog.totalValue -= entry.value;
-  state.entities.push({
-    id: `${entry.id}-dropped-${Date.now()}`,
-    type: ENTITY_TYPES.TREASURE,
-    subtype: "dropped-loot",
-    name: entry.name,
-    kind: entry.kind || "treasure",
-    x: state.player.x,
-    y: state.player.y,
-    roomId: state.player.roomId,
-    visible: true,
-    value: entry.value,
-    slots: getItemSlots(entry),
-    bonusSlots: getItemBonusSlots(entry),
-    priceless: entry.priceless === true,
-    description: entry.description || "",
-    collected: false
-  });
-  recomputeInventory(state);
-  return { message: `Left ${entry.name} (${getLootValueLabel(entry)}).` };
+  const [entry] = character.gear.splice(index, 1);
+  character.raw = character.raw || {};
+  if (entry.treasureItem) {
+    state.entities.push({
+      id: `${entry.id}-dropped-${Date.now()}`,
+      type: ENTITY_TYPES.TREASURE,
+      subtype: "dropped-loot",
+      name: entry.name,
+      kind: entry.treasureKind || "treasure",
+      x: state.player.x,
+      y: state.player.y,
+      roomId: state.player.roomId,
+      visible: true,
+      value: entry.value,
+      slots: getItemSlots(entry),
+      bonusSlots: getItemBonusSlots(entry),
+      priceless: entry.priceless === true,
+      description: entry.description || "",
+      collected: false
+    });
+    return { message: `Left ${entry.name} (${getLootValueLabel(entry)}).` };
+  }
+  character.gear.splice(index, 0, entry);
+  return { message: "That item cannot be left here." };
 }
 
 export function getInventorySummary(state) {

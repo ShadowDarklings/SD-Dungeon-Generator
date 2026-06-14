@@ -1492,6 +1492,44 @@ body {
   grid-area: gear;
 }
 
+.sd-gear-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 10px;
+}
+
+.sd-gear-heading-row h3 {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.sd-coin-fields {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.sd-coin-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 700 0.72rem/1 "Times New Roman", Georgia, serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sd-coin-field input {
+  width: 5ch;
+  padding: 2px 4px;
+  text-align: right;
+  font: 700 0.8rem/1 "Times New Roman", Georgia, serif;
+}
+
 .sd-sheet-field,
 .sd-sheet-panel {
   border: 2px solid #111;

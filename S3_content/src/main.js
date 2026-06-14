@@ -29,6 +29,7 @@ import {
   abilityScoreModifier,
   decrementCharacterDyingRounds,
   extractShadowdarkCharacters,
+  getCharacterCoinBagSlots,
   getActiveCharacter,
   getCharacterActionModifier,
   getCharacterAmmo,
@@ -563,6 +564,9 @@ function setActiveTab(nextTab) {
 }
 
 function updateLootUi() {
+  if (!ui.lootList || !ui.totalValue || !ui.inventorySlots) {
+    return;
+  }
   ui.lootList.innerHTML = "";
   for (const entry of state.lootLog.entries) {
     const item = document.createElement("li");
@@ -1024,6 +1028,21 @@ function getGearUnits(item) {
 
 function inferGearItemSlots(name, item = {}) {
   const normalizedName = String(name || "").toLowerCase();
+  const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
+  if (item?.treasureItem === true || treasureKind) {
+    if (treasureKind === "herbs" || treasureKind === "clothing" || treasureKind === "jewels") {
+      return 0;
+    }
+    if (treasureKind === "platemail") {
+      return 3;
+    }
+    if (treasureKind === "chainmail") {
+      return 2;
+    }
+    if (treasureKind === "leather") {
+      return 1;
+    }
+  }
   if (/\bplate\s*(?:mail|armor)?\b/.test(normalizedName)) {
     return 3;
   }
@@ -2716,6 +2735,12 @@ function getCharacterGearSlots(character, options = {}) {
     return groupSize > 1 && units > 1 ? `${name} x ${units}` : name;
   }
 
+  function formatFreeCarryName(item) {
+    const itemName = String(item?.name || "Gear").trim() || "Gear";
+    const valueLabel = formatTreasureValue(Number(item?.value) || 0);
+    return `${itemName} (${valueLabel})`;
+  }
+
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
     const item = items[itemIndex];
     const rawItemName = String(item?.name || "Gear").trim() || "Gear";
@@ -2748,6 +2773,11 @@ function getCharacterGearSlots(character, options = {}) {
       remainingUnits = Math.max(0, units - 1);
     }
 
+    if (item?.treasureItem === true && inferGearItemSlots(itemName, item) === 0) {
+      freeCarry.push(formatFreeCarryName(item));
+      continue;
+    }
+
     if (groupSize > 1) {
       const slotGroups = Math.max(1, Math.ceil(remainingUnits / groupSize));
       const displayName = formatStackName(itemName, remainingUnits, groupSize);
@@ -2774,6 +2804,15 @@ function getCharacterGearSlots(character, options = {}) {
     }
   }
 
+  if (getCharacterCoinBagSlots(character) > 0) {
+    lines.push({
+      text: "bag of coins",
+      available: false,
+      gearIndex: null,
+      primary: true
+    });
+  }
+
   const total = maxUsedSlots;
   while (lines.length < total) {
     lines.push({
@@ -2790,6 +2829,111 @@ function getCharacterGearSlots(character, options = {}) {
 
 function getCharacterMoney(character, key) {
   return Number(character?.[key] ?? character?.raw?.[key] ?? 0) || 0;
+}
+
+function setCharacterMoneyValue(character, key, value) {
+  const nextValue = Math.max(0, Math.min(2000, Number.parseInt(value, 10) || 0));
+  character[key] = nextValue;
+  character.raw = character.raw || {};
+  character.raw[key] = nextValue;
+  return nextValue;
+}
+
+function updateCharacterMoneyField(character, key, nextValue) {
+  const previousValue = getCharacterMoney(character, key);
+  const clampedNext = setCharacterMoneyValue(character, key, nextValue);
+  const delta = clampedNext - previousValue;
+  if (delta < 0) {
+    dropCharacterCoinPile(character, key, Math.abs(delta));
+  }
+  normalizeCharacterState(state);
+  syncAllCharacterEquipmentDerivedStats();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  markRunDirty();
+  refreshCharacterViews(character);
+  render();
+  updatePanels();
+  return clampedNext;
+}
+
+function getCoinLabel(key) {
+  if (key === "gold") {
+    return "g.p.";
+  }
+  if (key === "silver") {
+    return "s.p.";
+  }
+  return "c.p.";
+}
+
+function getCoinValueInCopper(key, amount) {
+  const units = Math.max(0, Number(amount) || 0);
+  if (key === "gold") {
+    return units * 100;
+  }
+  if (key === "silver") {
+    return units * 10;
+  }
+  return units;
+}
+
+function findMergeableCoinPile(key, tile) {
+  return state.entities.find((entity) => (
+    entity.type === "treasure" &&
+    entity.subtype === `dropped-${key}` &&
+    !entity.collected &&
+    entity.x === tile.x &&
+    entity.y === tile.y
+  )) || null;
+}
+
+function createCoinPileEntity(character, key, amount) {
+  const tile = findEquipmentDropTile(character);
+  const label = getCoinLabel(key);
+  return {
+    id: `coin-drop-${key}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    type: "treasure",
+    subtype: `dropped-${key}`,
+    kind: "coin-cache",
+    name: `${label} pouch`,
+    x: tile.x,
+    y: tile.y,
+    roomId: tile.roomId,
+    visible: true,
+    revealed: true,
+    collected: false,
+    value: Math.max(1, Math.round(getCoinValueInCopper(key, amount) / 100)),
+    slots: Math.max(1, Math.ceil(Math.max(1, amount) / 100)),
+    bonusSlots: 0,
+    priceless: false,
+    description: `${amount} ${label} dropped from ${character?.name || "a character"}.`,
+    coinBreakdown: {
+      gold: key === "gold" ? amount : 0,
+      silver: key === "silver" ? amount : 0,
+      copper: key === "copper" ? amount : 0
+    }
+  };
+}
+
+function dropCharacterCoinPile(character, key, amount) {
+  if (!character || !amount) {
+    return null;
+  }
+  const tile = findEquipmentDropTile(character);
+  const mergeable = findMergeableCoinPile(key, tile);
+  if (mergeable) {
+    mergeable.coinBreakdown = mergeable.coinBreakdown || { gold: 0, silver: 0, copper: 0 };
+    mergeable.coinBreakdown[key] = Math.max(0, Number(mergeable.coinBreakdown[key] || 0) + amount);
+    mergeable.value = Math.max(1, Math.round(getCoinValueInCopper(key, mergeable.coinBreakdown[key]) / 100));
+    mergeable.slots = Math.max(1, Math.ceil(Math.max(1, mergeable.coinBreakdown[key]) / 100));
+    mergeable.name = `${getCoinLabel(key)} pouch`;
+    mergeable.description = `${mergeable.coinBreakdown[key]} ${getCoinLabel(key)} dropped from ${character?.name || "a character"}.`;
+    return mergeable;
+  }
+  const entity = createCoinPileEntity(character, key, amount);
+  state.entities.push(entity);
+  return entity;
 }
 
 function getXpTarget(character) {
@@ -4334,12 +4478,40 @@ function createSdPanel(title, content, className = "") {
 function createSdGearPanel(character) {
   const panel = document.createElement("section");
   panel.className = "sd-sheet-panel sd-gear-panel";
+  const headingRow = document.createElement("div");
+  headingRow.className = "sd-gear-heading-row";
   const heading = document.createElement("h3");
   heading.textContent = "Gear";
+  const coinFields = document.createElement("div");
+  coinFields.className = "sd-coin-fields";
 
-  const money = document.createElement("div");
-  money.className = "sd-money-row";
-  money.textContent = `GP ${getCharacterMoney(character, "gold")}   SP ${getCharacterMoney(character, "silver")}   CP ${getCharacterMoney(character, "copper")}`;
+  const coinFieldConfigs = [
+    ["GP", "gold"],
+    ["SP", "silver"],
+    ["CP", "copper"]
+  ];
+  for (const [label, key] of coinFieldConfigs) {
+    const field = document.createElement("label");
+    field.className = "sd-coin-field";
+    const fieldLabel = document.createElement("span");
+    fieldLabel.textContent = label;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.max = "2000";
+    input.step = "1";
+    input.value = `${getCharacterMoney(character, key)}`;
+    input.addEventListener("input", () => {
+      const currentCharacter = getCurrentCharacter(character);
+      if (!currentCharacter) {
+        return;
+      }
+      updateCharacterMoneyField(currentCharacter, key, input.value);
+    });
+    field.append(fieldLabel, input);
+    coinFields.append(field);
+  }
+  headingRow.append(heading, coinFields);
 
   const rows = document.createElement("div");
   rows.className = "sd-gear-lines";
@@ -4426,14 +4598,15 @@ function createSdGearPanel(character) {
   freeCarryHeading.textContent = "FREE TO CARRY";
   const freeCarryLines = document.createElement("div");
   freeCarryLines.className = "sd-free-carry-lines";
+  const freeCarryDisplay = ["coin bag", ...freeCarry.filter((entry) => String(entry || "").toLowerCase() !== "coin bag")];
   for (let index = 0; index < 10; index += 1) {
     const line = document.createElement("div");
-    line.textContent = freeCarry[index] || "";
+    line.textContent = freeCarryDisplay[index] || "";
     freeCarryLines.append(line);
   }
   freeCarryPanel.append(freeCarryHeading, freeCarryLines);
 
-  panel.append(heading, money, rows, freeCarryPanel);
+  panel.append(headingRow, rows, freeCarryPanel);
   return panel;
 }
 
@@ -4851,8 +5024,14 @@ function performLeave() {
   if (!state) {
     return;
   }
-  const [entry] = state.lootLog.entries;
-  const result = entry ? dropLootAtPlayer(state, entry.id) : { message: "No carried treasure to leave." };
+  const character = getActiveCharacter(state);
+  const treasureIndex = Array.isArray(character?.gear)
+    ? character.gear.findIndex((item) => item?.treasureItem === true)
+    : -1;
+  const gearIndex = treasureIndex >= 0 ? treasureIndex : 0;
+  const result = character && gearIndex >= 0 && Array.isArray(character.gear) && character.gear[gearIndex]
+    ? dropCharacterGear(character, gearIndex)
+    : { message: "No carried treasure to leave." };
   markUserActivity();
   setStatus(result);
   render();
@@ -5341,6 +5520,11 @@ function hookInputEvents() {
       return;
     }
     if (event.key === "i" || event.key === "I") {
+      if (ui.characterSheetModal && !ui.characterSheetModal.hidden) {
+        event.preventDefault();
+        closeCharacterSheet();
+        return;
+      }
       const active = getExplicitActiveCharacter(state);
       if (active) {
         event.preventDefault();
