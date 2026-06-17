@@ -4,6 +4,7 @@ import {
   clickEntity,
   collectLoot,
   collectRoomLoot,
+  defeatMonster,
   disarmTrap,
   dropLootAtPlayer,
   attemptLockedDoor,
@@ -115,6 +116,8 @@ const ui = {
   damageContext: document.getElementById("damage-context"),
   damageExpandBtn: document.getElementById("damage-expand-btn"),
   damageDetail: document.getElementById("damage-detail"),
+  diceHistoryToggle: document.getElementById("dice-history-toggle"),
+  diceHistory: document.getElementById("dice-history"),
   manualDiceControls: document.getElementById("manual-dice-controls"),
   manualDieCount: document.getElementById("manual-die-count"),
   manualDieModifier: document.getElementById("manual-die-modifier"),
@@ -167,9 +170,11 @@ let forceBlackoutWhenTorchOut = true;
 let monsterTable = [];
 let trapTable = [];
 let shadowdarkContent = null;
+let rulesData = null;
 let spellLibraryPromise = null;
 let spellLookup = new Map();
 let lastDamageRoll = null;
+let diceHistory = [];
 let activeTab = "dungeon";
 let saveDialog = {
   mode: "save",
@@ -1017,6 +1022,10 @@ function getStackGroupSize(name) {
   return 1;
 }
 
+function isEquipmentPileStackable(name) {
+  return /arrows?|bolts?/i.test(String(name || ""));
+}
+
 function getGearUnits(item) {
   const units = Number.isFinite(Number(item?.totalUnits)) && Number(item.totalUnits) > 0
     ? Math.floor(Number(item.totalUnits))
@@ -1745,7 +1754,7 @@ function updateCharacterAmmoFromGearItem(character, item) {
 
 function findExistingGearStack(character, item) {
   const groupSize = getStackGroupSize(item?.name);
-  if (groupSize <= 1 && getGearUnits(item) <= 1) {
+  if (groupSize <= 1) {
     return null;
   }
   const name = String(item?.name || "").toLowerCase();
@@ -1764,6 +1773,9 @@ function getPickupSlotCost(character, item) {
 }
 
 function findMergeableDroppedPile(item, tile) {
+  if (!isEquipmentPileStackable(item?.name)) {
+    return null;
+  }
   const name = String(item?.name || "").toLowerCase();
   return state.entities.find((entity) => (
     entity.subtype === "dropped-equipment" &&
@@ -1771,8 +1783,8 @@ function findMergeableDroppedPile(item, tile) {
     entity.x === tile.x &&
     entity.y === tile.y &&
     String(entity.gearItem?.name || "").toLowerCase() === name &&
-    getStackGroupSize(entity.gearItem?.name) > 1 &&
-    getGearUnits(entity.gearItem) < 1000
+    isEquipmentPileStackable(entity.gearItem?.name) &&
+    getGearUnits(entity.gearItem) < getStackGroupSize(entity.gearItem?.name)
   )) || null;
 }
 
@@ -1780,6 +1792,8 @@ function createDroppedGearEntity(item, tile, litSource = "") {
   const units = getPileUnits(item);
   const droppedItem = JSON.parse(JSON.stringify(item));
   setGearItemUnits(droppedItem, units);
+  const corpseLoot = droppedItem.corpseLoot === true;
+  const worthlessLoot = droppedItem.worthlessLoot === true || corpseLoot;
   const entity = {
     id: `gear-drop-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     type: "treasure",
@@ -1797,7 +1811,10 @@ function createDroppedGearEntity(item, tile, litSource = "") {
     bonusSlots: 0,
     priceless: false,
     description: "Dropped equipment.",
-    gearItem: droppedItem
+    gearItem: droppedItem,
+    worthlessLoot,
+    corpseLoot,
+    monsterName: droppedItem.monsterName || ""
   };
   if (litSource === "torch" || litSource === "lantern") {
     entity.lightSource = litSource;
@@ -1808,9 +1825,9 @@ function createDroppedGearEntity(item, tile, litSource = "") {
 
 function addDroppedGearPile(item, tile, litSource = "") {
   const groupSize = getStackGroupSize(item?.name);
-  const mergeable = groupSize > 1 ? findMergeableDroppedPile(item, tile) : null;
+  const mergeable = isEquipmentPileStackable(item?.name) ? findMergeableDroppedPile(item, tile) : null;
   if (mergeable) {
-    const nextUnits = Math.min(1000, getGearUnits(mergeable.gearItem) + getPileUnits(item));
+    const nextUnits = Math.min(groupSize, getGearUnits(mergeable.gearItem) + getPileUnits(item));
     setGearItemUnits(mergeable.gearItem, nextUnits);
     mergeable.name = getGearDisplayName(mergeable.gearItem);
     mergeable.slots = Math.max(1, Math.ceil(nextUnits / groupSize));
@@ -1835,20 +1852,20 @@ function dropCharacterGear(character, gearIndex) {
   }
   const item = character.gear[index];
   const itemName = String(item?.name || "Gear").trim() || "Gear";
-  const groupSize = getStackGroupSize(itemName);
   const originalUnits = getGearUnits(item);
   const droppedItem = JSON.parse(JSON.stringify(item));
+  const dropsOneUnitAtATime = originalUnits > 1;
   const activeLight = character.lightSource || state.player.lightSource || "";
   const litSource = index === getLitGearIndex(character, activeLight) && Number(character.lightRadius) > 0 && isLightGearItem(item, activeLight)
     ? activeLight
     : "";
-  if (originalUnits > 1) {
+  const dropUnits = dropsOneUnitAtATime ? 1 : Math.max(1, originalUnits);
+  if (dropsOneUnitAtATime) {
     setGearItemUnits(item, originalUnits - 1);
-    setGearItemUnits(droppedItem, 1);
   } else {
     character.gear.splice(index, 1);
-    setGearItemUnits(droppedItem, Math.max(1, originalUnits));
   }
+  setGearItemUnits(droppedItem, dropUnits);
   if (litSource) {
     setCharacterLight(character, "");
     syncPlayerLightFromActiveCharacter();
@@ -2741,10 +2758,25 @@ function getCharacterGearSlots(character, options = {}) {
     return `${itemName} (${valueLabel})`;
   }
 
+  function formatGearLineName(item, fallbackName) {
+    const itemName = String(fallbackName || item?.name || "Gear").trim() || "Gear";
+    if (item?.treasureItem === true) {
+      return `${itemName} (${formatTreasureValue(Number(item?.value) || 0)})`;
+    }
+    return itemName;
+  }
+
+  function getCoinCount() {
+    return Math.max(0, getCharacterMoney(character, "gold"))
+      + Math.max(0, getCharacterMoney(character, "silver"))
+      + Math.max(0, getCharacterMoney(character, "copper"));
+  }
+
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
     const item = items[itemIndex];
     const rawItemName = String(item?.name || "Gear").trim() || "Gear";
     const itemName = rawItemName;
+    const displayItemName = formatGearLineName(item, itemName);
     const normalizedItemName = itemName.toLowerCase();
     const isTorch = normalizedItemName === "torch" || normalizedItemName.startsWith("torch ");
     const isBackpack = itemName.toLowerCase() === "backpack";
@@ -2780,21 +2812,21 @@ function getCharacterGearSlots(character, options = {}) {
 
     if (groupSize > 1) {
       const slotGroups = Math.max(1, Math.ceil(remainingUnits / groupSize));
-      const displayName = formatStackName(itemName, remainingUnits, groupSize);
+      const displayName = formatStackName(displayItemName, remainingUnits, groupSize);
       lines.push({ text: displayName, available: totalSlots < capacitySlots, gearIndex: itemIndex, primary: true });
       totalSlots += 1;
       for (let group = 1; group < slotGroups; group += 1) {
-        lines.push({ text: `   (${itemName})`, available: totalSlots < capacitySlots, gearIndex: itemIndex, primary: false });
+        lines.push({ text: `   (${displayItemName})`, available: totalSlots < capacitySlots, gearIndex: itemIndex, primary: false });
         totalSlots += 1;
       }
       continue;
     }
 
-    const unitText = formatStackName(itemName, 1, groupSize);
+    const unitText = formatStackName(displayItemName, 1, groupSize);
     for (let unit = 0; unit < remainingUnits; unit += 1) {
       for (let slot = 0; slot < slotsPerUnit; slot += 1) {
         lines.push({
-          text: slot === 0 ? unitText : `   (${itemName})`,
+          text: slot === 0 ? unitText : `   (${displayItemName})`,
           available: totalSlots < capacitySlots,
           gearIndex: itemIndex,
           primary: slot === 0
@@ -2804,13 +2836,26 @@ function getCharacterGearSlots(character, options = {}) {
     }
   }
 
-  if (getCharacterCoinBagSlots(character) > 0) {
+  const carriedCoins = getCoinCount();
+  const coinOverflow = Math.max(0, carriedCoins - 100);
+  const coinBagSlots = getCharacterCoinBagSlots(character);
+  if (coinBagSlots > 0) {
     lines.push({
-      text: "bag of coins",
-      available: false,
+      text: `bag of coins x ${coinOverflow}`,
+      available: totalSlots < capacitySlots,
       gearIndex: null,
       primary: true
     });
+    totalSlots += 1;
+    for (let slot = 1; slot < coinBagSlots; slot += 1) {
+      lines.push({
+        text: "   (bag of coins)",
+        available: totalSlots < capacitySlots,
+        gearIndex: null,
+        primary: false
+      });
+      totalSlots += 1;
+    }
   }
 
   const total = maxUsedSlots;
@@ -2823,12 +2868,25 @@ function getCharacterGearSlots(character, options = {}) {
   }
   return {
     slots: lines.slice(0, maxUsedSlots),
-    freeCarry: freeCarry.slice(0, 1)
+    freeCarry: [`coin bag x ${Math.min(100, carriedCoins)}`, ...freeCarry].slice(0, 10)
   };
 }
 
 function getCharacterMoney(character, key) {
   return Number(character?.[key] ?? character?.raw?.[key] ?? 0) || 0;
+}
+
+async function loadRulesData() {
+  try {
+    const response = await fetch("./data/rules-data.json");
+    if (!response.ok) {
+      throw new Error(`Rules data request failed: ${response.status}`);
+    }
+    return response.json();
+  } catch (error) {
+    console.warn("Using built-in rules fallback because rules-data.json could not load.", error);
+    return null;
+  }
 }
 
 function setCharacterMoneyValue(character, key, value) {
@@ -2841,6 +2899,9 @@ function setCharacterMoneyValue(character, key, value) {
 
 function updateCharacterMoneyField(character, key, nextValue) {
   const previousValue = getCharacterMoney(character, key);
+  if (Number.parseInt(nextValue, 10) > previousValue) {
+    return previousValue;
+  }
   const clampedNext = setCharacterMoneyValue(character, key, nextValue);
   const delta = clampedNext - previousValue;
   if (delta < 0) {
@@ -2867,6 +2928,16 @@ function getCoinLabel(key) {
   return "c.p.";
 }
 
+function getCoinBagName(key) {
+  if (key === "gold") {
+    return "GP coin bag";
+  }
+  if (key === "silver") {
+    return "SP coin bag";
+  }
+  return "CP coin bag";
+}
+
 function getCoinValueInCopper(key, amount) {
   const units = Math.max(0, Number(amount) || 0);
   if (key === "gold") {
@@ -2884,7 +2955,8 @@ function findMergeableCoinPile(key, tile) {
     entity.subtype === `dropped-${key}` &&
     !entity.collected &&
     entity.x === tile.x &&
-    entity.y === tile.y
+    entity.y === tile.y &&
+    Number(entity.coinBreakdown?.[key] || 0) < 100
   )) || null;
 }
 
@@ -2896,7 +2968,7 @@ function createCoinPileEntity(character, key, amount) {
     type: "treasure",
     subtype: `dropped-${key}`,
     kind: "coin-cache",
-    name: `${label} pouch`,
+    name: getCoinBagName(key),
     x: tile.x,
     y: tile.y,
     roomId: tile.roomId,
@@ -2921,19 +2993,30 @@ function dropCharacterCoinPile(character, key, amount) {
     return null;
   }
   const tile = findEquipmentDropTile(character);
-  const mergeable = findMergeableCoinPile(key, tile);
-  if (mergeable) {
-    mergeable.coinBreakdown = mergeable.coinBreakdown || { gold: 0, silver: 0, copper: 0 };
-    mergeable.coinBreakdown[key] = Math.max(0, Number(mergeable.coinBreakdown[key] || 0) + amount);
-    mergeable.value = Math.max(1, Math.round(getCoinValueInCopper(key, mergeable.coinBreakdown[key]) / 100));
-    mergeable.slots = Math.max(1, Math.ceil(Math.max(1, mergeable.coinBreakdown[key]) / 100));
-    mergeable.name = `${getCoinLabel(key)} pouch`;
-    mergeable.description = `${mergeable.coinBreakdown[key]} ${getCoinLabel(key)} dropped from ${character?.name || "a character"}.`;
-    return mergeable;
+  let remaining = Math.max(0, Math.floor(Number(amount) || 0));
+  let lastPile = null;
+  while (remaining > 0) {
+    const mergeable = findMergeableCoinPile(key, tile);
+    if (mergeable) {
+      mergeable.coinBreakdown = mergeable.coinBreakdown || { gold: 0, silver: 0, copper: 0 };
+      const currentAmount = Math.max(0, Number(mergeable.coinBreakdown[key] || 0));
+      const addAmount = Math.min(remaining, Math.max(0, 100 - currentAmount));
+      mergeable.coinBreakdown[key] = currentAmount + addAmount;
+      mergeable.value = Math.max(1, Math.round(getCoinValueInCopper(key, mergeable.coinBreakdown[key]) / 100));
+      mergeable.slots = 1;
+      mergeable.name = getCoinBagName(key);
+      mergeable.description = `${mergeable.coinBreakdown[key]} ${getCoinLabel(key)} dropped from ${character?.name || "a character"}.`;
+      remaining -= addAmount;
+      lastPile = mergeable;
+      continue;
+    }
+    const nextAmount = Math.min(remaining, 100);
+    const entity = createCoinPileEntity(character, key, nextAmount);
+    state.entities.push(entity);
+    remaining -= nextAmount;
+    lastPile = entity;
   }
-  const entity = createCoinPileEntity(character, key, amount);
-  state.entities.push(entity);
-  return entity;
+  return lastPile;
 }
 
 function getXpTarget(character) {
@@ -2955,6 +3038,7 @@ function isCharacterTileBlocked(x, y) {
   return state.entities.some((entity) => (
     entity.type === "trap" &&
     !entity.disarmed &&
+    !entity.triggered &&
     entity.x === x &&
     entity.y === y
   ));
@@ -4011,6 +4095,54 @@ function formatTwoDigitInputValue(value) {
   return `${sign}${String(Math.abs(normalized)).padStart(2, "0")}`;
 }
 
+function getDiceHistoryAgeLabel(index) {
+  if (index === 0) {
+    return "most recent";
+  }
+  if (index === 1) {
+    return "1 roll ago";
+  }
+  return `${index} rolls ago`;
+}
+
+function renderDiceHistory() {
+  if (!ui.diceHistory) {
+    return;
+  }
+  if (ui.diceHistoryToggle) {
+    ui.diceHistoryToggle.hidden = diceHistory.length === 0;
+  }
+  ui.diceHistory.innerHTML = "";
+  diceHistory.forEach((entry, index) => {
+    const item = document.createElement("li");
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = `${getDiceHistoryAgeLabel(index)}: ${entry.label}`;
+    const detail = document.createElement("div");
+    detail.className = "dice-history-detail";
+    detail.textContent = entry.detail || "";
+    details.append(summary, detail);
+    item.append(details);
+    ui.diceHistory.append(item);
+  });
+}
+
+function pushDiceHistory(label, detail) {
+  diceHistory.unshift({ label, detail });
+  diceHistory = diceHistory.slice(0, 100);
+  renderDiceHistory();
+}
+
+function toggleDiceHistory() {
+  if (!ui.diceHistory || !ui.diceHistoryToggle) {
+    return;
+  }
+  const isOpening = ui.diceHistory.hidden;
+  ui.diceHistory.hidden = !isOpening;
+  ui.diceHistoryToggle.setAttribute("aria-expanded", `${isOpening}`);
+  ui.diceHistoryToggle.textContent = isOpening ? "Hide Roll History" : "Roll History";
+}
+
 function rollManualDie(sides, count, modifier) {
   const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1);
   const diceTotal = rolls.reduce((sum, value) => sum + value, 0);
@@ -4045,6 +4177,7 @@ function applyManualDieRoll(button) {
   ui.damageExpandBtn.hidden = lastDamageRoll.rolls.length === 0;
   renderDamageDetail(lastDamageRoll);
   setDamageDetailVisibility(false);
+  pushDiceHistory(`${lastDamageRoll.total}`, `${String(count).padStart(2, "0")} ${label} ${formatSignedModifier(modifier)}\n${lastDamageRoll.rolls.join(" + ")} = ${lastDamageRoll.total}`);
 }
 
 function resetManualDieControls() {
@@ -4199,6 +4332,7 @@ function applyDamageRoll(reference, sourceLabel = "", options = {}) {
   ui.damageExpandBtn.hidden = roll.terms.length === 0;
   renderDamageDetail(lastDamageRoll);
   setDamageDetailVisibility(false);
+  pushDiceHistory(`${roll.total} ${options.resultLabel || "Damage"}`, [sourceLabel, reference?.display || expression].filter(Boolean).join("\n"));
 }
 
 function parseSpellCheckModifier(expression, character, contextText) {
@@ -4498,7 +4632,7 @@ function createSdGearPanel(character) {
     const input = document.createElement("input");
     input.type = "number";
     input.min = "0";
-    input.max = "2000";
+    input.max = `${getCharacterMoney(character, key)}`;
     input.step = "1";
     input.value = `${getCharacterMoney(character, key)}`;
     input.addEventListener("input", () => {
@@ -4506,7 +4640,9 @@ function createSdGearPanel(character) {
       if (!currentCharacter) {
         return;
       }
-      updateCharacterMoneyField(currentCharacter, key, input.value);
+      const nextValue = updateCharacterMoneyField(currentCharacter, key, input.value);
+      input.value = `${nextValue}`;
+      input.max = `${nextValue}`;
     });
     field.append(fieldLabel, input);
     coinFields.append(field);
@@ -4581,10 +4717,11 @@ function createSdGearPanel(character) {
       dropButton.textContent = "Drop";
       dropButton.addEventListener("click", (event) => {
         event.stopPropagation();
-        const result = dropCharacterGear(character, entry.gearIndex);
+        const currentCharacter = getCurrentCharacter(character);
+        const result = dropCharacterGear(currentCharacter, entry.gearIndex);
         markUserActivity();
         setStatus(result);
-        refreshCharacterViews(character);
+        refreshCharacterViews(currentCharacter);
         render();
         updatePanels();
       });
@@ -4598,7 +4735,7 @@ function createSdGearPanel(character) {
   freeCarryHeading.textContent = "FREE TO CARRY";
   const freeCarryLines = document.createElement("div");
   freeCarryLines.className = "sd-free-carry-lines";
-  const freeCarryDisplay = ["coin bag", ...freeCarry.filter((entry) => String(entry || "").toLowerCase() !== "coin bag")];
+  const freeCarryDisplay = freeCarry;
   for (let index = 0; index < 10; index += 1) {
     const line = document.createElement("div");
     line.textContent = freeCarryDisplay[index] || "";
@@ -4676,6 +4813,8 @@ function updateRoomLootPanel() {
   const treasureLoot = roomLoot.filter((loot) => loot.subtype !== "dropped-equipment");
   const roomFeatures = state.entities.filter((entity) => (
     entity.type === "feature" &&
+    entity.worthlessLoot !== true &&
+    entity.subtype !== "room-feature" &&
     entity.subtype !== "door" &&
     entity.visible !== false &&
     entity.roomId === state.player.roomId
@@ -4691,8 +4830,11 @@ function updateRoomLootPanel() {
     lootAllButton.textContent = "Get All";
     lootAllButton.addEventListener("click", () => {
       const result = collectRoomLoot(state);
+      normalizeCharacterState(state);
+      syncAllCharacterEquipmentDerivedStats();
+      syncPlayerLightFromActiveCharacter();
       markUserActivity();
-      setStatus(result);
+      setStatus(result.message || result);
       render();
       updatePanels();
       maybeShowFullyLooted();
@@ -4706,14 +4848,19 @@ function updateRoomLootPanel() {
     const slotText = `${loot.slots || 1} slot${(loot.slots || 1) === 1 ? "" : "s"}`;
     const isDroppedEquipment = loot.subtype === "dropped-equipment";
     lootButton.textContent = isDroppedEquipment
-      ? `Pick up: ${loot.name || "equipment"} (${slotText})`
+      ? `${loot.name || "equipment"} (${slotText})`
       : `Get: ${loot.name || "treasure"} (${slotText})`;
     lootButton.addEventListener("click", () => {
       const result = isDroppedEquipment
         ? pickupDroppedEquipment(loot)
         : collectLoot(state, loot.id);
+      if (!isDroppedEquipment) {
+        normalizeCharacterState(state);
+        syncAllCharacterEquipmentDerivedStats();
+        syncPlayerLightFromActiveCharacter();
+      }
       markUserActivity();
-      setStatus(result);
+      setStatus(result.message || result);
       render();
       updatePanels();
       maybeShowFullyLooted();
@@ -4782,10 +4929,44 @@ function updateMonsterPanel() {
     const stats = document.createElement("dl");
     stats.append(
       createStatRow("AC", monster.ac),
-      createStatRow("HP", monster.hp),
       createMonsterAttackStatRow(monster)
     );
     card.append(stats);
+
+    const hpControls = document.createElement("div");
+    hpControls.className = "monster-hp-controls";
+    const hpLabel = document.createElement("span");
+    hpLabel.textContent = "HP";
+    const minusButton = document.createElement("button");
+    minusButton.type = "button";
+    minusButton.textContent = "-";
+    const hpInput = document.createElement("input");
+    hpInput.type = "number";
+    hpInput.min = "0";
+    hpInput.max = "999";
+    hpInput.value = `${Math.max(0, Number(monster.hp) || 0)}`;
+    hpInput.setAttribute("aria-label", `${monster.name || "Monster"} HP`);
+    const plusButton = document.createElement("button");
+    plusButton.type = "button";
+    plusButton.textContent = "+";
+    const applyMonsterHp = (nextHp) => {
+      monster.hp = Math.max(0, Math.min(999, Number.parseInt(nextHp, 10) || 0));
+      if (monster.hp <= 0) {
+        const result = defeatMonster(state, monster);
+        setStatus(result.message);
+      } else {
+        setStatus(`${monster.name || "Monster"} HP set to ${monster.hp}.`);
+      }
+      markUserActivity();
+      markRunDirty();
+      render();
+      updatePanels();
+    };
+    minusButton.addEventListener("click", () => applyMonsterHp((Number(monster.hp) || 0) - 1));
+    plusButton.addEventListener("click", () => applyMonsterHp((Number(monster.hp) || 0) + 1));
+    hpInput.addEventListener("change", () => applyMonsterHp(hpInput.value));
+    hpControls.append(hpLabel, minusButton, hpInput, plusButton);
+    card.append(hpControls);
 
     const abilityEntries = Object.entries(monster.abilities || {});
     if (abilityEntries.length) {
@@ -4936,6 +5117,7 @@ function showCheckResult(result, action = "check", options = {}) {
     ui.damageExpandBtn.hidden = !Number.isFinite(result.roll) || result.roll <= 0;
   }
   renderDamageDetail(lastDamageRoll);
+  pushDiceHistory(`${actionLabel} ${result.total}`, options.message || result.message || formatRollText(result));
   setDamageDetailVisibility(false);
 }
 
@@ -5013,8 +5195,13 @@ function performGet() {
       ? pickupDroppedEquipment(loot)
       : collectLoot(state, loot.id)
     : { message: "No revealed treasure to get." };
+  if (loot && loot.subtype !== "dropped-equipment") {
+    normalizeCharacterState(state);
+    syncAllCharacterEquipmentDerivedStats();
+    syncPlayerLightFromActiveCharacter();
+  }
   markUserActivity();
-  setStatus(result);
+  setStatus(result.message || result);
   render();
   updatePanels();
   maybeShowFullyLooted();
@@ -5599,6 +5786,7 @@ function hookInputEvents() {
     }
   });
   ui.manualDieReset?.addEventListener("click", resetManualDieControls);
+  ui.diceHistoryToggle?.addEventListener("click", toggleDiceHistory);
   ui.damageExpandBtn?.addEventListener("click", () => {
     setDamageDetailVisibility(ui.damageDetail.hidden);
   });
@@ -5938,12 +6126,13 @@ async function generateAndRender() {
   const seed = Number(ui.seedInput.value || Date.now());
   const level = Number(ui.levelInput.value || 1);
   setStatus("Generating dungeon...");
-  [shadowdarkContent] = await Promise.all([loadShadowdarkContent(), ensureSpellLibraryLoaded()]);
+  [shadowdarkContent, rulesData] = await Promise.all([loadShadowdarkContent(), loadRulesData(), ensureSpellLibraryLoaded()]);
   [trapTable, monsterTable] = await Promise.all([loadTrapTable(), loadMonsterTableForLevel(level)]);
   state = generateDungeon(seed, level, {
     monsterTable,
     trapTable,
-    contentCatalog: shadowdarkContent
+    contentCatalog: shadowdarkContent,
+    rulesData
   });
   normalizeCharacterState(state);
   normalizeWanderingChance(state, ui.wanderingNumerator.value, ui.wanderingDenominator.value);

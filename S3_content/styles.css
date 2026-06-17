@@ -944,6 +944,24 @@ body {
   padding: 10px;
 }
 
+.monster-hp-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.monster-hp-controls input {
+  width: 5ch;
+  margin: 0;
+  text-align: center;
+}
+
+.monster-hp-controls button {
+  min-width: 3ch;
+  margin: 0;
+}
+
 .manual-dice-controls {
   display: grid;
   justify-items: center;
@@ -1004,6 +1022,44 @@ body {
 .damage-detail {
   margin: 8px 0 0;
   color: #d8dde8;
+}
+
+.dice-history-toggle {
+  margin: 10px 0 0;
+}
+
+.dice-history {
+  max-height: 12rem;
+  overflow-y: auto;
+  margin: 8px 0 0;
+  padding-left: 1.4rem;
+  color: #c8ceda;
+  font-size: 0.9rem;
+}
+
+.dice-history-toggle[hidden],
+.dice-history[hidden],
+.dice-history:empty {
+  display: none;
+}
+
+.dice-history li {
+  margin: 4px 0;
+}
+
+.dice-history details {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 0 5px;
+}
+
+.dice-history summary {
+  cursor: pointer;
+}
+
+.dice-history-detail {
+  margin: 4px 0 0;
+  color: #d8dde8;
+  white-space: pre-wrap;
 }
 
 .damage-breakdown-line {

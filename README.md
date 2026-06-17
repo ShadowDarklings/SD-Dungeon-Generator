@@ -78,6 +78,26 @@ models and helper functions. Configuration comes from environment variables and
 `.env`, so the app can move hosts or scale app containers without hard-coded
 deployment values.
 
+## Deploying Updates
+
+After committing and pushing local changes, deploy to EC2 from PowerShell:
+
+```powershell
+.\scripts\deploy-ssm.ps1
+```
+
+This uses AWS Systems Manager instead of inbound SSH, so changing home/VPN IPs
+do not require security-group edits. The scripts use `SD_DEPLOY_INSTANCE_ID`,
+`AWS_REGION`, `SD_DEPLOY_PUBLIC_HOST`, `SD_DEPLOY_REMOTE_REPO`, and
+`SD_DEPLOY_BRANCH` when set; see `scripts/deploy-ec2.config.example.ps1`.
+`.\scripts\deploy-ec2.ps1` remains available as an SSH fallback.
+
+From AWS CloudShell, use the same SSM path without local AWS CLI credentials:
+
+```bash
+bash scripts/deploy-ssm-cloudshell.sh --no-build
+```
+
 ## Team and Work Split
 
 | Role | Member | Responsibilities |

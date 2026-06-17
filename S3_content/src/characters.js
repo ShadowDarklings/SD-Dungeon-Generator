@@ -264,11 +264,11 @@ function getCoinTotal(money = {}) {
   const gold = Math.max(0, Number(money.gold) || 0);
   const silver = Math.max(0, Number(money.silver) || 0);
   const copper = Math.max(0, Number(money.copper) || 0);
-  return (gold * 100) + (silver * 10) + copper;
+  return gold + silver + copper;
 }
 
 function getCoinBagSlots(money = {}) {
-  return getCoinTotal(money) > 100 ? 1 : 0;
+  return Math.ceil(Math.max(0, getCoinTotal(money) - 100) / 100);
 }
 
 function normalizeAmmo(gear, raw = {}) {

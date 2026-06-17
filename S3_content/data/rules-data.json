@@ -1,0 +1,45 @@
+{
+  "generatedFrom": "Shadowdark_RPG_-_V4-9-1.pdf, printed pages 35-37",
+  "gear": [
+    { "name": "arrows", "costGp": 1, "quantityDie": "1d20", "stackSize": 20, "slots": 1, "ammoType": "arrows" },
+    { "name": "backpack", "costGp": 2, "slots": 0, "description": "First backpack is free to carry." },
+    { "name": "caltrops", "costGp": 0.5, "slots": 1 },
+    { "name": "crossbow bolts", "costGp": 1, "quantityDie": "1d20", "stackSize": 20, "slots": 1, "ammoType": "bolts" },
+    { "name": "crowbar", "costGp": 0.5, "slots": 1 },
+    { "name": "flask", "costGp": 0.3, "slots": 1 },
+    { "name": "bottle", "costGp": 0.3, "slots": 1 },
+    { "name": "flint and steel", "costGp": 0.5, "slots": 1 },
+    { "name": "gem", "costGp": 14, "slots": 1 },
+    { "name": "grappling hook", "costGp": 1, "slots": 1 },
+    { "name": "iron spikes", "costGp": 1, "quantityDie": "1d10", "stackSize": 10, "slots": 1 },
+    { "name": "lantern", "costGp": 5, "slots": 1, "lightSource": "lantern", "lit": false },
+    { "name": "mirror", "costGp": 10, "slots": 1 },
+    { "name": "oil flask", "costGp": 0.5, "slots": 1 },
+    { "name": "pole", "costGp": 0.5, "slots": 1 },
+    { "name": "rations", "costGp": 0.5, "stackSize": 3, "slots": 1 },
+    { "name": "rope 60'", "costGp": 1, "slots": 1 },
+    { "name": "torch", "costGp": 0.5, "slots": 1, "lightSource": "torch", "lit": false }
+  ],
+  "armor": [
+    { "name": "leather armor", "costGp": 10, "slots": 1, "ac": 11, "addsDex": true },
+    { "name": "chainmail", "costGp": 60, "slots": 2, "ac": 13, "addsDex": true, "properties": "Disadvantage on stealth and swim." },
+    { "name": "plate mail", "costGp": 130, "slots": 3, "ac": 15, "addsDex": false, "properties": "No swim, disadvantage on stealth." },
+    { "name": "shield", "costGp": 10, "slots": 1, "acBonus": 2, "properties": "Occupies one hand." }
+  ],
+  "weapons": [
+    { "name": "bastard sword", "costGp": 10, "slots": 2, "type": "M", "range": "C", "damage": "1d8", "versatileDamage": "1d10", "properties": "V" },
+    { "name": "club", "costGp": 0.05, "slots": 1, "type": "M", "range": "C", "damage": "1d4" },
+    { "name": "crossbow", "costGp": 8, "slots": 1, "type": "R", "range": "F", "damage": "1d6", "properties": "2H, L" },
+    { "name": "dagger", "costGp": 1, "slots": 1, "type": "M/R", "range": "C/N", "damage": "1d4", "properties": "F, Th" },
+    { "name": "greataxe", "costGp": 10, "slots": 2, "type": "M", "range": "C", "damage": "1d8", "versatileDamage": "1d10", "properties": "V" },
+    { "name": "javelin", "costGp": 0.5, "slots": 1, "type": "M/R", "range": "C/F", "damage": "1d4", "properties": "Th" },
+    { "name": "longbow", "costGp": 8, "slots": 1, "type": "R", "range": "F", "damage": "1d8", "properties": "2H", "ammoType": "arrows" },
+    { "name": "longsword", "costGp": 9, "slots": 1, "type": "M", "range": "C", "damage": "1d8" },
+    { "name": "mace", "costGp": 5, "slots": 1, "type": "M", "range": "C", "damage": "1d6" },
+    { "name": "shortbow", "costGp": 6, "slots": 1, "type": "R", "range": "F", "damage": "1d4", "properties": "2H", "ammoType": "arrows" },
+    { "name": "shortsword", "costGp": 7, "slots": 1, "type": "M", "range": "C", "damage": "1d6" },
+    { "name": "spear", "costGp": 0.5, "slots": 1, "type": "M/R", "range": "C/N", "damage": "1d6", "properties": "Th" },
+    { "name": "staff", "costGp": 0.5, "slots": 1, "type": "M", "range": "C", "damage": "1d4", "properties": "2H" },
+    { "name": "warhammer", "costGp": 10, "slots": 1, "type": "M", "range": "C", "damage": "1d10", "properties": "2H" }
+  ]
+}

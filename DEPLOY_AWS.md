@@ -61,51 +61,53 @@ Use this when you want to push today's edits back onto EC2 and make sure the
 site is serving the latest version.
 
 1. On your laptop, save, commit, and push the files you changed.
-2. SSH into EC2 and go to the repo:
+2. Run the SSM deploy helper:
 
-```shell
-ssh -i ~/.ssh/your-key.pem ubuntu@<EC2-IP>
-cd ~/week-5-506
+```powershell
+.\scripts\deploy-ssm.ps1
 ```
 
-3. Pull the latest code from GitHub:
+This path does not use inbound SSH, so it does not care if your home/VPN IP
+changes. It requires the EC2 instance to be configured as a Systems Manager
+managed node. If SSM is not configured yet, use the SSH helper as a temporary
+fallback:
 
-```shell
-git pull
+```powershell
+.\scripts\deploy-ec2.ps1
 ```
 
-4. Sync the dungeon frontend from S3 into the tracked `S3_content/` folder:
+3. Open `https://44-252-95-80.sslip.io/site/` and hard-refresh if the browser
+   is holding old static assets.
 
-```shell
-aws s3 sync s3://<your-bucket>/ S3_content/
+Use `-NoBuild` only when you changed static frontend files and do not need to
+rebuild the Flask image.
+
+The deploy helper reads these optional environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `SD_DEPLOY_HOST` | SSH host, ideally the Elastic IP |
+| `SD_DEPLOY_PUBLIC_HOST` | Public HTTPS hostname used for verification |
+| `SD_DEPLOY_KEY` | Private key path |
+| `SD_DEPLOY_REMOTE_REPO` | Repo path on EC2 |
+| `SD_DEPLOY_BRANCH` | Branch to deploy |
+| `SD_DEPLOY_INSTANCE_ID` | EC2 instance id for SSM deploys |
+| `AWS_REGION` | AWS region, usually `us-west-2` |
+
+See `scripts/deploy-ec2.config.example.ps1` for a copy/paste template.
+
+If your local AWS CLI is not configured, open AWS CloudShell from the console
+and run the bash helper instead:
+
+```bash
+cd SD-Dungeon-Generator
+bash scripts/deploy-ssm-cloudshell.sh --no-build
 ```
 
-5. Restart the stack. Use `--build` if you changed the Dockerfile or Python
-dependencies; otherwise the normal restart is enough:
-
-```shell
-docker compose up -d
-docker compose ps
-```
-
-Or rebuild when needed:
-
-```shell
-docker compose up -d --build
-```
-
-6. From your laptop, open the SSH tunnel:
-
-```shell
-ssh -i ~/.ssh/your-key.pem -L 5000:localhost:5000 ubuntu@<EC2-IP>
-```
-
-7. Visit `http://localhost:5000` and click **My Site** to confirm the synced
-   S3 content is showing.
-
-If you are comparing against the local copy, open `S3_content/index.html` from
-this repo in a second tab. In this setup, the deployed app is usually reached
-through the SSH tunnel rather than by browsing the public EC2 IP directly.
+Do not sync S3 back over `S3_content/` during normal app deployment. In this
+repo, nginx serves `S3_content/` from the EC2 checkout. The old S3 sync step is
+only for publishing the standalone static S3 copy with
+`scripts/s3_sync_publish.py`.
 
 ## Quick checks if something looks off
 
@@ -124,7 +126,48 @@ docker compose exec app pytest -v
 
 ## Team SSH access (shared EC2)
 
-Shared Ubuntu host: `ubuntu@44.252.95.80` (if the instance was stopped and started, confirm the **Public IPv4** in EC2 and update this doc and your local commands).
+Shared Ubuntu host: `ubuntu@44.252.95.80`.
+
+This should be an Elastic IP. If stopping/starting the instance changes the
+address, associate an Elastic IP before doing more deployments. Then update
+these once:
+
+- `SD_DEPLOY_HOST`
+- `SD_DEPLOY_PUBLIC_HOST`
+- `nginx/nginx.conf`
+- `README.md`
+- any OAuth callback URL that includes the old hostname
+
+Elastic IP fixes the server address. It does not fix teammate home IP changes;
+those still require updating the security group's SSH source rule.
+
+### Better fix for changing home/VPN IPs: Systems Manager
+
+If your ISP or VPN changes your public IP often, stop depending on SSH inbound
+rules for routine deploys. Configure AWS Systems Manager Session Manager / Run
+Command for the EC2 instance, then use:
+
+```powershell
+.\scripts\deploy-ssm.ps1
+```
+
+One-time AWS setup:
+
+1. In EC2, attach an IAM role/instance profile that allows Systems Manager
+   managed-instance access, such as the AWS-managed
+   `AmazonSSMManagedInstanceCore` policy.
+2. Make sure the instance appears in Systems Manager Fleet Manager as a managed
+   node. Ubuntu EC2 images usually include SSM Agent; install/start it if it is
+   missing.
+3. Set your local config:
+
+```powershell
+$env:SD_DEPLOY_INSTANCE_ID = "i-..."
+$env:AWS_REGION = "us-west-2"
+```
+
+After this works, port 22 can stay restricted or even closed for normal
+operations. Keep SSH only as a break-glass fallback.
 
 ### Security group (inbound SSH)
 

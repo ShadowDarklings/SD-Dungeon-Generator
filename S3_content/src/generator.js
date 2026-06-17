@@ -1023,6 +1023,7 @@ function spawnTreasureAtTile(state, rng, room, tile, extra = {}, lootCatalog = {
     bonusSlots: loot.bonusSlots,
     priceless: loot.priceless,
     description: loot.description,
+    gearItem: loot.gearItem ? JSON.parse(JSON.stringify(loot.gearItem)) : null,
     revealed: false,
     collected: false,
     ...extra
@@ -1047,6 +1048,7 @@ function trySpawnRoomTreasure(state, rng, room, trapTable, lootCatalog = {}, spa
     bonusSlots: loot.bonusSlots,
     priceless: loot.priceless,
     description: loot.description,
+    gearItem: loot.gearItem ? JSON.parse(JSON.stringify(loot.gearItem)) : null,
     revealed: false,
     collected: false
   });
@@ -1487,8 +1489,10 @@ function populateRoomEntities(state, rng, monsterTable = [], trapTable = [], loo
       spawnTrap(state, rng, room, trapTable, "tile");
     }
     if (rng.nextFloat() < profile.feature) {
+      const featureName = rng.pick(FEATURE_NAMES);
       spawnEntity(state, rng, room, "feature", ENTITY_TYPES.FEATURE, "room-feature", true, {
-        name: rng.pick(FEATURE_NAMES)
+        name: featureName,
+        worthlessLoot: true
       });
     }
   }
@@ -2161,6 +2165,7 @@ function addRectGraphWater(state, rng, pattern = "processional") {
 
 function createRectGraphDungeon(seed, level, options = {}) {
   const state = createEmptyDungeonState(seed, level);
+  state.rulesData = options.rulesData || options.contentCatalog?.rulesData || null;
   const rng = new SeededRng(seed);
   const architecturePattern = chooseArchitecturePattern(rng);
   state.generation.architecture = {
@@ -2280,6 +2285,7 @@ export function generateDungeon(seed = Date.now(), level = 1, options = {}) {
 
 export function generateClassicDungeon(seed = Date.now(), level = 1, options = {}) {
   const state = createEmptyDungeonState(seed, level);
+  state.rulesData = options.rulesData || options.contentCatalog?.rulesData || null;
   const rng = new SeededRng(seed);
   const maxRooms = 18;
 

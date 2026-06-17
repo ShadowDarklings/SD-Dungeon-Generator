@@ -164,9 +164,20 @@ new hostname until you do. Update the homepage URL while you're there.
 
 ## Part 6 — Operations until grading day
 
-- **Update workflow:** `git pull --ff-only && docker compose up -d --build` (state survives — pgdata
-  is a named volume). Then verify with `docker compose ps`,
-  `docker compose logs --tail=50 app`, and `curl -k https://<DOMAIN>/healthz`.
+- **Update workflow:** commit and push locally, then run
+  `.\scripts\deploy-ssm.ps1` from PowerShell. This uses AWS Systems Manager Run
+  Command instead of SSH, so changing home/VPN IPs do not require security-group
+  edits. The script runs the remote `git pull --ff-only`,
+  `docker compose up -d --build`, `docker compose ps`, and a `/site/` curl
+  check. Use `-NoBuild` only for static frontend-only updates.
+- **SSM setup:** the EC2 instance must be a Systems Manager managed node. Attach
+  an instance profile with Systems Manager permissions, confirm it appears in
+  Fleet Manager, then set `SD_DEPLOY_INSTANCE_ID` and `AWS_REGION` locally. Keep
+  `.\scripts\deploy-ec2.ps1` as the SSH fallback.
+- **If the server IP keeps changing:** allocate and associate an Elastic IP.
+  Then point `SD_DEPLOY_HOST`, `SD_DEPLOY_PUBLIC_HOST`, the `sslip.io` hostname
+  or DNS A record, `nginx/nginx.conf`, and README at that stable address.
+  Browser/user URLs should never depend on the temporary EC2 public IPv4.
 - **Backup before risky changes:**
   `docker compose exec db pg_dump -U app app > backup_$(date +%F).sql`
 - **Logs:** `docker compose logs -f app` / `nginx`.

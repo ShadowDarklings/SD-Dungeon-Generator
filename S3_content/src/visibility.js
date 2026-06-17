@@ -108,6 +108,22 @@ function isClosedDoorHallTarget(state, x, y) {
   });
 }
 
+function getClosedDoorAtTile(state, x, y) {
+  return state.entities.find((entity) => (
+    entity.subtype === "door" &&
+    entity.doorState !== DOOR_STATES.OPEN &&
+    entity.x === x &&
+    entity.y === y
+  )) || null;
+}
+
+function getDoorVisibleSide(door, sourceX, sourceY) {
+  if (door.orientation !== "horizontal") {
+    return sourceX <= door.x ? "left" : "right";
+  }
+  return sourceY <= door.y ? "top" : "bottom";
+}
+
 function rangesOverlap(minA, maxA, minB, maxB) {
   return minA <= maxB && maxA >= minB;
 }
@@ -214,6 +230,7 @@ export function isTileVisible(state, x, y) {
 
 export function recomputeVisibility(state) {
   state.visibility.visibleNow.clear();
+  state.visibility.closedDoorVisibleSides = new Map();
   const lightSources = [];
   for (const character of state.characters || []) {
     if (
@@ -255,10 +272,22 @@ export function recomputeVisibility(state) {
   }
 
   for (const tile of state.tiles) {
-    const lit = lightSources.some((source) => (
-      isWithinRadius(source.x, source.y, tile.x, tile.y, source.radius) &&
-      hasLineOfSightFrom(state, source.x, source.y, tile.x, tile.y)
-    ));
+    let lit = false;
+    for (const source of lightSources) {
+      if (
+        !isWithinRadius(source.x, source.y, tile.x, tile.y, source.radius) ||
+        !hasLineOfSightFrom(state, source.x, source.y, tile.x, tile.y)
+      ) {
+        continue;
+      }
+      lit = true;
+      const door = getClosedDoorAtTile(state, tile.x, tile.y);
+      if (door) {
+        const sides = state.visibility.closedDoorVisibleSides.get(door.id) || new Set();
+        sides.add(getDoorVisibleSide(door, source.x, source.y));
+        state.visibility.closedDoorVisibleSides.set(door.id, sides);
+      }
+    }
     if (lit) {
       const key = tileKey(tile.x, tile.y);
       state.visibility.visibleNow.add(key);

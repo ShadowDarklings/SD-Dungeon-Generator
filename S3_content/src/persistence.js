@@ -103,7 +103,8 @@ export function hydrateDungeonState(raw) {
   state.lockedDoorAction = state.lockedDoorAction?.doorId ? state.lockedDoorAction : null;
   state.visibility = {
     visibleNow,
-    exploredEver
+    exploredEver,
+    closedDoorVisibleSides: new Map()
   };
   state.lootLog = {
     entries: Array.isArray(state.lootLog?.entries) ? state.lootLog.entries : [],

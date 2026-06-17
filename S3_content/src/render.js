@@ -1363,6 +1363,35 @@ function drawEntity(entity, ctx, state) {
     return;
   }
 
+  const isCorpseLoot = entity.corpseLoot === true || entity.gearItem?.corpseLoot === true || entity.subtype === "corpse-loot";
+  const isWorthlessLoot = entity.worthlessLoot === true || entity.gearItem?.worthlessLoot === true || entity.subtype === "worthless-loot";
+
+  if (isCorpseLoot) {
+    ctx.save();
+    ctx.fillStyle = "#3c3c3c";
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#b01515";
+    ctx.lineWidth = Math.max(3, TILE_SIZE_PX * 0.08);
+    ctx.beginPath();
+    ctx.moveTo(cx - radius * 0.55, cy - radius * 0.55);
+    ctx.lineTo(cx + radius * 0.55, cy + radius * 0.55);
+    ctx.moveTo(cx + radius * 0.55, cy - radius * 0.55);
+    ctx.lineTo(cx - radius * 0.55, cy + radius * 0.55);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (isWorthlessLoot) {
+    ctx.fillStyle = "#82cfff";
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
   switch (entity.type) {
     case ENTITY_TYPES.MONSTER:
       ctx.fillStyle = "#be2d2d";
@@ -1400,6 +1429,9 @@ function drawObjects(state, ctx, options = {}) {
       continue;
     }
     if (entity.type === ENTITY_TYPES.TREASURE && entity.collected) {
+      continue;
+    }
+    if (entity.type === ENTITY_TYPES.FEATURE && entity.collected) {
       continue;
     }
     drawEntity(entity, ctx, state);
@@ -1617,8 +1649,6 @@ function drawFog(state, ctx, widthPx, heightPx, forceBlackout) {
 }
 
 function drawClosedDoorFogBisectors(state, ctx) {
-  const sourceX = Number(state.player?.x) || 0;
-  const sourceY = Number(state.player?.y) || 0;
   for (const door of state.entities || []) {
     if (door.subtype !== "door" || door.doorState === DOOR_STATES.OPEN) {
       continue;
@@ -1630,18 +1660,24 @@ function drawClosedDoorFogBisectors(state, ctx) {
     const px = door.x * TILE_SIZE_PX;
     const py = door.y * TILE_SIZE_PX;
     const half = TILE_SIZE_PX / 2;
-    ctx.fillStyle = "rgba(0, 0, 0, 0.92)";
+    const visibleSides = state.visibility.closedDoorVisibleSides?.get?.(door.id) || new Set();
+    const fogAlpha = door.everOpened === true ? 0.45 : 0.95;
+    ctx.fillStyle = `rgba(0, 0, 0, ${fogAlpha})`;
     if (door.orientation !== "horizontal") {
-      if (sourceX <= door.x) {
+      const leftVisible = visibleSides.has("left");
+      const rightVisible = visibleSides.has("right");
+      if (leftVisible && !rightVisible) {
         ctx.fillRect(px + half, py, half, TILE_SIZE_PX);
-      } else {
+      } else if (rightVisible && !leftVisible) {
         ctx.fillRect(px, py, half, TILE_SIZE_PX);
       }
       continue;
     }
-    if (sourceY <= door.y) {
+    const topVisible = visibleSides.has("top");
+    const bottomVisible = visibleSides.has("bottom");
+    if (topVisible && !bottomVisible) {
       ctx.fillRect(px, py + half, TILE_SIZE_PX, half);
-    } else {
+    } else if (bottomVisible && !topVisible) {
       ctx.fillRect(px, py, TILE_SIZE_PX, half);
     }
   }

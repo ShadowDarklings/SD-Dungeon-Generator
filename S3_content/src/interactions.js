@@ -1,4 +1,4 @@
-import { DOOR_STATES, ENTITY_TYPES, TILE_TYPES } from "./constants.js";
+import { DOOR_STATES, ENTITY_TYPES, FEATURE_NAMES, TILE_TYPES } from "./constants.js";
 import { getTile } from "./state-schema.js";
 import { SeededRng } from "./rng.js";
 import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibility.js";
@@ -9,6 +9,18 @@ const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
 const DEFAULT_INVENTORY_SLOTS = 10;
 const MONSTER_LOOT_DROP_CHANCE = 0.75;
 const MAX_COIN_VALUE = 2000;
+const WORTHLESS_FEATURE_NAMES = new Set(FEATURE_NAMES.map((name) => String(name || "").toLowerCase()));
+
+function isWorthlessFeature(entity) {
+  if (entity?.worthlessLoot === true || entity?.corpseLoot === true) {
+    return true;
+  }
+  if (entity?.type !== ENTITY_TYPES.FEATURE) {
+    return false;
+  }
+  const name = String(entity?.name || "").toLowerCase();
+  return entity?.subtype === "room-feature" && WORTHLESS_FEATURE_NAMES.has(name);
+}
 
 function ensureInventory(state) {
   if (!state.inventory) {
@@ -44,10 +56,13 @@ function getLootValueLabel(item) {
 }
 
 function getTreasureSlotCost(entity) {
-  const kind = String(entity?.kind || entity?.treasureKind || "").toLowerCase();
-  if (kind === "herbs" || kind === "clothing" || kind === "jewels") {
-    return 0;
+  if (isWorthlessFeature(entity)) {
+    return 1;
   }
+  if (entity?.gearItem) {
+    return Math.max(1, Number(entity.gearItem.slots ?? entity.slots ?? 1) || 1);
+  }
+  const kind = String(entity?.kind || entity?.treasureKind || "").toLowerCase();
   if (kind === "chainmail") {
     return 2;
   }
@@ -75,6 +90,60 @@ function getActiveCarrier(state) {
   return state.characters.find((character) => character.id === state.activeCharacterId) || state.characters[0] || null;
 }
 
+function getTreasureXpAward(valueGp) {
+  const value = Number(valueGp) || 0;
+  if (value <= 50) return 0;
+  if (value <= 500) return 1;
+  if (value <= 1500) return 2;
+  if (value <= 3000) return 3;
+  if (value < 5000) return 4;
+  return 5;
+}
+
+function awardTreasureExperience(state, entity) {
+  const xp = getTreasureXpAward(entity?.value);
+  if (!xp || !Array.isArray(state?.characters)) {
+    return 0;
+  }
+  for (const character of state.characters) {
+    if (Number(character?.hp) < 1 || character.dead === true || character.slain === true) {
+      continue;
+    }
+    character.XP = Math.max(0, Number(character.XP || 0) + xp);
+    character.raw = character.raw || {};
+    character.raw.XP = character.XP;
+    character.raw.xp = character.XP;
+  }
+  return xp;
+}
+
+function createWorthlessLootEntity(state, feature, name = feature?.name) {
+  const loot = {
+    id: `worthless-loot-${state.entities.length}-${Date.now()}`,
+    type: ENTITY_TYPES.TREASURE,
+    subtype: "worthless-loot",
+    kind: "worthless-loot",
+    name,
+    x: feature.x,
+    y: feature.y,
+    roomId: feature.roomId,
+    visible: true,
+    revealed: true,
+    collected: false,
+    value: 0,
+    slots: 1,
+    bonusSlots: 0,
+    priceless: false,
+    description: "Worthless loot.",
+    worthlessLoot: true,
+    sourceFeatureId: feature.id
+  };
+  state.entities.push(loot);
+  feature.collected = true;
+  feature.visible = false;
+  return loot;
+}
+
 function findEntityAt(state, x, y) {
   return state.entities.find((entity) => {
     if (entity.x !== x || entity.y !== y) {
@@ -84,6 +153,9 @@ function findEntityAt(state, x, y) {
       return false;
     }
     if (entity.type === ENTITY_TYPES.TREASURE && entity.collected) {
+      return false;
+    }
+    if (entity.type === ENTITY_TYPES.FEATURE && entity.collected) {
       return false;
     }
     if (entity.type === ENTITY_TYPES.TRAP && !entity.visible) {
@@ -196,6 +268,9 @@ function ensureDoorLockDcs(door) {
 function setDoorState(door, nextState) {
   delete door.transition;
   door.doorState = nextState;
+  if (nextState === DOOR_STATES.OPEN) {
+    door.everOpened = true;
+  }
 }
 
 function clearLockedDoorAction(state) {
@@ -279,7 +354,8 @@ function addFeature(state, x, y, roomId, name) {
     x,
     y,
     roomId,
-    visible: true
+    visible: true,
+    worthlessLoot: WORTHLESS_FEATURE_NAMES.has(String(name || "").toLowerCase()) || /^dead\s+/i.test(String(name || ""))
   });
 }
 
@@ -340,6 +416,44 @@ function addMonsterLootDrop(state, monster) {
   };
   state.entities.push(loot);
   return loot;
+}
+
+export function defeatMonster(state, monster) {
+  if (!monster || monster.type !== ENTITY_TYPES.MONSTER || monster.defeated === true) {
+    return { defeated: false, message: "Monster not found." };
+  }
+  monster.defeated = true;
+  monster.hp = 0;
+  const corpseName = `Dead ${monster.name || "monster"}`;
+  state.entities.push({
+    id: `corpse-${state.entities.length}-${Date.now()}`,
+    type: ENTITY_TYPES.TREASURE,
+    subtype: "corpse-loot",
+    kind: "worthless-loot",
+    name: corpseName,
+    x: monster.x,
+    y: monster.y,
+    roomId: monster.roomId,
+    visible: true,
+    revealed: true,
+    collected: false,
+    value: 0,
+    slots: 1,
+    bonusSlots: 0,
+    priceless: false,
+    description: "The remains of a defeated monster.",
+    corpseLoot: true,
+    monsterName: monster.name || "monster"
+  });
+  const loot = addMonsterLootDrop(state, monster);
+  return {
+    defeated: true,
+    corpseName,
+    loot,
+    message: loot
+      ? `Monster defeated: ${corpseName}. It dropped ${loot.name}.`
+      : `Monster defeated: ${corpseName}.`
+  };
 }
 
 function openClosedDoorFromMovement(state, door) {
@@ -574,17 +688,13 @@ export function clickEntity(state, x, y) {
   }
 
   if (entity.type === ENTITY_TYPES.MONSTER) {
-    entity.defeated = true;
-    addFeature(state, entity.x, entity.y, entity.roomId, `dead ${entity.name}`);
-    const loot = addMonsterLootDrop(state, entity);
-    return {
-      message: loot
-        ? `Monster defeated: dead ${entity.name}. It dropped ${loot.name}.`
-        : `Monster defeated: dead ${entity.name}.`
-    };
+    return defeatMonster(state, entity);
   }
 
   if (entity.type === ENTITY_TYPES.TREASURE) {
+    if (entity.corpseLoot === true || entity.worthlessLoot === true || entity.subtype === "worthless-loot") {
+      return collectLoot(state, entity.id);
+    }
     return { message: "Use the room loot buttons to collect treasure." };
   }
 
@@ -592,6 +702,11 @@ export function clickEntity(state, x, y) {
     entity.revealed = true;
     entity.visible = true;
     return { message: "Trap manually revealed." };
+  }
+
+  if (entity.type === ENTITY_TYPES.FEATURE && isWorthlessFeature(entity)) {
+    const loot = createWorthlessLootEntity(state, entity, entity.name || "worthless loot");
+    return { message: `${loot.name} can be picked up from the room loot panel.` };
   }
 
   return { message: `Feature: ${entity.name || "unknown feature"}.` };
@@ -603,7 +718,10 @@ export function getRoomLoot(state) {
   }
   return state.entities.filter((entity) => {
     return (
-      entity.type === ENTITY_TYPES.TREASURE &&
+      (
+        entity.type === ENTITY_TYPES.TREASURE ||
+        (entity.type === ENTITY_TYPES.FEATURE && isWorthlessFeature(entity))
+      ) &&
       !entity.collected &&
       entity.visible !== false &&
       entity.roomId === state.player.roomId
@@ -613,11 +731,19 @@ export function getRoomLoot(state) {
 
 export function collectLoot(state, lootId) {
   const entity = state.entities.find((candidate) => candidate.id === lootId);
-  if (!entity || entity.type !== ENTITY_TYPES.TREASURE || entity.collected) {
+  if (!entity || entity.collected || (entity.type !== ENTITY_TYPES.TREASURE && entity.type !== ENTITY_TYPES.FEATURE)) {
+    return { collected: 0, message: "Loot item not found." };
+  }
+  const collectable = entity.type === ENTITY_TYPES.TREASURE
+    ? entity
+    : isWorthlessFeature(entity)
+      ? createWorthlessLootEntity(state, entity, entity.name || "worthless loot")
+      : null;
+  if (!collectable) {
     return { collected: 0, message: "Loot item not found." };
   }
 
-  const trap = findActiveTrapForTarget(state, "treasure", entity.id);
+  const trap = findActiveTrapForTarget(state, "treasure", collectable.id);
   if (trap) {
     const result = revealAndTriggerTrap(trap);
     return {
@@ -632,47 +758,71 @@ export function collectLoot(state, lootId) {
     return { collected: 0, message: "Select a character to carry treasure." };
   }
 
-  const itemSlots = getTreasureSlotCost(entity);
+  const itemSlots = getTreasureSlotCost(collectable);
   if (getCharacterGearFreeSlots(character) < itemSlots) {
     return {
       collected: 0,
-      message: `${character.name || "Character"} has no room for ${entity.name || "treasure"}.`
+      message: `${character.name || "Character"} has no room for ${collectable.name || "treasure"}.`
     };
   }
 
-  entity.collected = true;
-  const treasureName = entity.name || "treasure";
-  if (entity.coinBreakdown) {
-    character.gold = clampCoinValue(Number(character.gold || 0) + Number(entity.coinBreakdown.gold || 0));
-    character.silver = clampCoinValue(Number(character.silver || 0) + Number(entity.coinBreakdown.silver || 0));
-    character.copper = clampCoinValue(Number(character.copper || 0) + Number(entity.coinBreakdown.copper || 0));
+  collectable.collected = true;
+  const treasureName = collectable.corpseLoot && collectable.monsterName
+    ? `pieces of ${collectable.monsterName}`
+    : collectable.name || "treasure";
+  const xpAward = awardTreasureExperience(state, collectable);
+  if (collectable.coinBreakdown) {
+    character.gold = clampCoinValue(Number(character.gold || 0) + Number(collectable.coinBreakdown.gold || 0));
+    character.silver = clampCoinValue(Number(character.silver || 0) + Number(collectable.coinBreakdown.silver || 0));
+    character.copper = clampCoinValue(Number(character.copper || 0) + Number(collectable.coinBreakdown.copper || 0));
     character.raw = character.raw || {};
     character.raw.gold = character.gold;
     character.raw.silver = character.silver;
     character.raw.copper = character.copper;
     return {
       collected: 1,
-      message: `Got: ${treasureName} (${getLootValueLabel(entity)}).`
+      message: `Got: ${treasureName} (${getLootValueLabel(collectable)}).${xpAward ? ` ${xpAward} XP to each living party member.` : ""}`
     };
   }
 
   character.gear = Array.isArray(character.gear) ? character.gear : [];
+  const gearItem = collectable.gearItem
+    ? JSON.parse(JSON.stringify(collectable.gearItem))
+    : {
+      name: treasureName,
+      quantity: 1,
+      totalUnits: 1,
+      value: Math.max(0, Number(collectable.value) || 0),
+      slots: itemSlots,
+      bonusSlots: getItemBonusSlots(collectable),
+      priceless: collectable.priceless === true,
+      description: collectable.description || "",
+      treasureItem: true,
+      treasureKind: collectable.kind || collectable.subtype || "treasure",
+      worthlessLoot: collectable.worthlessLoot === true,
+      corpseLoot: collectable.corpseLoot === true,
+      monsterName: collectable.monsterName || ""
+    };
   character.gear.push({
-    id: entity.id,
-    name: treasureName,
-    quantity: 1,
-    totalUnits: 1,
-    value: Math.max(0, Number(entity.value) || 0),
+    id: collectable.id,
+    ...gearItem,
+    name: collectable.gearItem ? (gearItem.name || treasureName) : treasureName,
+    quantity: Number(gearItem.quantity || gearItem.totalUnits || 1) || 1,
+    totalUnits: Number(gearItem.totalUnits || gearItem.quantity || 1) || 1,
+    value: Math.max(0, Number(gearItem.value ?? collectable.value) || 0),
     slots: itemSlots,
-    bonusSlots: getItemBonusSlots(entity),
-    priceless: entity.priceless === true,
-    description: entity.description || "",
-    treasureItem: true,
-    treasureKind: entity.kind || entity.subtype || "treasure"
+    bonusSlots: getItemBonusSlots(collectable),
+    priceless: collectable.priceless === true,
+    description: collectable.description || gearItem.description || "",
+    treasureItem: !collectable.gearItem,
+    treasureKind: collectable.kind || collectable.subtype || "treasure",
+    worthlessLoot: collectable.worthlessLoot === true || gearItem.worthlessLoot === true,
+    corpseLoot: collectable.corpseLoot === true || gearItem.corpseLoot === true,
+    monsterName: collectable.monsterName || gearItem.monsterName || ""
   });
   return {
     collected: 1,
-    message: `Got: ${treasureName} (${getLootValueLabel(entity)}).`
+    message: `Got: ${treasureName} (${getLootValueLabel(collectable)}).${xpAward ? ` ${xpAward} XP to each living party member.` : ""}`
   };
 }
 
@@ -688,7 +838,7 @@ export function collectRoomLoot(state) {
     }
     if (result.collected) {
       collected += 1;
-      totalValue += entity.value;
+      totalValue += Number(entity.value) || 0;
     }
   }
 
@@ -728,7 +878,10 @@ export function dropLootAtPlayer(state, lootId) {
       bonusSlots: getItemBonusSlots(entry),
       priceless: entry.priceless === true,
       description: entry.description || "",
-      collected: false
+      collected: false,
+      worthlessLoot: entry.worthlessLoot === true,
+      corpseLoot: entry.corpseLoot === true,
+      monsterName: entry.monsterName || ""
     });
     return { message: `Left ${entry.name} (${getLootValueLabel(entry)}).` };
   }
