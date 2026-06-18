@@ -1,4 +1,5 @@
 import { DOOR_STATES, ENTITY_TYPES, TILE_SIZE_PX, TILE_TYPES } from "./constants.js";
+import { collectLightSources, computeLightPolygon } from "./light-geometry.js";
 import { tileKey } from "./state-schema.js";
 
 const USE_HAND_DRAWN_RENDERER = true;
@@ -88,6 +89,8 @@ const WATER_FLAT_KEYS = Object.freeze([
 const WATER_DIAGONAL_KEYS = Object.freeze(Array.from({ length: 13 }, (_, index) => `water-nw-${index + 1}`));
 const WATER_ALL_KEYS = Object.freeze(["water-c", ...WATER_FLAT_KEYS, ...WATER_DIAGONAL_KEYS]);
 const ROUND_CORNERS_ENABLED = true;
+const EXPLORED_FOG_ALPHA = 0.45;
+const UNEXPLORED_FOG_ALPHA = 0.95;
 const STAIR_DOWN_KEYS = Object.freeze(["d-stair-1", "d-stair-2", "d-stair-3", "d-stair-4"]);
 const STAIR_UP_KEYS = Object.freeze(["u-stair-n", "u-stair-e", "u-stair-s", "u-stair-w"]);
 const PILLAR_KEYS = Object.freeze(["plr-1", "plr-2", "plr-3", "plr-4", "plr-5", "plr-6", "plr-7", "plr-8"]);
@@ -1492,93 +1495,13 @@ function drawCharacters(state, ctx) {
   }
 }
 
-function isRoomCurrentlyVisible(state, room) {
-  for (let y = Number(room.y); y < Number(room.y + room.height); y += 1) {
-    for (let x = Number(room.x); x < Number(room.x + room.width); x += 1) {
-      if (state.visibility.visibleNow.has(tileKey(x, y))) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function getRotundaFogAlpha(state, tile) {
-  for (const room of state.rooms || []) {
-    if (room.rotunda !== true || !isRoomCurrentlyVisible(state, room)) {
-      continue;
-    }
-    const footprint = getRotundaArtFootprint(room);
-    if (
-      tile.x < footprint.x ||
-      tile.y < footprint.y ||
-      tile.x >= footprint.x + footprint.drawSize ||
-      tile.y >= footprint.y + footprint.drawSize
-    ) {
-      continue;
-    }
-    const localX = tile.x - footprint.x;
-    const localY = tile.y - footprint.y;
-    const max = footprint.drawSize - 1;
-    if (footprint.size === 5) {
-      const openings = new Set(getRoomOpenings(room).map((opening) => String(opening || "")[0]));
-      const isInnerRotunda = localX >= 1 && localX <= 3 && localY >= 1 && localY <= 3;
-      const isExit =
-        (openings.has("n") && localX === 2 && localY === 0) ||
-        (openings.has("s") && localX === 2 && localY === 4) ||
-        (openings.has("w") && localX === 0 && localY === 2) ||
-        (openings.has("e") && localX === 4 && localY === 2);
-      return isInnerRotunda || isExit ? 0.18 : null;
-    }
-    const center = footprint.drawSize / 2;
-    const dx = (localX + 0.5) - center;
-    const dy = (localY + 0.5) - center;
-    return Math.sqrt(dx * dx + dy * dy) <= footprint.size / 2 ? 0.24 : null;
-  }
-  return null;
-}
-
-function getRotundaVisibleBlackoutAlpha(state, tile) {
-  for (const room of state.rooms || []) {
-    if (room.rotunda !== true || !isRoomCurrentlyVisible(state, room)) {
-      continue;
-    }
-    const footprint = getRotundaArtFootprint(room);
-    if (footprint.size !== 5) {
-      continue;
-    }
-    if (
-      tile.x < footprint.x ||
-      tile.y < footprint.y ||
-      tile.x >= footprint.x + footprint.drawSize ||
-      tile.y >= footprint.y + footprint.drawSize
-    ) {
-      continue;
-    }
-    const localX = tile.x - footprint.x;
-    const localY = tile.y - footprint.y;
-    const openings = new Set(getRoomOpenings(room).map((opening) => String(opening || "")[0]));
-    const isInnerRotunda = localX >= 1 && localX <= 3 && localY >= 1 && localY <= 3;
-    const isExit =
-      (openings.has("n") && localX === 2 && localY === 0) ||
-      (openings.has("s") && localX === 2 && localY === 4) ||
-      (openings.has("w") && localX === 0 && localY === 2) ||
-      (openings.has("e") && localX === 4 && localY === 2);
-    if (isInnerRotunda || isExit) {
-      return null;
-    }
-    return 0.95;
-  }
-  return null;
-}
-
 function getRoundedCornerFogAlpha(state, tile) {
   if (!ROUND_CORNERS_ENABLED) {
     return null;
   }
   for (const room of state.rooms || []) {
     const cornerSize = Number(room.cornerSize || 0);
-    if (cornerSize !== 1 || room.rotunda === true || !isRoomCurrentlyVisible(state, room)) {
+    if (cornerSize !== 1 || room.rotunda === true) {
       continue;
     }
     const placements = [
@@ -1593,16 +1516,15 @@ function getRoundedCornerFogAlpha(state, tile) {
       tile.x < placement.x + cornerSize &&
       tile.y < placement.y + cornerSize
     ))) {
-      return cornerSize === 1 ? 0.08 : 0.22;
+      return null;
     }
   }
   return null;
 }
 
 function getCurvedDecorFogAlpha(state, tile, fallbackAlpha) {
-  const rotundaAlpha = getRotundaFogAlpha(state, tile);
   const cornerAlpha = getRoundedCornerFogAlpha(state, tile);
-  const candidates = [rotundaAlpha, cornerAlpha].filter((value) => value !== null);
+  const candidates = [cornerAlpha].filter((value) => value !== null);
   if (!candidates.length) {
     return fallbackAlpha;
   }
@@ -1624,28 +1546,206 @@ function drawFog(state, ctx, widthPx, heightPx, forceBlackout) {
   }
 
   for (const tile of state.tiles) {
-    const key = tileKey(tile.x, tile.y);
     const px = tile.x * TILE_SIZE_PX;
     const py = tile.y * TILE_SIZE_PX;
-    if (state.visibility.visibleNow.has(key)) {
-      const visibleBlackoutAlpha = getRotundaVisibleBlackoutAlpha(state, tile);
-      if (visibleBlackoutAlpha !== null) {
-        ctx.fillStyle = `rgba(0, 0, 0, ${visibleBlackoutAlpha})`;
-        ctx.fillRect(px, py, TILE_SIZE_PX, TILE_SIZE_PX);
-      }
+    const alpha = getCurvedDecorFogAlpha(state, tile, UNEXPLORED_FOG_ALPHA);
+    ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+    ctx.fillRect(px, py, TILE_SIZE_PX, TILE_SIZE_PX);
+  }
+  drawExploredFog(state, ctx);
+  drawAngledShadowWedges(state, ctx);
+  drawClosedDoorFogBisectors(state, ctx);
+}
+
+function wasExploredBeforeCurrentLight(state, x, y) {
+  const explored = state.visibility.exploredBeforeNow instanceof Set
+    ? state.visibility.exploredBeforeNow
+    : state.visibility.exploredEver;
+  return explored.has(tileKey(x, y));
+}
+
+function drawShadowPolygon(ctx, points) {
+  if (!points.length) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let index = 1; index < points.length; index += 1) {
+    ctx.lineTo(points[index][0], points[index][1]);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function clipToFloorTiles(ctx, state, predicate) {
+  ctx.beginPath();
+  for (const tile of state.tiles || []) {
+    if (!predicate(tile) || tile.type === TILE_TYPES.WALL || tile.type === TILE_TYPES.VOID) {
       continue;
     }
-    if (state.visibility.exploredEver.has(key)) {
-      const alpha = getCurvedDecorFogAlpha(state, tile, 0.45);
-      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-      ctx.fillRect(px, py, TILE_SIZE_PX, TILE_SIZE_PX);
-    } else {
-      const alpha = getCurvedDecorFogAlpha(state, tile, 0.95);
-      ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-      ctx.fillRect(px, py, TILE_SIZE_PX, TILE_SIZE_PX);
+    ctx.rect(tile.x * TILE_SIZE_PX, tile.y * TILE_SIZE_PX, TILE_SIZE_PX, TILE_SIZE_PX);
+  }
+  addRotundaClipPaths(ctx, state, predicate);
+  ctx.clip();
+}
+
+function hasRotundaClipTile(state, room, predicate) {
+  for (let y = Number(room.y); y < Number(room.y + room.height); y += 1) {
+    for (let x = Number(room.x); x < Number(room.x + room.width); x += 1) {
+      const tile = getTileAt(state, x, y);
+      if (tile && predicate(tile) && tile.type !== TILE_TYPES.WALL && tile.type !== TILE_TYPES.VOID) {
+        return true;
+      }
     }
   }
-  drawClosedDoorFogBisectors(state, ctx);
+  return false;
+}
+
+function addRotundaFiveClipPath(ctx, room, footprint) {
+  const openings = new Set(getRoomOpenings(room).map((opening) => String(opening || "")[0]));
+  const rects = [
+    [footprint.x + 1, footprint.y + 1, 3, 3]
+  ];
+  if (openings.has("n")) rects.push([footprint.x + 2, footprint.y, 1, 1]);
+  if (openings.has("s")) rects.push([footprint.x + 2, footprint.y + 4, 1, 1]);
+  if (openings.has("w")) rects.push([footprint.x, footprint.y + 2, 1, 1]);
+  if (openings.has("e")) rects.push([footprint.x + 4, footprint.y + 2, 1, 1]);
+  for (const [x, y, width, height] of rects) {
+    ctx.rect(
+      x * TILE_SIZE_PX,
+      y * TILE_SIZE_PX,
+      width * TILE_SIZE_PX,
+      height * TILE_SIZE_PX
+    );
+  }
+}
+
+function addRotundaClipPaths(ctx, state, predicate) {
+  for (const room of state.rooms || []) {
+    if (room.rotunda !== true || !hasRotundaClipTile(state, room, predicate)) {
+      continue;
+    }
+    const footprint = getRotundaArtFootprint(room);
+    if (footprint.size === 5) {
+      addRotundaFiveClipPath(ctx, room, footprint);
+      continue;
+    }
+    const centerX = (footprint.x + footprint.drawSize / 2) * TILE_SIZE_PX;
+    const centerY = (footprint.y + footprint.drawSize / 2) * TILE_SIZE_PX;
+    const radius = (footprint.size / 2) * TILE_SIZE_PX;
+    ctx.moveTo(centerX + radius, centerY);
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  }
+}
+
+function drawCutoutPolygon(ctx, points) {
+  drawShadowPolygon(ctx, points);
+}
+
+function drawFogRect(ctx, x, y, width, height, alpha) {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(x, y, width, height);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
+}
+
+function drawFogPolygon(ctx, points, alpha) {
+  if (!Array.isArray(points) || points.length < 3) {
+    return;
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#000000";
+  drawShadowPolygon(ctx, points);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+  drawShadowPolygon(ctx, points);
+  ctx.restore();
+}
+
+function getVisitedRoomIds(state) {
+  if (state.visibility.visitedRoomIds instanceof Set) {
+    return state.visibility.visitedRoomIds;
+  }
+  if (Array.isArray(state.visibility.visitedRoomIds)) {
+    return new Set(state.visibility.visitedRoomIds);
+  }
+  return new Set();
+}
+
+function canUseCoarseExploredTileFog(visitedRoomIds, tile) {
+  if (!tile.roomId) {
+    return true;
+  }
+  return visitedRoomIds.has(tile.roomId);
+}
+
+function drawExploredTileFog(state, ctx) {
+  const visitedRoomIds = getVisitedRoomIds(state);
+  for (const tile of state.tiles || []) {
+    const key = tileKey(tile.x, tile.y);
+    if (
+      !wasExploredBeforeCurrentLight(state, tile.x, tile.y) ||
+      state.visibility.visibleNow.has(key) ||
+      !canUseCoarseExploredTileFog(visitedRoomIds, tile)
+    ) {
+      continue;
+    }
+    const px = tile.x * TILE_SIZE_PX;
+    const py = tile.y * TILE_SIZE_PX;
+    const alpha = getCurvedDecorFogAlpha(state, tile, EXPLORED_FOG_ALPHA);
+    drawFogRect(ctx, px, py, TILE_SIZE_PX, TILE_SIZE_PX, alpha);
+  }
+}
+
+function drawExploredLightPolygonFog(state, ctx) {
+  const polygons = Array.isArray(state.visibility.exploredLightPolygonsBeforeNow)
+    ? state.visibility.exploredLightPolygonsBeforeNow
+    : state.visibility.exploredLightPolygons;
+  if (!Array.isArray(polygons) || !polygons.length) {
+    return;
+  }
+  ctx.save();
+  clipToFloorTiles(ctx, state, () => true);
+  for (const polygon of polygons) {
+    drawFogPolygon(ctx, polygon, EXPLORED_FOG_ALPHA);
+  }
+  ctx.restore();
+}
+
+function drawExploredFog(state, ctx) {
+  drawExploredTileFog(state, ctx);
+  drawExploredLightPolygonFog(state, ctx);
+}
+
+function drawAngledShadowWedges(state, ctx) {
+  const width = Number(state.map?.width || 0);
+  const height = Number(state.map?.height || 0);
+  if (width < 2 || height < 2) {
+    return;
+  }
+  const lightSources = collectLightSources(state);
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = "#000000";
+  ctx.globalAlpha = 1;
+  for (const source of lightSources) {
+    const polygon = computeLightPolygon(state, source);
+    if (polygon.length < 3) {
+      continue;
+    }
+    ctx.save();
+    clipToFloorTiles(ctx, state, () => true);
+    drawCutoutPolygon(ctx, polygon);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 function drawClosedDoorFogBisectors(state, ctx) {

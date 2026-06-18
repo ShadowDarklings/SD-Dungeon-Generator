@@ -2,7 +2,7 @@ import { DOOR_STATES, ENTITY_TYPES, FEATURE_NAMES, TILE_TYPES } from "./constant
 import { getTile } from "./state-schema.js";
 import { SeededRng } from "./rng.js";
 import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibility.js";
-import { getCharacterGearFreeSlots } from "./characters.js";
+import { getCharacterCoinBagSlots, getCharacterGearFreeSlots } from "./characters.js";
 import { createTreasureDetails, formatTreasureValue } from "./treasure.js";
 
 const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
@@ -74,6 +74,22 @@ function getTreasureSlotCost(entity) {
 
 function clampCoinValue(value) {
   return Math.max(0, Math.min(MAX_COIN_VALUE, Math.floor(Number(value) || 0)));
+}
+
+function getCoinCountFromBreakdown(coinBreakdown = {}) {
+  return Math.max(0, Number(coinBreakdown.gold || 0))
+    + Math.max(0, Number(coinBreakdown.silver || 0))
+    + Math.max(0, Number(coinBreakdown.copper || 0));
+}
+
+function getCoinPickupSlotCost(character, coinBreakdown = {}) {
+  const beforeSlots = getCharacterCoinBagSlots(character);
+  const afterMoney = {
+    gold: Number(character?.gold || 0) + Number(coinBreakdown.gold || 0),
+    silver: Number(character?.silver || 0) + Number(coinBreakdown.silver || 0),
+    copper: Number(character?.copper || 0) + Number(coinBreakdown.copper || 0)
+  };
+  return Math.max(0, getCharacterCoinBagSlots(afterMoney) - beforeSlots);
 }
 
 function recomputeInventory(state) {
@@ -759,10 +775,14 @@ export function collectLoot(state, lootId) {
   }
 
   const itemSlots = getTreasureSlotCost(collectable);
-  if (getCharacterGearFreeSlots(character) < itemSlots) {
+  const requiredSlots = collectable.coinBreakdown
+    ? getCoinPickupSlotCost(character, collectable.coinBreakdown)
+    : itemSlots;
+  if (getCharacterGearFreeSlots(character) < requiredSlots) {
     return {
       collected: 0,
-      message: `${character.name || "Character"} has no room for ${collectable.name || "treasure"}.`
+      noFreeSlots: true,
+      message: "No free slots."
     };
   }
 
@@ -781,7 +801,7 @@ export function collectLoot(state, lootId) {
     character.raw.copper = character.copper;
     return {
       collected: 1,
-      message: `Got: ${treasureName} (${getLootValueLabel(collectable)}).${xpAward ? ` ${xpAward} XP to each living party member.` : ""}`
+      message: `Got: ${treasureName}${getCoinCountFromBreakdown(collectable.coinBreakdown) > 100 ? ` (${requiredSlots} slot${requiredSlots === 1 ? "" : "s"})` : ""}.${xpAward ? ` ${xpAward} XP to each living party member.` : ""}`
     };
   }
 

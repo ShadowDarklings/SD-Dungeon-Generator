@@ -1,7 +1,9 @@
 import { normalizeCharacterState } from "./characters.js";
+import { TEST_CHARACTER } from "./test-character.js";
 
 const MAX_SAVE_NAME_LENGTH = 15;
 const MAX_SAVED_RUNS = 10;
+const MAX_SAVED_CHARACTERS = 50;
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(value));
@@ -15,6 +17,24 @@ function asSet(value) {
     return new Set(value);
   }
   return new Set();
+}
+
+function normalizeExploredLightPolygons(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((polygon) => Array.isArray(polygon) && polygon.length >= 3)
+    .map((polygon) => polygon
+      .filter((point) => (
+        Array.isArray(point) &&
+        point.length >= 2 &&
+        Number.isFinite(Number(point[0])) &&
+        Number.isFinite(Number(point[1]))
+      ))
+      .map((point) => [Number(point[0]), Number(point[1])])
+    )
+    .filter((polygon) => polygon.length >= 3);
 }
 
 function normalizeRunMeta(raw = {}) {
@@ -62,7 +82,9 @@ export function serializeDungeonState(state) {
     ...state,
     visibility: {
       visibleNow: Array.from(state.visibility?.visibleNow || []),
-      exploredEver: Array.from(state.visibility?.exploredEver || [])
+      exploredEver: Array.from(state.visibility?.exploredEver || []),
+      exploredLightPolygons: normalizeExploredLightPolygons(state.visibility?.exploredLightPolygons),
+      visitedRoomIds: Array.from(state.visibility?.visitedRoomIds || [])
     }
   });
   copy.run = normalizeRunMeta(state.run);
@@ -81,11 +103,15 @@ export function hydrateDungeonState(raw) {
   }
   const visibleNow = asSet(raw.visibility?.visibleNow);
   const exploredEver = asSet(raw.visibility?.exploredEver);
+  const visitedRoomIds = asSet(raw.visibility?.visitedRoomIds);
+  const exploredLightPolygons = normalizeExploredLightPolygons(raw.visibility?.exploredLightPolygons);
   const state = clonePlain({
     ...raw,
     visibility: {
       visibleNow: Array.from(visibleNow),
-      exploredEver: Array.from(exploredEver)
+      exploredEver: Array.from(exploredEver),
+      exploredLightPolygons,
+      visitedRoomIds: Array.from(visitedRoomIds)
     }
   });
   state.run = normalizeRunMeta(state.run);
@@ -104,6 +130,8 @@ export function hydrateDungeonState(raw) {
   state.visibility = {
     visibleNow,
     exploredEver,
+    exploredLightPolygons,
+    visitedRoomIds,
     closedDoorVisibleSides: new Map()
   };
   state.lootLog = {
@@ -126,6 +154,10 @@ async function parseJsonResponse(response) {
     throw new Error(data.message || data.error || "Saved run request failed.");
   }
   return data;
+}
+
+function isLocalPreviewHost() {
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 }
 
 export async function listRuns() {
@@ -211,17 +243,52 @@ export async function updateRun(runId, name, state) {
   return parseJsonResponse(response);
 }
 
-export async function importShadowdarklingsCharacter(options = {}) {
-  const response = await fetch("/api/shadowdarklings/import", {
+export async function createSavedCharacter(name, character) {
+  const response = await fetch("/api/characters", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      base_classes_only: options.baseClassesOnly === true
+      name,
+      character_json: clonePlain(character)
     })
   });
-  const data = await parseJsonResponse(response);
-  return typeof data.character_json === "string" ? data.character_json : "";
+  return parseJsonResponse(response);
 }
 
-export { MAX_SAVE_NAME_LENGTH, MAX_SAVED_RUNS };
+export async function listSavedCharacters() {
+  const response = await fetch(`/api/characters?limit=${MAX_SAVED_CHARACTERS}`, {
+    credentials: "same-origin"
+  });
+  const data = await parseJsonResponse(response);
+  return Array.isArray(data.results) ? data.results.slice(0, MAX_SAVED_CHARACTERS) : [];
+}
+
+export async function loadSavedCharacter(characterId) {
+  const response = await fetch(`/api/characters/${characterId}`, {
+    credentials: "same-origin"
+  });
+  return parseJsonResponse(response);
+}
+
+export async function importShadowdarklingsCharacter(options = {}) {
+  try {
+    const response = await fetch("/api/shadowdarklings/import", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base_classes_only: options.baseClassesOnly === true
+      })
+    });
+    const data = await parseJsonResponse(response);
+    return typeof data.character_json === "string" ? data.character_json : "";
+  } catch (error) {
+    if (isLocalPreviewHost()) {
+      return JSON.stringify(TEST_CHARACTER);
+    }
+    throw error;
+  }
+}
+
+export { MAX_SAVE_NAME_LENGTH, MAX_SAVED_RUNS, MAX_SAVED_CHARACTERS };

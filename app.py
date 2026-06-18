@@ -176,6 +176,16 @@ class SavedRun(SQLModel, table=True):
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)))
 
+class SavedCharacter(SQLModel, table=True):
+    __tablename__ = "saved_characters"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True))
+    name: str = Field(sa_column=Column(String(200), nullable=False))
+    character_json: dict = Field(sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)))
+
 class Tile(SQLModel, table=True):
     __tablename__ = "tiles"
     __table_args__ = (UniqueConstraint("saved_run_id", "x", "y", name="uq_tile_saved_run_x_y"),)
@@ -876,6 +886,88 @@ def delete_run(run_id):
     db.commit()
 
     return "", 204
+
+
+@app.route("/api/characters", methods=["POST"])
+@login_required
+@csrf.exempt
+def create_saved_character():
+    data = request.get_json(silent=True)
+    if data is None:
+        return {"error": "invalid_json", "message": "Request body must be valid JSON."}, 400
+
+    name = data.get("name")
+    character_json = data.get("character_json")
+    if not isinstance(name, str) or not name.strip():
+        return {"error": "invalid_name", "message": "Character save name is required."}, 400
+    if not isinstance(character_json, dict):
+        return {"error": "invalid_character", "message": "character_json is required and must be an object."}, 400
+
+    db = get_db_session()
+    saved = SavedCharacter(
+        user_id=current_user.id,
+        name=name.strip()[:200],
+        character_json=character_json,
+    )
+    db.add(saved)
+    db.commit()
+    db.refresh(saved)
+
+    return {
+        "id": saved.id,
+        "name": saved.name,
+        "character_json": saved.character_json,
+        "created_at": saved.created_at.isoformat() if saved.created_at else None,
+        "updated_at": saved.updated_at.isoformat() if saved.updated_at else None,
+        "links": {"self": f"/api/characters/{saved.id}"}
+    }, 201
+
+
+@app.route("/api/characters", methods=["GET"])
+@login_required
+def api_list_saved_characters():
+    limit = request.args.get("limit", default=50, type=int)
+    if not (1 <= limit <= 100):
+        limit = 50
+    db = get_db_session()
+    characters = db.exec(
+        select(SavedCharacter)
+        .where(SavedCharacter.user_id == current_user.id)
+        .order_by(SavedCharacter.updated_at.desc())
+        .limit(limit)
+    ).all()
+
+    return {
+        "results": [
+            {
+                "id": character.id,
+                "name": character.name,
+                "created_at": character.created_at.isoformat() if character.created_at else None,
+                "updated_at": character.updated_at.isoformat() if character.updated_at else None,
+                "links": {"self": f"/api/characters/{character.id}"}
+            }
+            for character in characters
+        ],
+        "error": None
+    }, 200
+
+
+@app.route("/api/characters/<int:character_id>", methods=["GET"])
+@login_required
+def get_saved_character(character_id):
+    db = get_db_session()
+    saved = db.exec(select(SavedCharacter).where(SavedCharacter.id == character_id)).first()
+
+    if saved is None or saved.user_id != current_user.id:
+        return {"error": "not_found", "message": "Saved character not found."}, 404
+
+    return {
+        "id": saved.id,
+        "name": saved.name,
+        "character_json": saved.character_json,
+        "created_at": saved.created_at.isoformat() if saved.created_at else None,
+        "updated_at": saved.updated_at.isoformat() if saved.updated_at else None
+    }, 200
 
 
 # ---------------------------------------------------------------------------

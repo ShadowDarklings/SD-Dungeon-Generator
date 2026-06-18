@@ -21,9 +21,12 @@ import {
   hydrateDungeonState,
   importShadowdarklingsCharacter,
   listRunsWithNames,
+  listSavedCharacters,
   loadRun,
+  loadSavedCharacter,
   MAX_SAVE_NAME_LENGTH,
   normalizeSaveName,
+  createSavedCharacter,
   updateRun
 } from "./persistence.js";
 import {
@@ -76,6 +79,7 @@ const ui = {
   zoomOutBtn: document.getElementById("zoom-out-btn"),
   saveBtn: document.getElementById("save-btn"),
   loadBtn: document.getElementById("load-btn"),
+  loadCharacterBtn: document.getElementById("load-character-btn"),
   multiplayerBtn: document.getElementById("multiplayer-btn"),
   multiplayerTitle: document.getElementById("multiplayer-title"),
   multiplayerHostSection: document.getElementById("multiplayer-host-section"),
@@ -176,6 +180,9 @@ let spellLookup = new Map();
 let lastDamageRoll = null;
 let diceHistory = [];
 let activeTab = "dungeon";
+let characterSheetPosition = null;
+let characterSheetDrag = null;
+let activeShopPanel = null;
 let saveDialog = {
   mode: "save",
   runs: [],
@@ -447,6 +454,7 @@ function setStatus(resultOrMessage) {
     ? { message: resultOrMessage }
     : resultOrMessage || { message: "" };
   ui.statusText.classList.toggle("trap-sprung-status", result.trapSprung === true);
+  ui.statusText.classList.toggle("no-free-slots-status", result.noFreeSlots === true);
   ui.statusText.textContent = result.trapSprung
     ? `Trap is Sprung! ${result.message || ""}`
     : result.message || "";
@@ -601,7 +609,7 @@ function updateLootUi() {
 
 function getCharacterActionContext(action) {
   const character = getActiveCharacter(state);
-  const situational = Number(ui.searchModifierInput.value || 0) || 0;
+  const situational = Number(ui.searchModifierInput?.value || 0) || 0;
   const baseModifier = getCharacterActionModifier(character, action);
   const className = String(character?.className || "").toLowerCase();
   const advantageClassByAction = {
@@ -635,6 +643,10 @@ function formatRollText(result) {
 function formatModifier(value) {
   const modifier = Number(value) || 0;
   return modifier >= 0 ? `+${modifier}` : `${modifier}`;
+}
+
+function createRandomDungeonSeed() {
+  return Math.floor(Math.random() * 900000) + 100000;
 }
 
 function prettifyAttackName(value) {
@@ -1214,6 +1226,45 @@ function getArmorMasteryTarget(character) {
   return normalizeArmorMasteryTarget(explicit);
 }
 
+function getCharacterTalentSearchLines(character) {
+  return [
+    ...(Array.isArray(character?.levels) ? character.levels : []).map((level) => `${level?.talentRolledName || ""}: ${level?.talentRolledDesc || ""}`),
+    ...(Array.isArray(character?.bonuses) ? character.bonuses : []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""}: ${bonus?.bonusTo || ""}`),
+    ...(Array.isArray(character?.raw?.levels) ? character.raw.levels : []).map((level) => `${level?.talentRolledName || ""}: ${level?.talentRolledDesc || ""}`),
+    ...(Array.isArray(character?.raw?.bonuses) ? character.raw.bonuses : []).map((bonus) => `${bonus?.bonusName || bonus?.name || ""}: ${bonus?.bonusTo || ""}`)
+  ];
+}
+
+function characterHasFighterMeleeRangedTalent(character) {
+  if (!/\bfighter\b/.test(getCharacterClassKey(character))) {
+    return false;
+  }
+  return getCharacterTalentSearchLines(character).some((line) => /melee\s+and\s+ranged\s+attacks/i.test(line));
+}
+
+function normalizeWeaponMasteryTarget(value) {
+  const profile = getWeaponProfileFromText(value);
+  return profile?.key || "";
+}
+
+function getWeaponMasteryTarget(character) {
+  const normalizedTalentLines = buildTalentSpellLines(character).map(formatTalentSpellTextForSheet);
+  for (const line of [...getCharacterTalentSearchLines(character), ...normalizedTalentLines]) {
+    if (
+      !/mastery/i.test(line) ||
+      /armor\s*mastery/i.test(line) ||
+      /choose one weapon/i.test(line)
+    ) {
+      continue;
+    }
+    const target = normalizeWeaponMasteryTarget(line);
+    if (target) {
+      return target;
+    }
+  }
+  return "";
+}
+
 function getCharacterClassKey(character) {
   return String(character?.className || character?.class || "").toLowerCase();
 }
@@ -1300,16 +1351,38 @@ function getWeaponDamageExpression(character, item, profile) {
   return explicitDamage || profile?.damage || "1d4";
 }
 
+function addDamageBonus(damageExpression, bonus) {
+  const amount = Number(bonus) || 0;
+  if (!amount) {
+    return damageExpression;
+  }
+  const source = String(damageExpression || "").trim();
+  if (!source) {
+    return source;
+  }
+  const match = source.match(/^(.*?)([+-]\d+)?$/);
+  const base = match?.[1] || source;
+  const currentBonus = Number.parseInt(match?.[2] || "0", 10) || 0;
+  return `${base}${formatModifier(currentBonus + amount)}`;
+}
+
 function buildWeaponAttackText(character, item) {
   const profile = getWeaponProfile(item);
   if (!profile || !canUseWeapon(character, item)) {
     return "";
   }
-  const bonus = Number.isFinite(Number(item?.attackBonus))
+  const baseBonus = Number.isFinite(Number(item?.attackBonus))
     ? Number(item.attackBonus)
     : abilityScoreModifier(character?.stats?.[profile.ability || "STR"]);
+  const masteryApplies = getWeaponMasteryTarget(character) === profile.key;
+  const bonus = baseBonus
+    + (characterHasFighterMeleeRangedTalent(character) ? 1 : 0)
+    + (masteryApplies ? 1 : 0);
+  const damage = masteryApplies
+    ? addDamageBonus(getWeaponDamageExpression(character, item, profile), 1)
+    : getWeaponDamageExpression(character, item, profile);
   const flag = profile.versatileDamage ? " (V)" : "";
-  return `${getWeaponDisplayName(item, profile)}${flag}: ${formatModifier(bonus)}, ${getWeaponDamageExpression(character, item, profile)}`;
+  return `${getWeaponDisplayName(item, profile)}${flag}: ${formatModifier(bonus)}, ${damage}`;
 }
 
 function getAttackWeaponProfile(attackText) {
@@ -1351,7 +1424,7 @@ function rebuildCharacterAttacks(character) {
     }
     if (characterCarriesWeapon(character, profile) && canUseWeapon(character, profile.key)) {
       const gearItem = (character.gear || []).find((item) => getWeaponProfile(item)?.key === profile.key);
-      mergeUniqueAttack(nextAttacks, gearItem && isVersatileWeaponItem(gearItem) ? buildWeaponAttackText(character, gearItem) : attackText);
+      mergeUniqueAttack(nextAttacks, gearItem ? buildWeaponAttackText(character, gearItem) : attackText);
     }
   }
   for (const item of character.gear || []) {
@@ -1894,7 +1967,7 @@ function pickupDroppedEquipment(entity) {
   }
   const itemSlots = getPickupSlotCost(character, item);
   if (getCharacterGearFreeSlots(character) < itemSlots) {
-    return { message: `${character.name || "Character"} has no room for ${getGearDisplayName(item)}.` };
+    return { noFreeSlots: true, message: "No free slots." };
   }
   character.gear = Array.isArray(character.gear) ? character.gear : [];
   const existing = findExistingGearStack(character, item);
@@ -2073,7 +2146,7 @@ function formatTalentSpellTextForSheet(text) {
     .replace(/^(\w+\s+\d+):\s*([^:]+):\s*Mastery\s*$/i, "$1: Mastery: $2 +1 atk/dmg")
     .replace(/^Fighter\s+(\d+):\s*Armor Mastery:\s*Shield\s*$/i, "Fighter $1: Armor Mastery: +1 AC from Shields")
     .replace(/^Fighter\s+(\d+):\s*Armor Mastery:\s*(Leather(?: armor)?|Chainmail|Plate(?:mail| armor)?)\s*$/i, "Fighter $1: Armor Mastery: +1 AC from $2")
-    .replace(/^(\w+\s+\d+):\s*Melee and ranged attacks\s*$/i, "$1: +1 to hit with melee and ranged")
+    .replace(/^(\w+\s+\d+):\s*Melee and ranged attacks\s*$/i, "$1: +1 to melee and ranged attacks")
     .replace(/^((?:Priest|Human Ambition)\s*\d*):\s*Ranged attacks\s*$/i, "$1: +1 to hit with Ranged")
     .replace(/^Elf:\s*Attack Bonus:\s*RangedWeapons\s*$/i, "Elf: +1 to hit with Ranged")
     .replace(/^(\w+\s+\d+):\s*([^:]+):\s*AdvOnCastOneSpell\s*$/i, "$1: Cast $2 at advantage")
@@ -2876,6 +2949,12 @@ function getCharacterMoney(character, key) {
   return Number(character?.[key] ?? character?.raw?.[key] ?? 0) || 0;
 }
 
+function getCharacterMoneyCopper(character) {
+  return getCharacterMoney(character, "gold") * 100
+    + getCharacterMoney(character, "silver") * 10
+    + getCharacterMoney(character, "copper");
+}
+
 async function loadRulesData() {
   try {
     const response = await fetch("./data/rules-data.json");
@@ -3094,12 +3173,24 @@ function getCharacterSpawnOrigin(character, index) {
   };
 }
 
+function getCharacterFallbackTile(character, index) {
+  const origin = getCharacterSpawnOrigin(character, index);
+  const originTile = getTileAt(Number(origin.x), Number(origin.y));
+  if (originTile?.type === "floor") {
+    return {
+      x: Number(origin.x),
+      y: Number(origin.y),
+      roomId: originTile.roomId || null
+    };
+  }
+  return findOpenCharacterTile(Number(origin.x) || 0, Number(origin.y) || 0);
+}
+
 function ensureCharacterPresentation() {
   if (!state?.characters?.length) {
     return;
   }
   const usedColors = new Set();
-  const occupied = new Set();
 
   for (const [index, character] of state.characters.entries()) {
     initializeImportedCharacterLight(character, index);
@@ -3124,16 +3215,17 @@ function ensureCharacterPresentation() {
     }
     usedColors.add(character.colorId);
 
-    if (!hasCharacterMapPosition(character) || occupied.has(`${character.x},${character.y}`) || isCharacterTileBlocked(Number(character.x), Number(character.y))) {
-      const origin = getCharacterSpawnOrigin(character, index);
-      const originX = origin.x;
-      const originY = origin.y;
-      const start = findOpenCharacterTile(originX, originY, occupied);
+    const tile = hasCharacterMapPosition(character)
+      ? getTileAt(Number(character.x), Number(character.y))
+      : null;
+    if (!hasCharacterMapPosition(character) || tile?.type !== "floor") {
+      const start = getCharacterFallbackTile(character, index);
       character.x = start.x;
       character.y = start.y;
       character.roomId = start.roomId;
+    } else {
+      character.roomId = character.roomId ?? tile.roomId ?? null;
     }
-    occupied.add(`${character.x},${character.y}`);
     character.colorValue = getCharacterColorValue(character);
   }
 
@@ -3325,7 +3417,7 @@ function renderCharacterCard(character) {
   header.className = "character-mini-header";
   header.append(
     document.createTextNode(`${character.name} | ${character.ancestry || "Unknown"} | ${character.className || "Class"} ${character.level || 1} | AC ${character.armorClass} | HP `),
-    createMiniInlineNumberField(character.hp, 99, (value) => {
+    createMiniInlineNumberField(character.hp, character.maxHitPoints, (value) => {
       const currentCharacter = getCurrentCharacter(character);
       setCharacterHp(currentCharacter, value);
       clearMagicLightIfIncapacitated(currentCharacter);
@@ -3397,16 +3489,23 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
 
   const nameBox = createSdField("Name", character.name, "sd-name-box");
   const talentLines = buildTalentSpellLines(character);
-  const talentRows = talentLines.filter((line) => !shouldSuppressTalentLine(line, talentLines)).map((line) => {
+  const displayedTalentKeys = new Set();
+  const talentRows = [];
+  for (const line of talentLines.filter((candidate) => !shouldSuppressTalentLine(candidate, talentLines))) {
     const displayLine = formatTalentSpellTextForSheet(line);
-    return /^Spells:/i.test(displayLine)
+    const displayKey = displayLine.toLowerCase().replace(/\s+/g, " ").trim();
+    if (displayedTalentKeys.has(displayKey)) {
+      continue;
+    }
+    displayedTalentKeys.add(displayKey);
+    talentRows.push(/^Spells:/i.test(displayLine)
       ? createSpellSummaryLine(displayLine, character)
       : createDamageAwareLine(displayLine, {
         sourceLabel: `${character.name} talent`,
         spellCheck: isSpellCheckText(displayLine),
         character
-      });
-  });
+      }));
+  }
   if (talentLines.some(isMagicMissileAdvantageTalentLine)) {
     const replacementSpell = getRemappedMagicMissileAdvantageSpell(character);
     if (replacementSpell) {
@@ -3433,7 +3532,7 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
   for (const key of ["STR", "INT", "DEX", "WIS", "CON", "CHA"]) {
     statCluster.append(createSdField(key, formatAbilityPair(character, key), "sd-stat-box"));
   }
-  statCluster.append(createSdField("HP", `${character.hp} / ${character.maxHitPoints}`, "sd-vital-box"));
+  statCluster.append(createSdField("HP", `${character.maxHitPoints} / ${character.hp}`, "sd-vital-box"));
   statCluster.append(createSdField("AC", `${character.armorClass}`, "sd-vital-box"));
 
   const identity = document.createElement("div");
@@ -3456,6 +3555,178 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
   target.append(sheet);
 }
 
+function enableCharacterNameEdit(character) {
+  const currentCharacter = getCurrentCharacter(character);
+  const valueNode = ui.characterSheetContent?.querySelector(".sd-name-box .sd-sheet-value");
+  if (!currentCharacter || !valueNode) {
+    return;
+  }
+  valueNode.contentEditable = "true";
+  valueNode.setAttribute("role", "textbox");
+  valueNode.classList.add("is-editing");
+  valueNode.focus();
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(valueNode);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  let committed = false;
+  const commitName = () => {
+    if (committed) {
+      return;
+    }
+    committed = true;
+    const nextName = valueNode.textContent.trim() || currentCharacter.name || "Character";
+    currentCharacter.name = nextName;
+    currentCharacter.raw = currentCharacter.raw || {};
+    currentCharacter.raw.name = nextName;
+    refreshCharacterViews(currentCharacter);
+    render();
+    updatePanels();
+    setStatus(`Renamed character to ${nextName}.`);
+  };
+
+  valueNode.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitName();
+    }
+  }, { once: false });
+  valueNode.addEventListener("blur", commitName, { once: true });
+}
+
+function isCharacterInStartingRoom(character) {
+  const entranceRoomId = state?.generation?.entranceRoomId;
+  if (!entranceRoomId) {
+    return false;
+  }
+  const roomId = character?.roomId || state?.player?.roomId || null;
+  return roomId === entranceRoomId;
+}
+
+function createShopGearItem(config) {
+  return {
+    instanceId: `shop-${config.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    gearId: `shop-${config.id}`,
+    name: config.name,
+    type: "sundry",
+    quantity: 1,
+    totalUnits: 1,
+    slots: config.slots,
+    cost: config.cost,
+    currency: config.currency
+  };
+}
+
+const STARTING_ROOM_SHOP_ITEMS = [
+  { id: "torch", name: "Torch", costLabel: "5 s.p.", costCopper: 50, cost: 5, currency: "sp", slots: 1 },
+  { id: "lantern", name: "Lantern", costLabel: "5 g.p.", costCopper: 500, cost: 5, currency: "gp", slots: 1 },
+  { id: "oil-flask", name: "Oil, flask", costLabel: "5 s.p.", costCopper: 50, cost: 5, currency: "sp", slots: 1 }
+];
+
+function addPurchasedGearToCharacterOrFloor(character, item) {
+  const slotCost = getPickupSlotCost(character, item);
+  if (getCharacterGearFreeSlots(character) >= slotCost) {
+    character.gear = Array.isArray(character.gear) ? character.gear : [];
+    const existing = findExistingGearStack(character, item);
+    if (existing) {
+      setGearItemUnits(existing, getGearUnits(existing) + getPileUnits(item));
+    } else {
+      character.gear.push(JSON.parse(JSON.stringify(item)));
+    }
+    return "gear";
+  }
+  addDroppedGearPile(item, findEquipmentDropTile(character));
+  return "floor";
+}
+
+function buyStartingRoomShopItem(character, config) {
+  const currentCharacter = getCurrentCharacter(character);
+  if (!currentCharacter || !isCharacterInStartingRoom(currentCharacter)) {
+    return;
+  }
+  const currentCopper = getCharacterMoneyCopper(currentCharacter);
+  if (currentCopper < config.costCopper) {
+    return;
+  }
+  setCharacterMoneyFromCopper(currentCharacter, currentCopper - config.costCopper);
+  const item = createShopGearItem(config);
+  const destination = addPurchasedGearToCharacterOrFloor(currentCharacter, item);
+  normalizeCharacterState(state);
+  syncAllCharacterEquipmentDerivedStats();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  syncPlayerLightFromActiveCharacter();
+  recomputeVisibility(state);
+  markRunDirty();
+  markUserActivity();
+  refreshCharacterViews(currentCharacter);
+  render();
+  updatePanels();
+  setStatus(`${currentCharacter.name || "Character"} buys ${config.name}${destination === "floor" ? "; no gear slot was free, so it lands on the floor." : "."}`);
+}
+
+function closeActiveShopPanel() {
+  activeShopPanel?.remove();
+  activeShopPanel = null;
+}
+
+function openStartingRoomShop(character, anchor) {
+  closeActiveShopPanel();
+  const currentCharacter = getCurrentCharacter(character);
+  if (!currentCharacter) {
+    return;
+  }
+  const panel = document.createElement("section");
+  panel.className = "sd-shop-popover";
+  const heading = document.createElement("h3");
+  heading.textContent = "BUY";
+  const coinLine = document.createElement("div");
+  coinLine.className = "sd-shop-coins";
+  coinLine.textContent = `${currentCharacter.name || "Character"} coins: GP ${getCharacterMoney(currentCharacter, "gold")}  SP ${getCharacterMoney(currentCharacter, "silver")}  CP ${getCharacterMoney(currentCharacter, "copper")}`;
+  panel.append(heading, coinLine);
+
+  const availableCopper = getCharacterMoneyCopper(currentCharacter);
+  for (const config of STARTING_ROOM_SHOP_ITEMS) {
+    const row = document.createElement("div");
+    row.className = "sd-shop-row";
+    const label = document.createElement("span");
+    label.textContent = config.name;
+    const price = document.createElement("span");
+    price.textContent = config.costLabel;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "buy";
+    button.disabled = availableCopper < config.costCopper;
+    row.classList.toggle("is-unavailable", button.disabled);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      buyStartingRoomShopItem(currentCharacter, config);
+      closeActiveShopPanel();
+    });
+    row.append(label, price, button);
+    panel.append(row);
+  }
+
+  document.body.append(panel);
+  const anchorRect = anchor?.getBoundingClientRect?.() || getCharacterSheetCard()?.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  const left = Math.min(window.innerWidth - panelRect.width - 12, Math.max(12, anchorRect.left));
+  const top = Math.min(window.innerHeight - panelRect.height - 12, Math.max(12, anchorRect.bottom + 6));
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  activeShopPanel = panel;
+
+  const closeOnOutside = (event) => {
+    if (!panel.contains(event.target) && event.target !== anchor) {
+      closeActiveShopPanel();
+      document.removeEventListener("pointerdown", closeOnOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener("pointerdown", closeOnOutside), 0);
+}
+
 function createSdDismissPanel(character) {
   const panel = document.createElement("section");
   panel.className = "sd-sheet-panel sd-dismiss-panel";
@@ -3471,7 +3742,37 @@ function createSdDismissPanel(character) {
 
   const buttonWrap = document.createElement("div");
   buttonWrap.className = "sd-dismiss-button-wrap";
-  buttonWrap.append(dismissButton);
+  const actionRow = document.createElement("div");
+  actionRow.className = "sd-sheet-action-row";
+  const renameButton = document.createElement("button");
+  renameButton.type = "button";
+  renameButton.className = "sd-rename-button";
+  renameButton.textContent = `RENAME ${name}`;
+  renameButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    enableCharacterNameEdit(character);
+  });
+  const saveCharacterButton = document.createElement("button");
+  saveCharacterButton.type = "button";
+  saveCharacterButton.className = "sd-save-character-button";
+  saveCharacterButton.textContent = "SAVE CHARACTER";
+  saveCharacterButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    saveCharacterSnapshot(character);
+  });
+  actionRow.append(dismissButton, renameButton, saveCharacterButton);
+  if (isCharacterInStartingRoom(character)) {
+    const buyButton = document.createElement("button");
+    buyButton.type = "button";
+    buyButton.className = "sd-buy-button";
+    buyButton.textContent = "BUY";
+    buyButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openStartingRoomShop(character, buyButton);
+    });
+    actionRow.append(buyButton);
+  }
+  buttonWrap.append(actionRow);
 
   if (isDead) {
     dismissButton.addEventListener("click", () => {
@@ -3800,13 +4101,99 @@ function openCharacterSheet(character) {
   }
   renderCharacterDetail(currentCharacter, ui.characterSheetContent, { popout: true });
   ui.characterSheetModal.hidden = false;
+  positionCharacterSheetModal();
+}
+
+function setCharacterMoneyFromCopper(character, copperValue) {
+  const totalCopper = Math.max(0, Math.floor(Number(copperValue) || 0));
+  setCharacterMoneyValue(character, "gold", Math.floor(totalCopper / 100));
+  setCharacterMoneyValue(character, "silver", Math.floor((totalCopper % 100) / 10));
+  setCharacterMoneyValue(character, "copper", totalCopper % 10);
 }
 
 function closeCharacterSheet() {
   if (!ui.characterSheetModal) {
     return;
   }
+  closeActiveShopPanel();
   ui.characterSheetModal.hidden = true;
+  characterSheetDrag = null;
+}
+
+function getCharacterSheetCard() {
+  return ui.characterSheetModal?.querySelector(".character-sheet-modal") || null;
+}
+
+function clampCharacterSheetPosition(left, top) {
+  const card = getCharacterSheetCard();
+  if (!card) {
+    return { left, top };
+  }
+  const margin = 12;
+  const rect = card.getBoundingClientRect();
+  const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+  const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+  return {
+    left: Math.max(margin, Math.min(maxLeft, left)),
+    top: Math.max(margin, Math.min(maxTop, top))
+  };
+}
+
+function positionCharacterSheetModal() {
+  const card = getCharacterSheetCard();
+  if (!card) {
+    return;
+  }
+  const rect = card.getBoundingClientRect();
+  const fallback = {
+    left: Math.max(12, (window.innerWidth - rect.width) / 2),
+    top: 24
+  };
+  const position = characterSheetPosition || fallback;
+  characterSheetPosition = clampCharacterSheetPosition(position.left, position.top);
+  card.style.left = `${characterSheetPosition.left}px`;
+  card.style.top = `${characterSheetPosition.top}px`;
+}
+
+function startCharacterSheetDrag(event) {
+  const card = getCharacterSheetCard();
+  if (!card || event.button !== 0 || event.target.closest("button, input, textarea, select, a")) {
+    return;
+  }
+  const rect = card.getBoundingClientRect();
+  characterSheetDrag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top
+  };
+  card.classList.add("is-dragging");
+  card.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+}
+
+function dragCharacterSheet(event) {
+  if (!characterSheetDrag) {
+    return;
+  }
+  characterSheetPosition = clampCharacterSheetPosition(
+    event.clientX - characterSheetDrag.offsetX,
+    event.clientY - characterSheetDrag.offsetY
+  );
+  const card = getCharacterSheetCard();
+  if (card) {
+    card.style.left = `${characterSheetPosition.left}px`;
+    card.style.top = `${characterSheetPosition.top}px`;
+  }
+}
+
+function stopCharacterSheetDrag() {
+  if (!characterSheetDrag) {
+    return;
+  }
+  const card = getCharacterSheetCard();
+  card?.releasePointerCapture?.(characterSheetDrag.pointerId);
+  card?.classList.remove("is-dragging");
+  characterSheetDrag = null;
 }
 
 function createSheetField(label, value, options = {}) {
@@ -4649,6 +5036,9 @@ function createSdGearPanel(character) {
   }
   headingRow.append(heading, coinFields);
 
+  const gearBody = document.createElement("div");
+  gearBody.className = "sd-gear-body";
+
   const rows = document.createElement("div");
   rows.className = "sd-gear-lines";
   const { slots, freeCarry } = getCharacterGearSlots(character, {
@@ -4661,6 +5051,27 @@ function createSdGearPanel(character) {
     const row = document.createElement("div");
     row.className = entry.available ? "" : "sd-gear-slot-unavailable";
     const item = Number.isInteger(entry.gearIndex) && Array.isArray(character.gear) ? character.gear[entry.gearIndex] : null;
+    if (entry.text && entry.primary && Number.isInteger(entry.gearIndex)) {
+      row.classList.add("sd-gear-row-has-drop");
+      row.tabIndex = 0;
+      row.title = "Click or hover to drop this gear.";
+      row.addEventListener("click", (event) => {
+        event.stopPropagation();
+        rows.querySelectorAll(".is-drop-open").forEach((openRow) => {
+          if (openRow !== row) {
+            openRow.classList.remove("is-drop-open");
+          }
+        });
+        row.classList.toggle("is-drop-open");
+      });
+      row.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+        event.preventDefault();
+        row.classList.toggle("is-drop-open");
+      });
+    }
     const label = document.createElement("span");
     label.className = "sd-gear-line-label";
     if (item) {
@@ -4743,7 +5154,8 @@ function createSdGearPanel(character) {
   }
   freeCarryPanel.append(freeCarryHeading, freeCarryLines);
 
-  panel.append(headingRow, rows, freeCarryPanel);
+  gearBody.append(rows, freeCarryPanel);
+  panel.append(headingRow, gearBody);
   return panel;
 }
 
@@ -4807,6 +5219,25 @@ function createCompactInputField(label, value, max, onChange) {
   return field;
 }
 
+function getLootCoinCount(loot) {
+  return Math.max(0, Number(loot?.coinBreakdown?.gold || 0))
+    + Math.max(0, Number(loot?.coinBreakdown?.silver || 0))
+    + Math.max(0, Number(loot?.coinBreakdown?.copper || 0));
+}
+
+function formatRoomLootButtonText(loot) {
+  const slotCount = Math.max(1, Number(loot?.slots || 1) || 1);
+  const slotText = `${slotCount} slot${slotCount === 1 ? "" : "s"}`;
+  if (loot?.coinBreakdown) {
+    const label = loot.name || "coin bag";
+    return getLootCoinCount(loot) > 100 ? `${label} (${slotText})` : label;
+  }
+  if (loot?.subtype === "dropped-equipment") {
+    return `${loot.name || "equipment"} (${slotText})`;
+  }
+  return `Get: ${loot?.name || "treasure"} (${slotText})`;
+}
+
 function updateRoomLootPanel() {
   ui.roomLootPanel.innerHTML = "";
   const roomLoot = getRoomLoot(state);
@@ -4845,19 +5276,20 @@ function updateRoomLootPanel() {
   for (const loot of roomLoot) {
     const lootButton = document.createElement("button");
     lootButton.type = "button";
-    const slotText = `${loot.slots || 1} slot${(loot.slots || 1) === 1 ? "" : "s"}`;
     const isDroppedEquipment = loot.subtype === "dropped-equipment";
-    lootButton.textContent = isDroppedEquipment
-      ? `${loot.name || "equipment"} (${slotText})`
-      : `Get: ${loot.name || "treasure"} (${slotText})`;
+    lootButton.textContent = formatRoomLootButtonText(loot);
     lootButton.addEventListener("click", () => {
+      const activeCharacter = getActiveCharacter(state);
       const result = isDroppedEquipment
         ? pickupDroppedEquipment(loot)
         : collectLoot(state, loot.id);
-      if (!isDroppedEquipment) {
+      if (result.collected || result.message?.startsWith?.("Got:") || isDroppedEquipment) {
         normalizeCharacterState(state);
         syncAllCharacterEquipmentDerivedStats();
         syncPlayerLightFromActiveCharacter();
+        if (activeCharacter) {
+          refreshCharacterViews(activeCharacter);
+        }
       }
       markUserActivity();
       setStatus(result.message || result);
@@ -5087,6 +5519,9 @@ function getTileFromPointer(event) {
 }
 
 function normalizeSearchModifier() {
+  if (!ui.searchModifierInput) {
+    return 0;
+  }
   const modifier = Math.max(
     MIN_SEARCH_MODIFIER,
     Math.min(MAX_SEARCH_MODIFIER, Number(ui.searchModifierInput.value || 0))
@@ -5257,6 +5692,95 @@ function sanitizeWanderingInput(input) {
   updateWanderingUi();
 }
 
+function formatSavedCharacterName(character) {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  const date = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${String(now.getFullYear()).slice(-2)}`;
+  const time = `${pad(now.getHours())}-${pad(now.getMinutes())}`;
+  return `${character?.name || "Character"}_${date}_${time}`;
+}
+
+async function saveCharacterSnapshot(character) {
+  const currentCharacter = getCurrentCharacter(character);
+  if (!currentCharacter) {
+    return;
+  }
+  const saveButton = ui.characterSheetContent?.querySelector(".sd-save-character-button");
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = "SAVING...";
+  }
+  try {
+    const result = await createSavedCharacter(formatSavedCharacterName(currentCharacter), currentCharacter);
+    setStatus(`Saved character ${result.name || currentCharacter.name}.`);
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = `SAVE CHARACTER`;
+    }
+  }
+}
+
+async function refreshSavedCharacters() {
+  ui.saveLoadStatus.textContent = "Loading saved characters...";
+  ui.savedRunsList.innerHTML = "";
+  try {
+    saveDialog.characters = await listSavedCharacters();
+    ui.saveLoadStatus.textContent = saveDialog.characters.length ? "" : "No saved characters yet.";
+  } catch (error) {
+    saveDialog.characters = [];
+    ui.saveLoadStatus.textContent = error.message;
+  }
+  renderSavedCharactersList();
+}
+
+function renderSavedCharactersList() {
+  ui.savedRunsList.innerHTML = "";
+  for (const character of saveDialog.characters || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "saved-run-button";
+    const label = document.createElement("span");
+    label.textContent = character.name || "Saved character";
+    const meta = document.createElement("span");
+    meta.className = "saved-run-meta";
+    meta.textContent = character.updated_at ? new Date(character.updated_at).toLocaleString() : "";
+    button.append(label, meta);
+    button.addEventListener("click", () => loadSelectedCharacter(character));
+    ui.savedRunsList.append(button);
+  }
+}
+
+async function loadSelectedCharacter(savedCharacter) {
+  ui.saveLoadStatus.textContent = "Loading character...";
+  try {
+    const loaded = savedCharacter.character_json ? savedCharacter : await loadSavedCharacter(savedCharacter.id);
+    const [character] = extractShadowdarkCharacters(JSON.stringify(loaded.character_json));
+    if (!character) {
+      throw new Error("Saved character did not include usable character data.");
+    }
+    state.characters.push(character);
+    state.activeCharacterId = character.id;
+    normalizeCharacterState(state);
+    applyCharacterAmmoOverrides();
+    syncAllCharacterEquipmentDerivedStats();
+    applyCharacterColorOverrides();
+    ensureCharacterPresentation();
+    syncPlayerLightFromActiveCharacter();
+    recomputeVisibility(state);
+    markUserActivity();
+    updateCharactersUi();
+    render();
+    updatePanels();
+    closeSaveLoadModal();
+    setStatus(`Loaded character ${character.name || "saved character"}.`);
+  } catch (error) {
+    ui.saveLoadStatus.textContent = error.message;
+  }
+}
+
 async function refreshSavedRuns() {
   ui.saveLoadStatus.textContent = "Loading saves...";
   ui.savedRunsList.innerHTML = "";
@@ -5303,16 +5827,25 @@ async function openSaveLoadModal(mode) {
   saveDialog = {
     mode,
     runs: [],
+    characters: [],
     pendingRun: null
   };
-  ui.saveLoadTitle.textContent = mode === "save" ? "Save Run" : "Load Run";
+  ui.saveLoadTitle.textContent = mode === "save"
+    ? "Save Run"
+    : mode === "load-character"
+      ? "Load Character"
+      : "Load Run";
   ui.saveNameRow.hidden = mode !== "save";
   ui.saveModalSubmit.hidden = mode !== "save";
   ui.saveNameInput.value = normalizeSaveName(state.run?.name || "");
   ui.overwriteConfirmation.hidden = true;
   ui.replaceConfirmation.hidden = true;
   ui.saveLoadModal.hidden = false;
-  await refreshSavedRuns();
+  if (mode === "load-character") {
+    await refreshSavedCharacters();
+  } else {
+    await refreshSavedRuns();
+  }
 }
 
 function closeSaveLoadModal() {
@@ -5793,6 +6326,11 @@ function hookInputEvents() {
   if (ui.characterSheetClose) {
     ui.characterSheetClose.addEventListener("click", closeCharacterSheet);
   }
+  const characterSheetCard = getCharacterSheetCard();
+  characterSheetCard?.addEventListener("pointerdown", startCharacterSheetDrag);
+  characterSheetCard?.addEventListener("pointermove", dragCharacterSheet);
+  characterSheetCard?.addEventListener("pointerup", stopCharacterSheetDrag);
+  characterSheetCard?.addEventListener("pointercancel", stopCharacterSheetDrag);
   if (ui.characterSheetModal) {
     ui.characterSheetModal.addEventListener("click", (event) => {
       if (event.target === ui.characterSheetModal) {
@@ -5816,6 +6354,10 @@ function hookInputEvents() {
 
   ui.loadBtn.addEventListener("click", () => {
     openSaveLoadModal("load");
+  });
+
+  ui.loadCharacterBtn?.addEventListener("click", () => {
+    openSaveLoadModal("load-character");
   });
 
   ui.multiplayerBtn?.addEventListener("click", openMultiplayerModal);
@@ -5924,10 +6466,10 @@ function hookInputEvents() {
     updatePanels();
   });
 
-  ui.searchModifierInput.addEventListener("change", () => {
+  ui.searchModifierInput?.addEventListener("change", () => {
     normalizeSearchModifier();
   });
-  ui.searchModifierInput.addEventListener("input", () => {
+  ui.searchModifierInput?.addEventListener("input", () => {
     const value = Number(ui.searchModifierInput.value);
     sizeControlField(ui.searchModifierInput);
     if (Number.isNaN(value)) {
@@ -6119,11 +6661,15 @@ function hookMapViewportInteractions() {
     if (state) {
       applyViewportScale(viewport.scale);
     }
+    if (ui.characterSheetModal && !ui.characterSheetModal.hidden) {
+      positionCharacterSheetModal();
+    }
   });
 }
 
 async function generateAndRender() {
-  const seed = Number(ui.seedInput.value || Date.now());
+  const seed = Number(ui.seedInput.value || createRandomDungeonSeed());
+  ui.seedInput.value = `${seed}`;
   const level = Number(ui.levelInput.value || 1);
   setStatus("Generating dungeon...");
   [shadowdarkContent, rulesData] = await Promise.all([loadShadowdarkContent(), loadRulesData(), ensureSpellLibraryLoaded()]);
@@ -6178,6 +6724,7 @@ async function initialize() {
   }
   hookInputEvents();
   hookMapViewportInteractions();
+  ui.seedInput.value = `${createRandomDungeonSeed()}`;
   updateControlSizing();
   syncSidebarWidth();
   syncBaseClassesOnlyToggleState(readBaseClassesOnlyPreference());

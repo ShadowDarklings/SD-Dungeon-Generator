@@ -1,4 +1,5 @@
 import { DOOR_STATES, TILE_TYPES } from "./constants.js";
+import { collectLightSources, computeLightPolygon, isTileTouchedByLightPolygon } from "./light-geometry.js";
 import { tileKey } from "./state-schema.js";
 
 function isWithinRadius(x1, y1, x2, y2, radius) {
@@ -228,56 +229,97 @@ export function isTileVisible(state, x, y) {
   return state.visibility.visibleNow.has(tileKey(x, y));
 }
 
+function cloneLightPolygon(polygon) {
+  return Array.isArray(polygon)
+    ? polygon
+      .filter((point) => Array.isArray(point) && point.length >= 2)
+      .map((point) => [Number(point[0]), Number(point[1])])
+      .filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1]))
+    : [];
+}
+
+function normalizeLightPolygons(polygons) {
+  return Array.isArray(polygons)
+    ? polygons.map(cloneLightPolygon).filter((polygon) => polygon.length >= 3)
+    : [];
+}
+
+function getLightPolygonKey(polygon) {
+  const pointsKey = polygon
+    .filter((_, index) => index % 6 === 0)
+    .map((point) => `${Math.round(point[0])},${Math.round(point[1])}`)
+    .join("|");
+  return `${polygon.length}:${pointsKey}`;
+}
+
+function appendExploredLightPolygon(state, polygon) {
+  const normalized = cloneLightPolygon(polygon);
+  if (normalized.length < 3) {
+    return;
+  }
+  state.visibility.exploredLightPolygons = normalizeLightPolygons(state.visibility.exploredLightPolygons);
+  state.visibility.exploredLightPolygonKeys = state.visibility.exploredLightPolygonKeys instanceof Set
+    ? state.visibility.exploredLightPolygonKeys
+    : new Set(state.visibility.exploredLightPolygons.map(getLightPolygonKey));
+  const key = getLightPolygonKey(normalized);
+  if (state.visibility.exploredLightPolygonKeys.has(key)) {
+    return;
+  }
+  state.visibility.exploredLightPolygonKeys.add(key);
+  state.visibility.exploredLightPolygons.push(normalized);
+}
+
+function ensureVisitedRoomIds(state) {
+  state.visibility.visitedRoomIds = state.visibility.visitedRoomIds instanceof Set
+    ? state.visibility.visitedRoomIds
+    : new Set(Array.isArray(state.visibility.visitedRoomIds) ? state.visibility.visitedRoomIds : []);
+  return state.visibility.visitedRoomIds;
+}
+
+function rememberOccupiedRooms(state) {
+  const visitedRoomIds = ensureVisitedRoomIds(state);
+  if (state.player?.roomId) {
+    visitedRoomIds.add(state.player.roomId);
+  }
+  for (const character of state.characters || []) {
+    if (character?.roomId) {
+      visitedRoomIds.add(character.roomId);
+    }
+  }
+  return visitedRoomIds;
+}
+
 export function recomputeVisibility(state) {
+  const previouslyVisible = new Set(state.visibility.visibleNow || []);
+  const exploredBeforeNow = new Set(state.visibility.exploredEver || []);
+  const exploredLightPolygons = normalizeLightPolygons(state.visibility.exploredLightPolygons);
+  const visitedRoomIds = rememberOccupiedRooms(state);
+  for (const key of previouslyVisible) {
+    exploredBeforeNow.add(key);
+    state.visibility.exploredEver.add(key);
+  }
+  state.visibility.exploredBeforeNow = exploredBeforeNow;
+  state.visibility.exploredLightPolygons = exploredLightPolygons;
+  state.visibility.exploredLightPolygonsBeforeNow = exploredLightPolygons.map(cloneLightPolygon);
+  state.visibility.exploredLightPolygonKeys = new Set(exploredLightPolygons.map(getLightPolygonKey));
   state.visibility.visibleNow.clear();
   state.visibility.closedDoorVisibleSides = new Map();
-  const lightSources = [];
-  for (const character of state.characters || []) {
-    if (
-      character &&
-      Number.isFinite(Number(character.x)) &&
-      Number.isFinite(Number(character.y)) &&
-      Number(character.lightRadius) > 0
-    ) {
-      lightSources.push({
-        x: Number(character.x),
-        y: Number(character.y),
-        radius: Number(character.lightRadius)
-      });
-    }
-  }
-  if (state.player.torchLit) {
-    lightSources.push({
-      x: state.player.x,
-      y: state.player.y,
-      radius: state.player.lightRadius
-    });
-  }
-  for (const entity of state.entities || []) {
-    if (
-      entity.subtype === "dropped-equipment" &&
-      entity.collected !== true &&
-      entity.visible !== false &&
-      Number(entity.lightRadius) > 0
-    ) {
-      lightSources.push({
-        x: entity.x,
-        y: entity.y,
-        radius: Number(entity.lightRadius)
-      });
-    }
-  }
+  const lightSources = collectLightSources(state);
   if (!lightSources.length) {
     return;
+  }
+  const lightPolygons = lightSources.map((source) => ({
+    source,
+    polygon: computeLightPolygon(state, source)
+  }));
+  for (const { polygon } of lightPolygons) {
+    appendExploredLightPolygon(state, polygon);
   }
 
   for (const tile of state.tiles) {
     let lit = false;
-    for (const source of lightSources) {
-      if (
-        !isWithinRadius(source.x, source.y, tile.x, tile.y, source.radius) ||
-        !hasLineOfSightFrom(state, source.x, source.y, tile.x, tile.y)
-      ) {
+    for (const { source, polygon } of lightPolygons) {
+      if (!isTileTouchedByLightPolygon(tile, polygon)) {
         continue;
       }
       lit = true;
@@ -292,7 +334,7 @@ export function recomputeVisibility(state) {
       const key = tileKey(tile.x, tile.y);
       state.visibility.visibleNow.add(key);
       state.visibility.exploredEver.add(key);
-      if (tile.roomId) {
+      if (tile.roomId && visitedRoomIds.has(tile.roomId)) {
         const room = state.rooms.find((candidate) => candidate.id === tile.roomId);
         if (room) {
           room.discovered = true;
@@ -301,6 +343,7 @@ export function recomputeVisibility(state) {
       }
     }
   }
+
 }
 
 export function revealTrapAtPlayer(state) {

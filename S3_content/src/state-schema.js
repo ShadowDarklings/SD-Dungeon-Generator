@@ -77,6 +77,8 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
     visibility: {
       visibleNow: new Set(),
       exploredEver: new Set(),
+      exploredLightPolygons: [],
+      visitedRoomIds: new Set(),
       closedDoorVisibleSides: new Map()
     },
     lootLog: {

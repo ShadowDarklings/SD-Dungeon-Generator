@@ -303,7 +303,7 @@ function normalizeCharacterSource(raw = {}, index = 0) {
   const languageString = normalizeLanguageList(raw.languages);
   const money = normalizeMoney(raw);
   const maxHitPoints = clampInt(raw.maxHitPoints ?? raw.hp ?? 1, 0, MAX_EDITABLE_VALUE, 1);
-  const hp = clampInt(raw.hp ?? maxHitPoints, 0, MAX_EDITABLE_VALUE, maxHitPoints);
+  const hp = clampInt(raw.hp ?? maxHitPoints, 0, maxHitPoints, maxHitPoints);
   const armorClass = clampInt(raw.armorClass ?? raw.ac ?? 10, 0, MAX_EDITABLE_VALUE, 10);
   const baseArmorClass = clampInt(raw.baseArmorClass ?? raw.rawBaseArmorClass ?? raw.armorClass ?? raw.ac ?? 10, 0, MAX_EDITABLE_VALUE, 10);
   const gearSlotsTotal = getGearSlotCapacity(stats, raw.class || raw.className || "", raw);
@@ -624,8 +624,9 @@ export function setCharacterHp(character, nextHp) {
   if (!character) {
     return null;
   }
-  const previousHp = clampInt(character.hp, 0, MAX_EDITABLE_VALUE, 0);
-  character.hp = clampInt(nextHp, 0, MAX_EDITABLE_VALUE, character.hp || 0);
+  const maxHitPoints = clampInt(character.maxHitPoints, 0, MAX_EDITABLE_VALUE, character.hp || 0);
+  character.maxHitPoints = maxHitPoints;
+  character.hp = clampInt(nextHp, 0, maxHitPoints, character.hp || 0);
   if (!character.raw || typeof character.raw !== "object") {
     character.raw = {};
   }
@@ -636,9 +637,6 @@ export function setCharacterHp(character, nextHp) {
     character.dyingRounds = 0;
     character.dead = false;
     character.slain = false;
-  }
-  if (character.hp > character.maxHitPoints) {
-    character.maxHitPoints = character.hp;
   }
   character.raw.hp = character.hp;
   character.raw.maxHitPoints = character.maxHitPoints;
