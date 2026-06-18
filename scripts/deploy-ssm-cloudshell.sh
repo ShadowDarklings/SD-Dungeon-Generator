@@ -13,13 +13,22 @@ if [[ "${1:-}" == "--no-build" ]]; then
 fi
 
 PARAMETERS_FILE="$(mktemp)"
-cat > "$PARAMETERS_FILE" <<JSON
-{
-  "commands": [
-    "sudo -H -u ubuntu bash -lc 'set -e && cd '\\''$REMOTE_REPO'\\'' && git fetch origin '\\''$BRANCH'\\'' && git checkout '\\''$BRANCH'\\'' && git pull --ff-only origin '\\''$BRANCH'\\'' && $COMPOSE_COMMAND && docker compose ps && curl -k -fsS -o /dev/null -w '\\''site %{http_code}\\\\n'\\'' '\\''https://$PUBLIC_URL_HOST/site/'\\'''"
-  ]
-}
-JSON
+DEPLOY_COMMAND="set -e && cd '$REMOTE_REPO' && git fetch origin '$BRANCH' && git checkout '$BRANCH' && git pull --ff-only origin '$BRANCH' && $COMPOSE_COMMAND && docker compose ps && curl -k -fsS -o /dev/null -w 'site %{http_code}\n' 'https://$PUBLIC_URL_HOST/site/'"
+SSM_COMMAND="$(
+  python3 - "$DEPLOY_COMMAND" <<'PY'
+import shlex
+import sys
+
+print("sudo -H -u ubuntu bash -lc " + shlex.quote(sys.argv[1]))
+PY
+)"
+python3 - "$PARAMETERS_FILE" "$SSM_COMMAND" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    json.dump({"commands": [sys.argv[2]]}, handle)
+PY
 
 echo "Deploying branch '$BRANCH' to EC2 instance $INSTANCE_ID through AWS SSM."
 echo "Public check: https://$PUBLIC_URL_HOST/site/"
