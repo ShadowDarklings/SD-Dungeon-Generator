@@ -66,7 +66,9 @@ try {
   $commands = @("sudo -H -u ubuntu bash -lc " + (Quote-Remote $deployCommand))
 
   $parametersFile = Join-Path ([System.IO.Path]::GetTempPath()) "sd-ssm-deploy-parameters.json"
-  @{ commands = $commands } | ConvertTo-Json -Depth 4 | Set-Content -Path $parametersFile -Encoding UTF8
+  $parametersJson = @{ commands = $commands } | ConvertTo-Json -Depth 4
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($parametersFile, $parametersJson, $utf8NoBom)
 
   Write-Host "Deploying branch '$Branch' to EC2 instance $InstanceId through AWS SSM."
   Write-Host "Public check: https://$PublicUrlHost/site/"
