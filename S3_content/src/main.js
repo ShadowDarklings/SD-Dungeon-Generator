@@ -1,9 +1,11 @@
 import { DEFAULT_LIGHT_RADIUS, MAX_SEARCH_MODIFIER, MIN_SEARCH_MODIFIER, TILE_SIZE_PX } from "./constants.js";
 import { generateDungeon } from "./generator.js";
 import {
+  addMonsterLootDrop,
   clickEntity,
   collectLoot,
   collectRoomLoot,
+  canMoveBetweenTiles,
   defeatMonster,
   disarmTrap,
   dropLootAtPlayer,
@@ -67,8 +69,14 @@ import {
   syncElapsedTime,
   TORCH_SEARCH_ADVANCE_MS
 } from "./timers.js";
-import { recomputeVisibility } from "./visibility.js";
-import { maybeSpawnWanderingMonster, normalizeWanderingChance, wanderingEnabled } from "./wandering.js";
+import { hasLineOfSightFrom, isTileVisible, recomputeVisibility } from "./visibility.js";
+import {
+  DEFAULT_WANDERING_DENOMINATOR,
+  DEFAULT_WANDERING_NUMERATOR,
+  maybeSpawnWanderingMonster,
+  normalizeWanderingChance,
+  wanderingEnabled
+} from "./wandering.js";
 
 const ui = {
   mapHost: document.getElementById("map-host"),
@@ -81,6 +89,10 @@ const ui = {
   loadBtn: document.getElementById("load-btn"),
   loadCharacterBtn: document.getElementById("load-character-btn"),
   multiplayerBtn: document.getElementById("multiplayer-btn"),
+  howToPlayBtn: document.getElementById("how-to-play-btn"),
+  howToPlayContent: document.getElementById("how-to-play-content"),
+  howToPlayLevel: document.getElementById("how-to-play-level"),
+  howToPlayLevelRepeat: document.getElementById("how-to-play-level-repeat"),
   multiplayerTitle: document.getElementById("multiplayer-title"),
   multiplayerHostSection: document.getElementById("multiplayer-host-section"),
   multiplayerJoinSection: document.getElementById("multiplayer-join-section"),
@@ -88,9 +100,13 @@ const ui = {
   lightLanternBtn: document.getElementById("light-lantern-btn"),
   castLightBtn: document.getElementById("cast-light-btn"),
   torchOutBtn: document.getElementById("torch-out-btn"),
-  torchBtn: document.getElementById("torch-btn"),
+  partyAssetsSummary: document.getElementById("party-assets-summary"),
   searchBtn: document.getElementById("search-btn"),
+  stealthBtn: document.getElementById("stealth-btn"),
   searchModifierInput: document.getElementById("search-modifier-input"),
+  combatPanel: document.getElementById("combat-panel"),
+  combatActions: document.getElementById("combat-actions"),
+  endTurnBtn: document.getElementById("end-turn-btn"),
   blackoutToggle: document.getElementById("blackout-toggle"),
   statusText: document.getElementById("status-text"),
   lockedDoorActions: document.getElementById("locked-door-actions"),
@@ -123,6 +139,7 @@ const ui = {
   diceHistoryToggle: document.getElementById("dice-history-toggle"),
   diceHistory: document.getElementById("dice-history"),
   manualDiceControls: document.getElementById("manual-dice-controls"),
+  combatBannerLayer: document.getElementById("combat-banner-layer"),
   manualDieCount: document.getElementById("manual-die-count"),
   manualDieModifier: document.getElementById("manual-die-modifier"),
   manualDieReset: document.getElementById("manual-die-reset"),
@@ -165,7 +182,10 @@ const ui = {
   multiplayerRefreshBtn: document.getElementById("multiplayer-refresh-btn"),
   multiplayerClose: document.getElementById("multiplayer-close"),
   lootCompleteModal: document.getElementById("loot-complete-modal"),
-  lootCompleteClose: document.getElementById("loot-complete-close")
+  lootCompleteClose: document.getElementById("loot-complete-close"),
+  extinguishOldModal: document.getElementById("extinguish-old-modal"),
+  extinguishOldYesBtn: document.getElementById("extinguish-old-yes-btn"),
+  extinguishOldNoBtn: document.getElementById("extinguish-old-no-btn")
 };
 
 let state = null;
@@ -175,6 +195,9 @@ let monsterTable = [];
 let trapTable = [];
 let shadowdarkContent = null;
 let rulesData = null;
+let organicAssetNames = [];
+let innerWallAssetNames = [];
+let bossMonsterTable = [];
 let spellLibraryPromise = null;
 let spellLookup = new Map();
 let lastDamageRoll = null;
@@ -183,6 +206,7 @@ let activeTab = "dungeon";
 let characterSheetPosition = null;
 let characterSheetDrag = null;
 let activeShopPanel = null;
+let activeSellPanel = null;
 let saveDialog = {
   mode: "save",
   runs: [],
@@ -200,6 +224,11 @@ let multiplayerSession = {
 let multiplayerRefreshTimer = null;
 let multiplayerRefreshInFlight = false;
 let multiplayerAutoJoinAttempted = false;
+let pendingLightRequest = null;
+let lastDyingAutoTickAt = Date.now();
+let autoEndTurnTimer = null;
+let combatBannerPromise = Promise.resolve();
+let activeCombatBanner = null;
 
 const BASE_CLASSES_ONLY_STORAGE_KEY = "shadowspawner.baseClassesOnly";
 const SHADOWDARKLINGS_SOURCE_SWITCHES = [
@@ -223,25 +252,59 @@ let viewport = {
 };
 const DRAG_THRESHOLD_PX = 8;
 const MAX_SESSION_CHARACTERS = 16;
+const CHARACTER_COMBAT_MOVE = 6;
+const RANGE_LIMITS = Object.freeze({
+  close: 1,
+  near: 6,
+  far: 12
+});
+const ATTITUDE_TAG_MODIFIERS = Object.freeze({
+  humanoid: 0,
+  orc: 3,
+  tough: 3,
+  goblin: 2,
+  goblinoid: 2,
+  thieves: 2,
+  thief: 2,
+  animal: 0,
+  ooze: 10,
+  undead: 8,
+  horror: 8,
+  celestial: -5,
+  demon: 10,
+  devil: 5,
+  fiend: 5,
+  fey: -1,
+  dragon: 5,
+  plant: -5
+});
 const characterAmmoOverrides = new Map();
 const characterColorOverrides = new Map();
 const CHARACTER_COLOR_PALETTE = Object.freeze([
-  { id: "dark-blue", label: "Dark blue", value: "#174a9c" },
-  { id: "purple", label: "Purple", value: "#7b3fb2" },
-  { id: "dark-purple", label: "Dark purple", value: "#44206f" },
-  { id: "light-purple", label: "Light purple", value: "#b78cff" },
-  { id: "orange", label: "Orange", value: "#e07022" },
-  { id: "dark-red", label: "Dark red", value: "#7f1111" },
-  { id: "brown", label: "Brown", value: "#694327" },
-  { id: "black", label: "Black", value: "#050505" },
-  { id: "white", label: "White", value: "#f7f7f7" },
-  { id: "dark-gray", label: "Dark gray", value: "#3c3c3c" },
-  { id: "light-gray", label: "Light gray", value: "#b8b8b8" },
-  { id: "dark-green", label: "Dark green", value: "#155b2a" },
-  { id: "light-green", label: "Light green", value: "#65bd55" },
-  { id: "pink", label: "Pink", value: "#ef7aa7" },
-  { id: "magenta", label: "Magenta", value: "#d51ea7" },
-  { id: "cyan", label: "Cyan", value: "#22bfd0" }
+  { id: "violet", label: "Violet", value: "rgb(127, 0, 127)" },
+  { id: "blue", label: "Blue", value: "rgb(0, 0, 217)" },
+  { id: "green", label: "Green", value: "rgb(0, 212, 0)" },
+  { id: "gold", label: "Gold", value: "rgb(199, 176, 0)" },
+  { id: "amber", label: "Amber", value: "rgb(179, 112, 0)" },
+  { id: "red", label: "Red", value: "rgb(127, 0, 0)" },
+  { id: "plum-dark", label: "Plum dark", value: "rgb(55, 27, 99)" },
+  { id: "blue-dark", label: "Blue dark", value: "rgb(0, 47, 105)" },
+  { id: "green-dark", label: "Green dark", value: "rgb(33, 82, 10)" },
+  { id: "khaki-dark", label: "Khaki dark", value: "rgb(99, 96, 8)" },
+  { id: "brown-dark", label: "Brown dark", value: "rgb(74, 52, 16)" },
+  { id: "rose-dark", label: "Rose dark", value: "rgb(71, 6, 49)" },
+  { id: "light-violet", label: "Light violet", value: "rgb(255, 0, 255)" },
+  { id: "cyan-bright", label: "Cyan bright", value: "rgb(0, 255, 255)" },
+  { id: "teal-mid", label: "Teal mid", value: "rgb(149, 176, 53)" },
+  { id: "light-khaki", label: "Light khaki", value: "rgb(184, 184, 129)" },
+  { id: "light-gold", label: "Light gold", value: "rgb(255, 210, 112)" },
+  { id: "light-rose", label: "Light rose", value: "rgb(224, 155, 194)" }
+  ,{ id: "black", label: "Black", value: "rgb(0, 0, 0)" }
+  ,{ id: "silver", label: "Silver", value: "rgb(191, 191, 191)" }
+  ,{ id: "gray", label: "Gray", value: "rgb(90, 97, 64)" }
+  ,{ id: "lime-muted", label: "Lime muted", value: "rgb(127, 127, 127)" }
+  ,{ id: "slate", label: "Slate", value: "rgb(135, 122, 96)" }
+  ,{ id: "stone", label: "Stone", value: "rgb(176, 165, 160)" }
 ]);
 /** Slightly smaller than "fit entire map" so neither axis binds flush; otherwise the limiting axis often gets zero slack (only X or only Y would pan). */
 const MIN_ZOOM_INSET = 0.92;
@@ -280,21 +343,73 @@ function getMonsterBucket(level) {
 
 async function loadMonsterTableForLevel(level) {
   const bucket = getMonsterBucket(level);
+  return loadMonsterTableForBucket(bucket);
+}
+
+async function loadMonsterTableForBucket(bucket) {
+  const normalizedBucket = Math.max(1, Math.min(10, Number(bucket) || 1));
   try {
-    const response = await fetch(`./monsters-${bucket}.json`);
+    const response = await fetch(`./monsters-${normalizedBucket}.json`);
     if (!response.ok) {
       throw new Error(`Monster table request failed: ${response.status}`);
     }
     const payload = await response.json();
     return Array.isArray(payload) ? payload : [];
   } catch (error) {
-    console.warn(`Using fallback monster table for level ${level}.`, error);
+    console.warn(`Using fallback monster table for level ${normalizedBucket}.`, error);
     return Array.isArray(shadowdarkContent?.monsters)
       ? shadowdarkContent.monsters.filter((monster) => {
         const monsterLevel = Number(monster?.level ?? monster?.lv ?? monster?.["**LV**"] ?? 1) || 1;
-        return bucket >= 10 ? monsterLevel >= 10 : monsterLevel === bucket;
+        return normalizedBucket >= 10 ? monsterLevel >= 10 : monsterLevel === normalizedBucket;
       })
       : [];
+  }
+}
+
+async function loadBossMonsterTableForLevel(level) {
+  const parsedLevel = Math.max(1, Number(level) || 1);
+  const buckets = new Set([
+    getMonsterBucket(parsedLevel + 1),
+    getMonsterBucket(parsedLevel + 2),
+    getMonsterBucket(parsedLevel + 3)
+  ]);
+  const tables = await Promise.all([...buckets].map((bucket) => loadMonsterTableForBucket(bucket)));
+  const seen = new Set();
+  return tables.flat().filter((monster) => {
+    const key = `${monster?.name || monster?.["Monster Name"] || ""}:${monster?.level ?? monster?.lv ?? ""}`;
+    if (!key.trim() || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+async function loadOrganicAssets() {
+  try {
+    const response = await fetch("./data/organic-assets.json");
+    if (!response.ok) {
+      throw new Error(`Organic asset manifest request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    console.warn("Organic dungeon assets could not load; skipping organic room shaping.", error);
+    return [];
+  }
+}
+
+async function loadInnerWallAssets() {
+  try {
+    const response = await fetch("./data/inner-wall-assets.json");
+    if (!response.ok) {
+      throw new Error(`Inner-wall asset manifest request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    console.warn("Inner-wall dungeon assets could not load; skipping inner-wall room shaping.", error);
+    return [];
   }
 }
 
@@ -462,6 +577,10 @@ function setStatus(resultOrMessage) {
   updateLockedDoorUi();
 }
 
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function markUserActivity() {
   if (!state) {
     return;
@@ -477,11 +596,25 @@ function updateWanderingUi() {
   if (!state) {
     return;
   }
-  ui.wanderingNumerator.value = `${state.wanderingMonsters?.numerator ?? 1}`;
-  ui.wanderingDenominator.value = `${state.wanderingMonsters?.denominator ?? 6}`;
-  sizeControlField(ui.wanderingNumerator);
-  sizeControlField(ui.wanderingDenominator);
-  ui.wanderingSection.classList.toggle("is-disabled", !wanderingEnabled(state));
+  if (ui.wanderingNumerator) {
+    ui.wanderingNumerator.value = `${state.wanderingMonsters?.numerator ?? DEFAULT_WANDERING_NUMERATOR}`;
+    sizeControlField(ui.wanderingNumerator);
+  }
+  if (ui.wanderingDenominator) {
+    ui.wanderingDenominator.value = `${state.wanderingMonsters?.denominator ?? DEFAULT_WANDERING_DENOMINATOR}`;
+    sizeControlField(ui.wanderingDenominator);
+  }
+  ui.wanderingSection?.classList.toggle("is-disabled", !wanderingEnabled(state));
+}
+
+function updateHowToPlayLevel() {
+  const level = `${Math.max(1, Math.min(10, Number(ui.levelInput?.value) || 1))}`;
+  if (ui.howToPlayLevel) {
+    ui.howToPlayLevel.textContent = level;
+  }
+  if (ui.howToPlayLevelRepeat) {
+    ui.howToPlayLevelRepeat.textContent = level;
+  }
 }
 
 function updateLockedDoorUi() {
@@ -496,6 +629,147 @@ function updateLockedDoorUi() {
 
 function updateTrapActionUi() {
   // Revealed trap cards render their own Disarm? button; there is no global disarm control.
+}
+
+function updateCombatUi() {
+  const combat = ensureCombatState();
+  const active = combat.active === true;
+  if (ui.combatActions) {
+    const entry = getCurrentCombatEntry();
+    ui.combatActions.hidden = !(active && entry?.type === "character");
+    ui.combatActions.classList.toggle("is-action-used", Boolean(active && entry?.type === "character" && combat.actionUsed));
+  }
+  ui.endTurnBtn?.classList.toggle("is-highlighted", Boolean(active && getCurrentCombatEntry()?.type === "character" && combat.actionUsed));
+  if (!ui.combatPanel) {
+    return;
+  }
+  ui.combatPanel.hidden = !active;
+  ui.combatPanel.innerHTML = "";
+  if (!active) {
+    return;
+  }
+  const entry = getCurrentCombatEntry();
+  const currentName = entry?.type === "character"
+    ? state.characters.find((character) => character.id === entry.id)?.name || "Character"
+    : getMonsterById(entry?.id)?.name || "Monster";
+  const summary = document.createElement("div");
+  const round = document.createElement("strong");
+  round.textContent = `Round ${combat.round}`;
+  summary.append(round, document.createTextNode(`: ${currentName}'s turn.`));
+  ui.combatPanel.append(summary);
+  if (entry?.type === "character") {
+    const detail = document.createElement("div");
+    detail.textContent = `Move ${combat.movementRemaining}/${CHARACTER_COMBAT_MOVE}. Action ${combat.actionUsed ? "used" : "ready"}.`;
+    ui.combatPanel.append(detail);
+  }
+  if (combat.log.length) {
+    const log = document.createElement("ol");
+    log.className = "combat-log";
+    for (const message of combat.log.slice(-4)) {
+      const item = document.createElement("li");
+      item.textContent = message;
+      log.append(item);
+    }
+    ui.combatPanel.append(log);
+  }
+}
+
+function getCombatBannerLayer() {
+  if (ui.combatBannerLayer) {
+    return ui.combatBannerLayer;
+  }
+  const mapPanel = ui.mapHost?.closest?.(".map-panel");
+  if (!mapPanel) {
+    return null;
+  }
+  const layer = document.createElement("div");
+  layer.id = "combat-banner-layer";
+  layer.className = "combat-banner-layer";
+  mapPanel.append(layer);
+  ui.combatBannerLayer = layer;
+  return layer;
+}
+
+async function flyOutCombatBanner() {
+  if (!activeCombatBanner) {
+    return;
+  }
+  const banner = activeCombatBanner;
+  activeCombatBanner = null;
+  banner.classList.remove("is-visible");
+  banner.classList.add("is-exiting");
+  await delay(680);
+  banner.remove();
+}
+
+async function showCombatBannerNow(text, color, options = {}) {
+  const layer = getCombatBannerLayer();
+  if (!layer) {
+    return;
+  }
+  await flyOutCombatBanner();
+  const banner = document.createElement("div");
+  banner.className = "combat-fly-banner";
+  banner.style.setProperty("--combat-banner-color", color || "#fff");
+  const left = document.createElement("span");
+  left.className = "combat-fly-banner-line";
+  const label = document.createElement("span");
+  label.className = "combat-fly-banner-text";
+  label.textContent = text;
+  const right = document.createElement("span");
+  right.className = "combat-fly-banner-line";
+  banner.append(left, label, right);
+  layer.append(banner);
+  activeCombatBanner = banner;
+  window.requestAnimationFrame(() => {
+    banner.classList.add("is-visible");
+  });
+  await delay(680);
+  if (options.holdMs) {
+    await delay(options.holdMs);
+    await flyOutCombatBanner();
+  }
+}
+
+function enqueueCombatBanner(text, color, options = {}) {
+  combatBannerPromise = combatBannerPromise
+    .catch(() => {})
+    .then(() => showCombatBannerNow(text, color, options));
+  return combatBannerPromise;
+}
+
+function getCombatTurnBanner(entry = getCurrentCombatEntry()) {
+  if (!entry) {
+    return null;
+  }
+  if (entry.type === "monster") {
+    const monster = getMonsterById(entry.id);
+    return {
+      text: `${monster?.name || "Monster"}'s Turn.`,
+      color: "#d41111"
+    };
+  }
+  const character = state.characters.find((candidate) => candidate.id === entry.id);
+  return {
+    text: `${character?.name || "Character"}'s Turn.`,
+    color: getCharacterColorValue(character)
+  };
+}
+
+function announceCombatBegins() {
+  return enqueueCombatBanner("Combat Begins!", "#d41111", { holdMs: 1500 });
+}
+
+function announceCombatOver() {
+  return enqueueCombatBanner("Combat is Over.", "#fff", { holdMs: 1500 });
+}
+
+function announceCurrentTurn(entry = getCurrentCombatEntry()) {
+  const banner = getCombatTurnBanner(entry);
+  if (banner) {
+    return enqueueCombatBanner(banner.text, banner.color);
+  }
+  return Promise.resolve();
 }
 
 function sizeControlField(input) {
@@ -531,13 +805,18 @@ function syncSidebarWidth() {
 
 function processWanderingChecks(count) {
   let lastMessage = "";
+  let combatStarted = false;
   for (let i = 0; i < count; i += 1) {
     const result = maybeSpawnWanderingMonster(state, monsterTable);
     if (result.message) {
       lastMessage = result.message;
     }
+    if (result.spawned) {
+      const sighting = processMonsterVisibilityChange();
+      combatStarted = combatStarted || sighting?.combatStarted === true || sighting?.combatEnded === true;
+    }
   }
-  if (lastMessage) {
+  if (lastMessage && !combatStarted) {
     setStatus(lastMessage);
   }
 }
@@ -552,6 +831,7 @@ function render() {
   updateLightControlUi();
   updateLockedDoorUi();
   updateTrapActionUi();
+  updateCombatUi();
   updateWanderingUi();
 }
 
@@ -619,10 +899,13 @@ function getCharacterActionContext(action) {
     pick: "thief"
   };
   const advantageClass = advantageClassByAction[action] || "";
+  const hasAdvantage = Boolean(advantageClass && className === advantageClass);
+  const hasDisadvantage = action === "pick" && state?.player?.torchLit !== true;
   return {
     character,
     modifier: baseModifier + situational,
-    doubleRoll: Boolean(advantageClass && className === advantageClass),
+    doubleRoll: hasAdvantage && !hasDisadvantage,
+    disadvantage: hasDisadvantage && !hasAdvantage,
     advantageClass
   };
 }
@@ -730,6 +1013,19 @@ function multiplyDamageDice(expression, multiplier) {
 function applyAttackRoll(character, attack) {
   if (!ui.damageResult || !attack) {
     return;
+  }
+  if (isCombatActive()) {
+    const target = getSingleCombatMonsterTarget();
+    if (target) {
+      const result = resolveCharacterAttackAgainstMonster(
+        character,
+        getCombatAttackFromParsedAttack(attack),
+        target
+      );
+      render();
+      updatePanels();
+      return;
+    }
   }
   const result = rollCheck(attack.bonus || 0);
   const characterName = character?.name || "Character";
@@ -857,7 +1153,1368 @@ function createMonsterAttackContent(monster) {
   return content;
 }
 
+function parseSignedNumber(value, fallback = 0) {
+  const match = String(value ?? "").match(/[+\-]?\d+/);
+  return match ? Number.parseInt(match[0], 10) : fallback;
+}
+
+function getMonsterLevel(monster) {
+  return Math.max(0, parseSignedNumber(monster?.level ?? monster?.lv ?? monster?.["**LV**"], 0));
+}
+
+function getMonsterAc(monster) {
+  return Math.max(0, parseSignedNumber(monster?.ac ?? monster?.AC ?? monster?.["**AC**"], 10));
+}
+
+function getMonsterDexModifier(monster) {
+  return parseSignedNumber(monster?.D ?? monster?.dex ?? monster?.["**D**"], 0);
+}
+
+function getMonsterTags(monster) {
+  const tags = Array.isArray(monster?.tags)
+    ? monster.tags
+    : String(monster?.tags || "").split(",");
+  return tags.map((tag) => String(tag || "").trim().toLowerCase()).filter(Boolean);
+}
+
+function getMonsterTagModifier(monster) {
+  const values = getMonsterTags(monster)
+    .map((tag) => ATTITUDE_TAG_MODIFIERS[tag])
+    .filter((value) => Number.isFinite(Number(value)));
+  if (!values.length) {
+    return 0;
+  }
+  return Math.max(...values);
+}
+
+function monsterAllowsDiplomacy(monster) {
+  return /^(?:y|yes|true|1)$/i.test(String(monster?.diplomacy ?? monster?.Diplomacy ?? monster?.["Diplomacy"] ?? "").trim());
+}
+
+function isLiveMonster(monster) {
+  return monster?.type === "monster" && monster.defeated !== true && monster.leftPeacefully !== true;
+}
+
+function getLiveMonsters() {
+  return (state?.entities || []).filter(isLiveMonster);
+}
+
+function getMonsterById(monsterId) {
+  return getLiveMonsters().find((monster) => monster.id === monsterId) || null;
+}
+
+function isCharacterDead(character) {
+  return character?.dead === true || character?.slain === true;
+}
+
+function isCharacterDying(character) {
+  return !isCharacterDead(character) && Number(character?.dyingRounds || 0) > 0;
+}
+
+function isCharacterAbleToAct(character) {
+  return character && !isCharacterDead(character) && !isCharacterDying(character) && Number(character.hp) > 0;
+}
+
+function isCharacterTargetableByMonster(character) {
+  return character && !isCharacterDead(character) && character.stealthed !== true && hasCharacterMapPosition(character);
+}
+
+function getCombatCharacters() {
+  return (state?.characters || []).filter((character) => !isCharacterDead(character));
+}
+
+function getMonsterDistanceToCharacter(monster, character) {
+  if (!monster || !hasCharacterMapPosition(character)) {
+    return Infinity;
+  }
+  return Math.max(Math.abs(Number(monster.x) - Number(character.x)), Math.abs(Number(monster.y) - Number(character.y)));
+}
+
+function canMonsterSeeCharacter(monster, character) {
+  return isLiveMonster(monster) &&
+    isCharacterTargetableByMonster(character) &&
+    hasLineOfSightFrom(state, Number(monster.x), Number(monster.y), Number(character.x), Number(character.y));
+}
+
+function canCharacterSeeMonster(character, monster) {
+  return isCharacterAbleToAct(character) &&
+    character.stealthed !== true &&
+    hasCharacterMapPosition(character) &&
+    isLiveMonster(monster) &&
+    isTileVisible(state, Number(monster.x), Number(monster.y)) &&
+    hasLineOfSightFrom(state, Number(character.x), Number(character.y), Number(monster.x), Number(monster.y));
+}
+
+function ensureCombatState() {
+  if (!state.combat) {
+    state.combat = {};
+  }
+  state.combat.active = state.combat.active === true;
+  state.combat.round = Math.max(0, Number.parseInt(state.combat.round ?? 0, 10) || 0);
+  state.combat.turnIndex = Math.max(0, Number.parseInt(state.combat.turnIndex ?? 0, 10) || 0);
+  state.combat.turnOrder = Array.isArray(state.combat.turnOrder) ? state.combat.turnOrder : [];
+  state.combat.playerOrderIds = Array.isArray(state.combat.playerOrderIds) ? state.combat.playerOrderIds : [];
+  state.combat.pendingPlayerIds = Array.isArray(state.combat.pendingPlayerIds) ? state.combat.pendingPlayerIds : [];
+  state.combat.monsterIds = Array.isArray(state.combat.monsterIds) ? state.combat.monsterIds : [];
+  state.combat.sideFirst = state.combat.sideFirst === "monsters" ? "monsters" : "characters";
+  state.combat.movementRemaining = Math.max(0, Number.parseInt(state.combat.movementRemaining ?? 0, 10) || 0);
+  state.combat.actionUsed = state.combat.actionUsed === true;
+  state.combat.autoRunning = state.combat.autoRunning === true;
+  state.combat.initiative = Array.isArray(state.combat.initiative) ? state.combat.initiative : [];
+  state.combat.log = Array.isArray(state.combat.log) ? state.combat.log.slice(-12) : [];
+  return state.combat;
+}
+
+function isCombatActive() {
+  return state?.combat?.active === true;
+}
+
+function pushCombatLog(message) {
+  const text = String(message || "").trim();
+  if (!text) {
+    return;
+  }
+  const combat = ensureCombatState();
+  combat.log.push(text);
+  combat.log = combat.log.slice(-12);
+}
+
+function admitPendingCombatCharacters(combat = ensureCombatState()) {
+  const pending = Array.isArray(combat.pendingPlayerIds) ? combat.pendingPlayerIds : [];
+  if (!pending.length) {
+    combat.pendingPlayerIds = [];
+    return [];
+  }
+  const admitted = [];
+  const existing = new Set(combat.playerOrderIds);
+  for (const characterId of pending) {
+    const character = state.characters.find((candidate) => candidate.id === characterId && !isCharacterDead(candidate));
+    if (!character || existing.has(characterId)) {
+      continue;
+    }
+    combat.playerOrderIds.push(characterId);
+    existing.add(characterId);
+    admitted.push(character.name || "Character");
+  }
+  combat.pendingPlayerIds = [];
+  if (admitted.length) {
+    pushCombatLog(`${admitted.join(", ")} join${admitted.length === 1 ? "s" : ""} combat this round.`);
+  }
+  return admitted;
+}
+
+function beginNextCombatRound(combat = ensureCombatState()) {
+  combat.round += 1;
+  admitPendingCombatCharacters(combat);
+  combat.turnIndex = 0;
+  combat.turnOrder = buildCombatTurnOrder(combat.sideFirst, combat.playerOrderIds, combat.monsterIds);
+}
+
+function queueCharactersForNextCombatRound(characters) {
+  if (!isCombatActive()) {
+    return;
+  }
+  const combat = ensureCombatState();
+  const existing = new Set([
+    ...combat.playerOrderIds,
+    ...combat.pendingPlayerIds
+  ]);
+  const queued = [];
+  for (const character of characters || []) {
+    if (!character?.id || isCharacterDead(character) || existing.has(character.id)) {
+      continue;
+    }
+    combat.pendingPlayerIds.push(character.id);
+    existing.add(character.id);
+    queued.push(character.name || "Character");
+  }
+  if (queued.length) {
+    pushCombatLog(`${queued.join(", ")} will join combat next round.`);
+  }
+}
+
+function removeDeadCharactersFromCombat(combat = ensureCombatState()) {
+  if (!combat.active) {
+    return false;
+  }
+  const deadIds = new Set(
+    (state.characters || [])
+      .filter(isCharacterDead)
+      .map((character) => character.id)
+      .filter(Boolean)
+  );
+  if (!deadIds.size) {
+    return false;
+  }
+
+  const previousTurnIndex = combat.turnIndex;
+  let removedBeforeCurrent = 0;
+  let removedCurrent = false;
+  let changed = false;
+
+  combat.turnOrder = combat.turnOrder.filter((entry, index) => {
+    const remove = entry.type === "character" && deadIds.has(entry.id);
+    if (!remove) {
+      return true;
+    }
+    changed = true;
+    if (index < previousTurnIndex) {
+      removedBeforeCurrent += 1;
+    }
+    if (index === previousTurnIndex) {
+      removedCurrent = true;
+    }
+    return false;
+  });
+
+  const filterAlive = (id) => !deadIds.has(id);
+  const nextPlayerOrderIds = combat.playerOrderIds.filter(filterAlive);
+  const nextPendingPlayerIds = combat.pendingPlayerIds.filter(filterAlive);
+  changed = changed ||
+    nextPlayerOrderIds.length !== combat.playerOrderIds.length ||
+    nextPendingPlayerIds.length !== combat.pendingPlayerIds.length;
+  combat.playerOrderIds = nextPlayerOrderIds;
+  combat.pendingPlayerIds = nextPendingPlayerIds;
+
+  if (!combat.turnOrder.length) {
+    combat.turnIndex = 0;
+    return changed;
+  }
+  if (removedCurrent) {
+    combat.turnIndex = previousTurnIndex % combat.turnOrder.length;
+  } else {
+    combat.turnIndex = Math.max(0, previousTurnIndex - removedBeforeCurrent);
+    if (combat.turnIndex >= combat.turnOrder.length) {
+      combat.turnIndex = 0;
+    }
+  }
+  return changed;
+}
+
+function clearAutoEndTurnTimer() {
+  if (autoEndTurnTimer) {
+    window.clearTimeout(autoEndTurnTimer);
+    autoEndTurnTimer = null;
+  }
+}
+
+function shouldAutoEndCurrentCharacterTurn() {
+  if (!isCombatActive()) {
+    return false;
+  }
+  const combat = ensureCombatState();
+  const entry = getCurrentCombatEntry();
+  return entry?.type === "character" && combat.actionUsed === true && combat.movementRemaining <= 0;
+}
+
+function scheduleAutoEndTurnIfNeeded(delayMs = 300) {
+  clearAutoEndTurnTimer();
+  if (!shouldAutoEndCurrentCharacterTurn()) {
+    return;
+  }
+  const entry = getCurrentCombatEntry();
+  const turnIndex = state.combat.turnIndex;
+  autoEndTurnTimer = window.setTimeout(() => {
+    autoEndTurnTimer = null;
+    const current = getCurrentCombatEntry();
+    if (
+      isCombatActive() &&
+      current?.type === entry?.type &&
+      current?.id === entry?.id &&
+      state.combat.turnIndex === turnIndex &&
+      shouldAutoEndCurrentCharacterTurn()
+    ) {
+      advanceCombatTurn();
+    }
+  }, delayMs);
+}
+
+function getCurrentCombatEntry() {
+  const combat = ensureCombatState();
+  return combat.active ? combat.turnOrder[combat.turnIndex] || null : null;
+}
+
+function isCurrentCharacterTurn(character) {
+  const entry = getCurrentCombatEntry();
+  return entry?.type === "character" && entry.id === character?.id;
+}
+
+function buildCombatTurnOrder(sideFirst, playerOrderIds, monsterIds) {
+  const playerEntries = playerOrderIds
+    .filter((id) => state.characters.some((character) => character.id === id && !isCharacterDead(character)))
+    .map((id) => ({ type: "character", id }));
+  const monsterEntries = monsterIds
+    .filter((id) => Boolean(getMonsterById(id)))
+    .map((id) => ({ type: "monster", id }));
+  return sideFirst === "monsters"
+    ? [...monsterEntries, ...playerEntries]
+    : [...playerEntries, ...monsterEntries];
+}
+
+function compareInitiativeEntries(a, b) {
+  if (b.total !== a.total) {
+    return b.total - a.total;
+  }
+  return a.tie - b.tie;
+}
+
+function rollInitiative() {
+  const characters = getCombatCharacters();
+  const monsterIds = getMonstersWithCharacterLineOfSight().map((monster) => monster.id);
+  const monsterSet = new Set(monsterIds);
+  const monsters = getLiveMonsters().filter((monster) => monsterSet.has(monster.id));
+  const playerRolls = characters.map((character, index) => {
+    const modifier = abilityScoreModifier(character?.stats?.DEX);
+    const roll = Math.floor(Math.random() * 20) + 1;
+    return {
+      type: "character",
+      id: character.id,
+      name: character.name || "Character",
+      partyIndex: index,
+      roll,
+      modifier,
+      total: roll + modifier,
+      tie: Math.random()
+    };
+  });
+  const monsterRolls = monsters.map((monster, index) => {
+    const modifier = getMonsterDexModifier(monster);
+    const roll = Math.floor(Math.random() * 20) + 1;
+    return {
+      type: "monster",
+      id: monster.id,
+      name: monster.name || "Monster",
+      monsterIndex: index,
+      roll,
+      modifier,
+      total: roll + modifier,
+      tie: Math.random()
+    };
+  });
+  return {
+    playerRolls,
+    monsterRolls,
+    monsterIds,
+    allRolls: [...playerRolls, ...monsterRolls].sort(compareInitiativeEntries)
+  };
+}
+
+function getPlayerInitiativeOrder(playerRolls) {
+  if (!playerRolls.length) {
+    return [];
+  }
+  const sorted = playerRolls.slice().sort(compareInitiativeEntries);
+  const highest = sorted[0];
+  const second = sorted[1] || sorted[0];
+  const partyIds = state.characters
+    .filter((character) => !isCharacterDead(character))
+    .map((character) => character.id);
+  const count = partyIds.length;
+  if (count <= 1) {
+    return partyIds;
+  }
+  const start = partyIds.indexOf(highest.id);
+  const secondIndex = partyIds.indexOf(second.id);
+  if (start === -1 || secondIndex === -1 || start === secondIndex) {
+    return partyIds;
+  }
+  const downDistance = (secondIndex - start + count) % count;
+  const upDistance = (start - secondIndex + count) % count;
+  const direction = downDistance < upDistance ? 1 : upDistance < downDistance ? -1 : Math.random() < 0.5 ? 1 : -1;
+  const ordered = [];
+  for (let offset = 0; offset < count; offset += 1) {
+    ordered.push(partyIds[(start + direction * offset + count) % count]);
+  }
+  return ordered;
+}
+
+function getMonstersWithCharacterLineOfSight(candidates = getLiveMonsters()) {
+  return candidates.filter((monster) => {
+    return (state.characters || []).some((character) => canMonsterSeeCharacter(monster, character));
+  });
+}
+
+function beginCombat(reason = "Combat begins.") {
+  ensureCombatState();
+  const initiative = rollInitiative();
+  if (!initiative.monsterIds.length || !initiative.playerRolls.length) {
+    return false;
+  }
+  const top = initiative.allRolls[0];
+  const sideFirst = top?.type === "monster" ? "monsters" : "characters";
+  const playerOrderIds = getPlayerInitiativeOrder(initiative.playerRolls);
+  state.combat = {
+    active: true,
+    round: 1,
+    turnIndex: 0,
+    sideFirst,
+    playerOrderIds,
+    pendingPlayerIds: [],
+    monsterIds: initiative.monsterIds,
+    turnOrder: buildCombatTurnOrder(sideFirst, playerOrderIds, initiative.monsterIds),
+    movementRemaining: 0,
+    actionUsed: false,
+    initiative: initiative.allRolls,
+    log: []
+  };
+  for (const monsterId of initiative.monsterIds) {
+    const monster = getMonsterById(monsterId);
+    if (monster) {
+      monster.attitude = "combat";
+      monster.attitudeChecked = true;
+    }
+  }
+  pushCombatLog(reason);
+  announceCombatBegins();
+  startCurrentCombatTurn();
+  return true;
+}
+
+function addMonstersToCombat(monsters, reason = "More monsters join the fight.") {
+  if (!isCombatActive()) {
+    return beginCombat(reason);
+  }
+  const combat = ensureCombatState();
+  const added = [];
+  for (const monster of monsters) {
+    if (!isLiveMonster(monster) || combat.monsterIds.includes(monster.id)) {
+      continue;
+    }
+    monster.attitude = "combat";
+    monster.attitudeChecked = true;
+    combat.monsterIds.push(monster.id);
+    combat.turnOrder.push({ type: "monster", id: monster.id });
+    added.push(monster.name || "Monster");
+  }
+  if (added.length) {
+    pushCombatLog(`${reason} ${added.join(", ")}.`);
+  }
+  return added.length > 0;
+}
+
+function endCombat(message = "Combat ends.") {
+  const combat = ensureCombatState();
+  combat.active = false;
+  combat.round = 0;
+  combat.turnIndex = 0;
+  combat.turnOrder = [];
+  combat.monsterIds = [];
+  combat.playerOrderIds = [];
+  combat.pendingPlayerIds = [];
+  combat.movementRemaining = 0;
+  combat.actionUsed = false;
+  combat.log = [];
+  combat.autoRunning = false;
+  clearAutoEndTurnTimer();
+  setStatus(message);
+  announceCombatOver();
+  markRunDirty();
+}
+
+function checkCombatEnd() {
+  if (!isCombatActive()) {
+    return true;
+  }
+  const combat = ensureCombatState();
+  removeDeadCharactersFromCombat(combat);
+  combat.monsterIds = combat.monsterIds.filter((id) => Boolean(getMonsterById(id)));
+  const liveCombatMonsters = combat.monsterIds.map(getMonsterById).filter(Boolean);
+  const livingCharacters = (state.characters || []).filter((character) => !isCharacterDead(character));
+  if (!liveCombatMonsters.length) {
+    endCombat("Combat ends. All monsters are defeated.");
+    return true;
+  }
+  if (!livingCharacters.length) {
+    endCombat("Combat ends. All characters are dead.");
+    return true;
+  }
+  const visibleTargets = livingCharacters.filter((character) => character.stealthed !== true);
+  if (!visibleTargets.length) {
+    endCombat("Combat ends. Every surviving character is stealthed.");
+    return true;
+  }
+  const anyMonsterCanSee = liveCombatMonsters.some((monster) => visibleTargets.some((character) => canMonsterSeeCharacter(monster, character)));
+  if (!anyMonsterCanSee) {
+    endCombat("Combat ends. The monsters have lost line of sight.");
+    return true;
+  }
+  combat.turnOrder = combat.turnOrder.filter((entry) => entry.type === "monster" || state.characters.some((character) => character.id === entry.id && !isCharacterDead(character)));
+  if (combat.turnIndex >= combat.turnOrder.length) {
+    combat.turnIndex = 0;
+  }
+  return false;
+}
+
+function detectAdditionalCombatMonsters() {
+  if (!isCombatActive()) {
+    return;
+  }
+  const combat = ensureCombatState();
+  const combatMonsterSet = new Set(combat.monsterIds);
+  const combatMonsters = combat.monsterIds.map(getMonsterById).filter(Boolean);
+  const candidates = getLiveMonsters().filter((monster) => !combatMonsterSet.has(monster.id));
+  const joining = candidates.filter((monster) => {
+    if ((state.characters || []).some((character) => canMonsterSeeCharacter(monster, character))) {
+      return true;
+    }
+    return combatMonsters.some((combatMonster) => (
+      hasLineOfSightFrom(state, Number(monster.x), Number(monster.y), Number(combatMonster.x), Number(combatMonster.y))
+    ));
+  });
+  if (joining.length) {
+    addMonstersToCombat(joining, "A monster notices the fight.");
+  }
+}
+
+function syncCharacterDyingRaw(character) {
+  if (!character) {
+    return;
+  }
+  character.raw = character.raw || {};
+  character.raw.dead = character.dead === true;
+  character.raw.slain = character.slain === true;
+  character.raw.dyingRounds = Math.max(0, Number(character.dyingRounds || 0) || 0);
+}
+
+function startCurrentCombatTurn() {
+  if (!isCombatActive() || checkCombatEnd()) {
+    return;
+  }
+  const combat = ensureCombatState();
+  clearAutoEndTurnTimer();
+  if (!combat.turnOrder.length) {
+    endCombat("Combat ends.");
+    return;
+  }
+  if (combat.turnIndex >= combat.turnOrder.length) {
+    beginNextCombatRound(combat);
+  }
+  const entry = getCurrentCombatEntry();
+  if (!entry) {
+    endCombat("Combat ends.");
+    return;
+  }
+  if (entry.type === "monster") {
+    void runAutoMonsterTurns();
+    return;
+  }
+  const character = state.characters.find((candidate) => candidate.id === entry.id);
+  if (!character || isCharacterDead(character)) {
+    advanceCombatTurn();
+    return;
+  }
+  setActiveCharacter(state, character.id);
+  syncPlayerToActiveCharacter();
+  combat.movementRemaining = CHARACTER_COMBAT_MOVE;
+  combat.actionUsed = false;
+  if (isCharacterDying(character)) {
+    decrementCharacterDyingRounds(character);
+    syncCharacterDyingRaw(character);
+    combat.movementRemaining = 0;
+    combat.actionUsed = true;
+    setStatus(character.dead
+      ? `${character.name} dies.`
+      : `${character.name} is dying in ${character.dyingRounds} ${character.dyingRounds === 1 ? "round" : "rounds"}.`);
+    if (character.dead) {
+      pushCombatLog(`${character.name || "Character"} dies.`);
+      removeDeadCharactersFromCombat(combat);
+      if (checkCombatEnd()) {
+        render();
+        updatePanels();
+        return;
+      }
+      render();
+      updatePanels();
+      startCurrentCombatTurn();
+      return;
+    }
+  } else {
+    setStatus(`Round ${combat.round}: ${character.name || "Character"}'s turn.`);
+  }
+  announceCurrentTurn(entry);
+  scheduleAutoEndTurnIfNeeded(650);
+}
+
+function advanceCombatTurn() {
+  if (!isCombatActive()) {
+    return;
+  }
+  const combat = ensureCombatState();
+  clearAutoEndTurnTimer();
+  detectAdditionalCombatMonsters();
+  if (checkCombatEnd()) {
+    render();
+    updatePanels();
+    return;
+  }
+  combat.turnIndex += 1;
+  if (combat.turnIndex >= combat.turnOrder.length) {
+    beginNextCombatRound(combat);
+  }
+  startCurrentCombatTurn();
+  render();
+  updatePanels();
+}
+
+function endCurrentTurn() {
+  const entry = getCurrentCombatEntry();
+  if (!entry || entry.type !== "character") {
+    setStatus("It is not a character turn.");
+    return;
+  }
+  advanceCombatTurn();
+  ui.mapHost?.focus?.();
+}
+
+function syncCharacterStealthRaw(character) {
+  if (!character) {
+    return;
+  }
+  character.raw = character.raw || {};
+  character.raw.stealthed = character.stealthed === true;
+  character.raw.stealthRoll = character.stealthRoll || null;
+}
+
+function setCharacterStealthed(character, stealthed, check = null) {
+  if (!character) {
+    return;
+  }
+  character.stealthed = stealthed === true;
+  character.stealthRoll = check ? {
+    total: check.total,
+    roll: check.roll,
+    firstRoll: check.firstRoll,
+    secondaryRoll: check.secondaryRoll,
+    checkMode: check.checkMode,
+    modifier: check.modifier
+  } : null;
+  syncCharacterStealthRaw(character);
+}
+
+function characterWearsHeavyStealthArmor(character) {
+  return (Array.isArray(character?.gear) ? character.gear : []).some((item) => {
+    const text = `${item?.name || ""} ${item?.treasureKind || ""} ${item?.kind || ""}`.toLowerCase();
+    return /\b(?:chain\s*mail|plate\s*mail|platemail|plate armor)\b/.test(text);
+  });
+}
+
+function performStealth() {
+  const character = getActiveCharacter(state);
+  if (!character) {
+    setStatus("Select a character to attempt stealth.");
+    return;
+  }
+  if (isCombatActive()) {
+    if (!isCurrentCharacterTurn(character)) {
+      setStatus("Only the character whose turn it is can attempt stealth.");
+      return;
+    }
+    if (state.combat.actionUsed) {
+      setStatus(`${character.name} has already acted this turn.`);
+      return;
+    }
+  }
+  if (!isCharacterAbleToAct(character)) {
+    setStatus(`${character.name || "Character"} can't attempt stealth.`);
+    return;
+  }
+  const modifier = abilityScoreModifier(character?.stats?.DEX);
+  const advantage = /\bthief\b/i.test(String(character.className || ""));
+  const disadvantage = characterWearsHeavyStealthArmor(character);
+  const check = rollCheck(modifier, {
+    doubleRoll: advantage && !disadvantage,
+    disadvantage: disadvantage && !advantage
+  });
+  const success = check.total >= 10;
+  setCharacterStealthed(character, success, check);
+  if (isCombatActive()) {
+    state.combat.actionUsed = true;
+  }
+  const mode = check.checkMode === "normal" ? "" : ` (${check.checkMode})`;
+  const message = success
+    ? `${character.name} stealth ${check.total}${mode}: stealthed.`
+    : `${character.name} stealth ${check.total}${mode}: not hidden.`;
+  markUserActivity();
+  markRunDirty();
+  setStatus(message);
+  showCheckResult(check, "Stealth", {
+    headline: `Stealth ${check.total}`,
+    message
+  });
+  processMonsterVisibilityChange();
+  scheduleAutoEndTurnIfNeeded();
+  render();
+  updatePanels();
+}
+
+function getAttackDamageExpression(attack) {
+  const explicit = attack?.damageExpression || extractDamageReferences(attack?.detail || "")[0]?.expression || "";
+  if (explicit) {
+    return explicit;
+  }
+  const flatMatch = String(attack?.detail || "").match(/\((\d+)\b/);
+  return flatMatch ? flatMatch[1] : "";
+}
+
+function getAttackRangeInfo(attackText, attack = null) {
+  const text = `${attackText || ""} ${attack?.range || ""} ${attack?.flag || ""} ${attack?.detail || ""}`.toLowerCase();
+  const hasClose = /\b(?:close|melee|c)\b/.test(text);
+  const hasNear = /\bnear\b/.test(text);
+  const hasFar = /\bfar\b/.test(text);
+  const profile = getWeaponProfileFromText(attack?.name || attackText || "");
+  const inferred = profile?.key === "longbow" || profile?.key === "shortbow" || profile?.key === "crossbow"
+    ? "near"
+    : "close";
+  const ranges = new Set();
+  if (hasClose) ranges.add("close");
+  if (hasNear) ranges.add("near");
+  if (hasFar) ranges.add("far");
+  if (!ranges.size) {
+    ranges.add(inferred);
+  }
+  const maxRange = Math.max(...Array.from(ranges).map((range) => RANGE_LIMITS[range] || 1));
+  return {
+    ranges,
+    maxRange,
+    isCloseOnly: ranges.has("close") && ranges.size === 1,
+    hasNear: ranges.has("near"),
+    hasClose: ranges.has("close")
+  };
+}
+
+function getFirstCombatAttack(character) {
+  const attackText = getRenderableAttacks(character)
+    .filter((candidate) => !isBackstabAttackText(candidate))[0] || "";
+  const attack = parseAttackText(attackText);
+  if (!attack) {
+    return null;
+  }
+  return {
+    attackText,
+    attack,
+    range: getAttackRangeInfo(attackText, attack)
+  };
+}
+
+function getCombatAttackFromParsedAttack(attack, attackText = "") {
+  if (!attack) {
+    return null;
+  }
+  const text = attackText || `${attack.name || ""} ${attack.flag || ""} ${attack.bonusText || ""} ${attack.detail || ""}`;
+  return {
+    attackText: text,
+    attack,
+    range: getAttackRangeInfo(text, attack)
+  };
+}
+
+function getLiveCombatMonsters() {
+  if (!isCombatActive()) {
+    return [];
+  }
+  return ensureCombatState().monsterIds
+    .map(getMonsterById)
+    .filter(Boolean);
+}
+
+function getSingleCombatMonsterTarget() {
+  const monsters = getLiveCombatMonsters();
+  return monsters.length === 1 ? monsters[0] : null;
+}
+
+function getWeaponOutOfRangeMessage(weaponName) {
+  return `out of range to attack with ${weaponName || "weapon"}.`;
+}
+
+function consumeCharacterCombatAction(character) {
+  if (!isCombatActive()) {
+    return true;
+  }
+  if (!isCurrentCharacterTurn(character)) {
+    setStatus("It is not that character's turn.");
+    return false;
+  }
+  if (state.combat.actionUsed) {
+    setStatus(`${character.name || "Character"} has already acted this turn.`);
+    return false;
+  }
+  state.combat.actionUsed = true;
+  return true;
+}
+
+function getVisibleMonsterAtTile(x, y) {
+  if (!isTileVisible(state, x, y)) {
+    return null;
+  }
+  return getLiveMonsters().find((monster) => Number(monster.x) === x && Number(monster.y) === y && monster.visible !== false) || null;
+}
+
+function getAlertingMonstersFromAttack(originMonster) {
+  if (!originMonster) {
+    return [];
+  }
+  return getLiveMonsters().filter((monster) => (
+    hasLineOfSightFrom(state, Number(originMonster.x), Number(originMonster.y), Number(monster.x), Number(monster.y))
+  ));
+}
+
+function resolveCharacterAttackAgainstMonster(character, combatAttack, monster) {
+  if (!character) {
+    const message = "Select a character before attacking a monster.";
+    setStatus(message);
+    return { message };
+  }
+  if (!isCharacterAbleToAct(character)) {
+    const message = `${character.name || "Character"} can't attack right now.`;
+    setStatus(message);
+    return { message };
+  }
+  if (isCombatActive() && !isCurrentCharacterTurn(character)) {
+    const message = "It is not that character's turn.";
+    setStatus(message);
+    return { message };
+  }
+  if (!combatAttack) {
+    const message = `${character.name || "Character"} has no listed attack.`;
+    setStatus(message);
+    return { message };
+  }
+  const distance = getMonsterDistanceToCharacter(monster, character);
+  const weaponName = combatAttack.attack.name || "weapon";
+  if (distance < 1 || distance > combatAttack.range.maxRange) {
+    const message = getWeaponOutOfRangeMessage(weaponName);
+    setStatus(message);
+    return { message };
+  }
+  if (!consumeCharacterCombatAction(character)) {
+    return { message: ui.statusText.textContent || "Action unavailable." };
+  }
+
+  const wasStealthed = character.stealthed === true;
+  const roll = rollCheck(combatAttack.attack.bonus || 0, { doubleRoll: wasStealthed });
+  if (wasStealthed) {
+    setCharacterStealthed(character, false, null);
+  }
+  const ac = getMonsterAc(monster);
+  const hit = roll.total >= ac;
+  const parts = [
+    `${character.name} attacks ${monster.name || "monster"} with ${weaponName}${wasStealthed ? " from stealth" : ""}: ${roll.total} vs AC ${ac}`
+  ];
+  let defeated = false;
+  if (hit) {
+    const expression = getAttackDamageExpression(combatAttack.attack);
+    if (expression) {
+      const damage = rollDamageExpression(expression);
+      monster.hp = Math.max(0, (Number.parseInt(monster.hp, 10) || 0) - damage.total);
+      parts.push(`hit for ${damage.total} damage`);
+      applyDamageResultToPanel(damage, `${character.name} ${weaponName}`);
+    } else {
+      parts.push("hit");
+    }
+    if ((Number.parseInt(monster.hp, 10) || 0) <= 0) {
+      const result = defeatMonster(state, monster);
+      defeated = true;
+      parts.push(result.message);
+    }
+  } else {
+    parts.push("miss");
+    showCheckResult(roll, "Attack", {
+      headline: `Attack ${roll.total}`,
+      message: parts.join(": ")
+    });
+  }
+
+  markUserActivity();
+  markRunDirty();
+  const alerting = defeated ? getAlertingMonstersFromAttack(monster).filter((candidate) => candidate.id !== monster.id) : getAlertingMonstersFromAttack(monster);
+  let preserveCombatStatus = false;
+  if (alerting.length && !isCombatActive()) {
+    const started = beginCombat(`Combat begins after ${character.name}'s attack.`);
+    preserveCombatStatus = started && !isCombatActive();
+  } else if (isCombatActive()) {
+    detectAdditionalCombatMonsters();
+    preserveCombatStatus = checkCombatEnd();
+  }
+  const message = parts.join("; ");
+  if (!preserveCombatStatus) {
+    setStatus(message);
+  }
+  pushCombatLog(message);
+  scheduleAutoEndTurnIfNeeded();
+  return { message };
+}
+
+function attackClickedMonster(monster) {
+  const character = getActiveCharacter(state);
+  return resolveCharacterAttackAgainstMonster(character, getFirstCombatAttack(character), monster);
+}
+
+function applyDamageResultToPanel(roll, sourceLabel) {
+  if (!ui.damageResult || !roll) {
+    return;
+  }
+  ui.damageResult.textContent = `${roll.total} Damage`;
+  ui.damageContext.textContent = sourceLabel || roll.expression || "Damage";
+  lastDamageRoll = {
+    ...roll,
+    sourceLabel,
+    display: roll.expression
+  };
+  if (ui.damageExpandBtn) {
+    ui.damageExpandBtn.hidden = roll.terms.length === 0;
+  }
+  renderDamageDetail(lastDamageRoll);
+  pushDiceHistory(`${roll.total} Damage`, `${sourceLabel || "Damage"} ${roll.expression}`);
+  setDamageDetailVisibility(false);
+}
+
+function rollMonsterAttitude(monster) {
+  monster.attitudeChecked = true;
+  const roll = Math.floor(Math.random() * 20) + 1;
+  const tagModifier = getMonsterTagModifier(monster);
+  const level = getMonsterLevel(monster);
+  const total = roll + level + tagModifier;
+  monster.attitudeRoll = { roll, level, tagModifier, total };
+  if (total >= 11) {
+    monster.attitude = "combat";
+    return {
+      combat: true,
+      message: `${monster.name || "Monster"} attitude ${total}: combat begins.`
+    };
+  }
+  monster.attitude = "indifferent";
+  return {
+    combat: false,
+    message: `${monster.name || "Monster"} attitude ${total}: indifferent.`
+  };
+}
+
+function processMonsterSightings() {
+  if (!state || isCombatActive()) {
+    return { combatStarted: false, combatEnded: false, messages: [] };
+  }
+  const messages = [];
+  let combatStarted = false;
+  for (const monster of getLiveMonsters()) {
+    if (monster.attitudeChecked === true) {
+      continue;
+    }
+    const seen = (state.characters || []).some((character) => canCharacterSeeMonster(character, monster));
+    if (!seen) {
+      continue;
+    }
+    const result = rollMonsterAttitude(monster);
+    messages.push(result.message);
+    if (result.combat) {
+      combatStarted = beginCombat(result.message);
+      break;
+    }
+  }
+  if (messages.length) {
+    if (!combatStarted) {
+      setStatus(messages[messages.length - 1]);
+    }
+    markRunDirty();
+  }
+  return { combatStarted, combatEnded: false, messages };
+}
+
+function processMonsterVisibilityChange() {
+  if (!state) {
+    return { combatStarted: false, combatEnded: false, messages: [] };
+  }
+  if (isCombatActive()) {
+    detectAdditionalCombatMonsters();
+    return {
+      combatStarted: false,
+      combatEnded: checkCombatEnd(),
+      messages: []
+    };
+  }
+  return processMonsterSightings();
+}
+
+function removeMonsterPeacefully(monster) {
+  const loot = addMonsterLootDrop(state, monster, {
+    force: true,
+    description: "Treasure left behind by a monster that departed peacefully."
+  });
+  const index = state.entities.findIndex((entity) => entity.id === monster.id);
+  if (index !== -1) {
+    state.entities.splice(index, 1);
+  } else {
+    monster.leftPeacefully = true;
+    monster.visible = false;
+  }
+  return loot;
+}
+
+function persuadeMonster(monster) {
+  const character = getActiveCharacter(state);
+  if (!character) {
+    setStatus("Select a character to persuade the monster.");
+    return;
+  }
+  const dc = getMonsterLevel(monster) + 5 + getMonsterTagModifier(monster);
+  const check = rollCheck(abilityScoreModifier(character?.stats?.CHA));
+  const success = check.total >= dc;
+  let message = `Persuade ${check.total} vs DC ${dc}: ${monster.name || "Monster"} remains indifferent.`;
+  if (success) {
+    const loot = removeMonsterPeacefully(monster);
+    message = `${monster.name || "Monster"} leaves peacefully.${loot ? ` ${loot.name} is left behind.` : ""}`;
+  }
+  markUserActivity();
+  markRunDirty();
+  setStatus(message);
+  showCheckResult(check, "Persuade", {
+    headline: `Persuade ${check.total}`,
+    message
+  });
+  render();
+  updatePanels();
+}
+
+function attackIndifferentMonster(monster) {
+  monster.attitude = "combat";
+  monster.attitudeChecked = true;
+  beginCombat(`${monster.name || "Monster"} is attacked. Combat begins.`);
+  markUserActivity();
+  markRunDirty();
+  render();
+  updatePanels();
+}
+
+function getMonsterAttackOptions(monster) {
+  const value = String(monster?.attack || "").trim();
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(/\s+\b(?:or|and)\b\s+/i)
+    .map((segment) => {
+      const attack = parseMonsterAttackSegment(segment);
+      if (!attack) {
+        return null;
+      }
+      const expression = getAttackDamageExpression(attack);
+      return {
+        ...attack,
+        segment,
+        damageExpression: expression,
+        averageDamage: getAverageDamage(expression),
+        rangeInfo: getAttackRangeInfo(segment, attack)
+      };
+    })
+    .filter(Boolean);
+}
+
+function getMonsterAttackPreference(monster) {
+  const attacks = getMonsterAttackOptions(monster);
+  const closeAttacks = attacks.filter((attack) => attack.rangeInfo.hasClose || attack.rangeInfo.isCloseOnly);
+  const nearAttacks = attacks.filter((attack) => attack.rangeInfo.hasNear);
+  const bestClose = closeAttacks.sort((a, b) => b.averageDamage - a.averageDamage)[0] || null;
+  const bestNear = nearAttacks.sort((a, b) => b.averageDamage - a.averageDamage)[0] || null;
+  return {
+    attacks,
+    bestClose,
+    bestNear,
+    preferNear: Boolean(bestNear && (!bestClose || bestNear.averageDamage >= bestClose.averageDamage))
+  };
+}
+
+function getAverageDamage(expression) {
+  const normalized = normalizeDamageExpression(expression);
+  if (!normalized) {
+    return 0;
+  }
+  const base = normalized.split("x")[0];
+  const tokens = base.match(/[+\-]?[^+\-]+/g) || [];
+  return tokens.reduce((total, token) => {
+    const sign = token.startsWith("-") ? -1 : 1;
+    const body = token.replace(/^[+\-]/, "");
+    const dice = body.match(/^(\d*)d(\d+)$/i);
+    if (dice) {
+      const count = Number.parseInt(dice[1] || "1", 10);
+      const sides = Number.parseInt(dice[2], 10);
+      return total + sign * count * ((sides + 1) / 2);
+    }
+    const flat = Number.parseInt(body, 10);
+    return Number.isFinite(flat) ? total + sign * flat : total;
+  }, 0);
+}
+
+function getMonsterMoveSquares(monster) {
+  const movement = String(monster?.movement || monster?.mv || monster?.["**MV**"] || "").toLowerCase();
+  if (/triple\s+near/.test(movement)) {
+    return 18;
+  }
+  if (/double\s+near/.test(movement)) {
+    return 12;
+  }
+  if (/\bnear\b/.test(movement)) {
+    return 6;
+  }
+  if (/\bclose\b/.test(movement)) {
+    return 1;
+  }
+  if (/\bfar\b/.test(movement)) {
+    return 12;
+  }
+  const explicit = parseSignedNumber(movement, 0);
+  if (explicit > 0) {
+    return explicit;
+  }
+  return 6;
+}
+
+function isMonsterMoveOccupied(monster, x, y) {
+  return (state.characters || []).some((character) => !isCharacterDead(character) && hasCharacterMapPosition(character) && Number(character.x) === x && Number(character.y) === y) ||
+    getLiveMonsters().some((candidate) => candidate.id !== monster.id && Number(candidate.x) === x && Number(candidate.y) === y);
+}
+
+function canMonsterStep(monster, x, y) {
+  if (isMonsterMoveOccupied(monster, x, y)) {
+    return false;
+  }
+  return canMoveBetweenTiles(state, Number(monster.x), Number(monster.y), x, y).ok;
+}
+
+function moveMonsterOneStep(monster, target, mode) {
+  const tx = Number(target.x);
+  const ty = Number(target.y);
+  const candidates = [];
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      if (dx === 0 && dy === 0) {
+        continue;
+      }
+      const x = Number(monster.x) + dx;
+      const y = Number(monster.y) + dy;
+      if (!canMonsterStep(monster, x, y)) {
+        continue;
+      }
+      candidates.push({
+        x,
+        y,
+        distance: Math.max(Math.abs(x - tx), Math.abs(y - ty)),
+        straightness: Math.abs(dx) + Math.abs(dy)
+      });
+    }
+  }
+  if (!candidates.length) {
+    return false;
+  }
+  candidates.sort((a, b) => {
+    const distanceSort = mode === "away" ? b.distance - a.distance : a.distance - b.distance;
+    if (distanceSort) return distanceSort;
+    return b.straightness - a.straightness;
+  });
+  const currentDistance = getMonsterDistanceToCharacter(monster, target);
+  const next = candidates.find((candidate) => mode === "away" ? candidate.distance > currentDistance : candidate.distance < currentDistance);
+  if (!next) {
+    return false;
+  }
+  monster.x = next.x;
+  monster.y = next.y;
+  monster.roomId = getTileAt(next.x, next.y)?.roomId ?? monster.roomId ?? null;
+  return true;
+}
+
+async function moveMonsterForPlan(monster, target, preferNear, movement) {
+  let moved = 0;
+  while (moved < movement) {
+    const distance = getMonsterDistanceToCharacter(monster, target);
+    if (preferNear && distance >= 2 && distance <= RANGE_LIMITS.near) {
+      break;
+    }
+    if (!preferNear && distance <= RANGE_LIMITS.close) {
+      break;
+    }
+    const mode = preferNear && distance <= 1 ? "away" : "toward";
+    if (!moveMonsterOneStep(monster, target, mode)) {
+      break;
+    }
+    moved += 1;
+    render();
+    updatePanels();
+    await delay(200);
+  }
+  return moved;
+}
+
+function pickMonsterTarget(monster) {
+  const targets = (state.characters || []).filter(isCharacterTargetableByMonster);
+  if (!targets.length) {
+    return null;
+  }
+  const stored = targets.find((character) => character.id === monster.combatTargetId);
+  if (stored && getMonsterAttackPreference(monster).preferNear) {
+    return stored;
+  }
+  const adjacent = targets.filter((character) => getMonsterDistanceToCharacter(monster, character) <= 1);
+  if (adjacent.length) {
+    const target = adjacent[Math.floor(Math.random() * adjacent.length)];
+    monster.combatTargetId = target?.id || "";
+    return target;
+  }
+  if (stored) {
+    return stored;
+  }
+  const distances = targets.map((character) => ({
+    character,
+    distance: getMonsterDistanceToCharacter(monster, character)
+  }));
+  const closest = Math.min(...distances.map((entry) => entry.distance));
+  const tied = distances.filter((entry) => entry.distance === closest).map((entry) => entry.character);
+  const target = tied[Math.floor(Math.random() * tied.length)];
+  monster.combatTargetId = target?.id || "";
+  return target;
+}
+
+async function chooseMonsterAttack(monster, target) {
+  const { bestClose, bestNear, preferNear } = getMonsterAttackPreference(monster);
+  const movement = getMonsterMoveSquares(monster);
+  await moveMonsterForPlan(monster, target, preferNear, movement);
+  const distance = getMonsterDistanceToCharacter(monster, target);
+  if (preferNear && bestNear && distance >= 1 && distance <= RANGE_LIMITS.near) {
+    return bestNear;
+  }
+  if (bestClose && distance <= RANGE_LIMITS.close) {
+    return bestClose;
+  }
+  if (bestNear && distance >= 1 && distance <= RANGE_LIMITS.near) {
+    return bestNear;
+  }
+  return null;
+}
+
+function applyMonsterAttack(monster, target, attack) {
+  const roll = rollCheck(attack.bonus || 0);
+  const ac = Number(target?.armorClass || 10);
+  const hit = roll.total >= ac;
+  const name = monster.name || "Monster";
+  if (!hit) {
+    return `${name} attacks ${target.name || "character"} with ${attack.name}: ${roll.total} vs AC ${ac}, miss.`;
+  }
+  const expression = attack.damageExpression;
+  if (!expression) {
+    return `${name} attacks ${target.name || "character"} with ${attack.name}: ${roll.total} vs AC ${ac}, hit.`;
+  }
+  const damage = rollDamageExpression(expression);
+  setCharacterHp(target, Number(target.hp || 0) - damage.total);
+  clearMagicLightIfIncapacitated(target);
+  syncCharacterDyingRaw(target);
+  applyDamageResultToPanel(damage, `${name} ${attack.name}`);
+  return `${name} hits ${target.name || "character"} for ${damage.total} damage.`;
+}
+
+async function runMonsterTurn(monster) {
+  if (!monster || !isLiveMonster(monster)) {
+    return "";
+  }
+  const target = pickMonsterTarget(monster);
+  if (!target) {
+    return `${monster.name || "Monster"} has no visible target.`;
+  }
+  const attack = await chooseMonsterAttack(monster, target);
+  if (!attack) {
+    return `${monster.name || "Monster"} moves.`;
+  }
+  return applyMonsterAttack(monster, target, attack);
+}
+
+async function runAutoMonsterTurns() {
+  const combat = ensureCombatState();
+  if (combat.autoRunning) {
+    return;
+  }
+  combat.autoRunning = true;
+  const messages = [];
+  try {
+    while (isCombatActive()) {
+      const entry = getCurrentCombatEntry();
+      if (!entry || entry.type !== "monster") {
+        break;
+      }
+      await announceCurrentTurn(entry);
+      const monster = getMonsterById(entry.id);
+      if (monster) {
+        await delay(320);
+        const message = await runMonsterTurn(monster);
+        if (message) {
+          messages.push(message);
+          pushCombatLog(message);
+        }
+      }
+      const combat = ensureCombatState();
+      combat.turnIndex += 1;
+      if (checkCombatEnd()) {
+        break;
+      }
+      if (combat.turnIndex >= combat.turnOrder.length) {
+        beginNextCombatRound(combat);
+      }
+      detectAdditionalCombatMonsters();
+    }
+  } finally {
+    ensureCombatState().autoRunning = false;
+  }
+  if (messages.length && isCombatActive()) {
+    setStatus(messages[messages.length - 1]);
+  }
+  if (isCombatActive()) {
+    startCurrentCombatTurn();
+  }
+  render();
+  updatePanels();
+}
+
+function handleCombatMovement(delta) {
+  if (!isCombatActive()) {
+    return false;
+  }
+  const character = getActiveCharacter(state);
+  if (!isCurrentCharacterTurn(character)) {
+    setStatus("Only the character whose turn it is can move.");
+    return true;
+  }
+  if (!isCharacterAbleToAct(character)) {
+    setStatus(`${character.name || "Character"} can't move.`);
+    return true;
+  }
+  if (state.combat.movementRemaining <= 0) {
+    setStatus(`${character.name || "Character"} has no movement left.`);
+    return true;
+  }
+  syncPlayerToActiveCharacter();
+  const result = movePlayer(state, delta[0], delta[1]);
+  if (result.moved) {
+    state.combat.movementRemaining = Math.max(0, state.combat.movementRemaining - 1);
+    syncActiveCharacterToPlayer();
+    recomputeVisibility(state);
+    processMonsterVisibilityChange();
+    detectAdditionalCombatMonsters();
+    const ended = checkCombatEnd();
+    markUserActivity();
+    if (!ended) {
+      setStatus(result);
+      scheduleAutoEndTurnIfNeeded();
+    }
+    render();
+    updatePanels();
+    return true;
+  }
+  markUserActivity();
+  setStatus(result);
+  render();
+  updatePanels();
+  return true;
+}
+
 function createBackstabButton(character, attack) {
+  if (character?.stealthed !== true) {
+    return null;
+  }
   const multiplier = getBackstabMultiplier(character);
   const backstabExpression = multiplyDamageDice(attack?.damageExpression, multiplier);
   if (!multiplier || !backstabExpression) {
@@ -1018,6 +2675,10 @@ function characterHasFlintAndSteel(character) {
   return characterHasGear(character, (name) => /flint\s*(?:and|&)?\s*steel/.test(name));
 }
 
+function isThief(character) {
+  return /\bthie(?:f|ves)\b/i.test(String(character?.className || character?.class || ""));
+}
+
 function getCharacterGearUnitsByMatcher(character, matcher) {
   return (Array.isArray(character?.gear) ? character.gear : []).reduce((total, item) => {
     const name = String(item?.name || "").toLowerCase();
@@ -1051,7 +2712,7 @@ function inferGearItemSlots(name, item = {}) {
   const normalizedName = String(name || "").toLowerCase();
   const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
   if (item?.treasureItem === true || treasureKind) {
-    if (treasureKind === "herbs" || treasureKind === "clothing" || treasureKind === "jewels") {
+    if (treasureKind === "herbs" || treasureKind === "clothing" || treasureKind === "jewels" || treasureKind === "gems") {
       return 0;
     }
     if (treasureKind === "platemail") {
@@ -1158,15 +2819,35 @@ function getWeaponProfileFromText(value) {
 }
 
 function getWeaponProfile(item) {
+  const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
+  if (item?.treasureItem === true && treasureKind === "dagger") {
+    return WEAPON_PROFILES.find((profile) => profile.key === "dagger") || null;
+  }
   return getWeaponProfileFromText(getGearItemName(item));
 }
 
 function getArmorProfile(item) {
+  const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
+  if (item?.treasureItem === true) {
+    if (treasureKind === "platemail") {
+      return ARMOR_PROFILES.find((profile) => profile.key === "plate") || null;
+    }
+    if (treasureKind === "chainmail") {
+      return ARMOR_PROFILES.find((profile) => profile.key === "chainmail") || null;
+    }
+    if (treasureKind === "leather") {
+      return ARMOR_PROFILES.find((profile) => profile.key === "leather") || null;
+    }
+  }
   const normalized = normalizeEquipmentName(getGearItemName(item));
   return ARMOR_PROFILES.find((profile) => profile.pattern.test(normalized)) || null;
 }
 
 function isShieldItem(item) {
+  const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
+  if (item?.treasureItem === true && treasureKind === "shield") {
+    return true;
+  }
   return /\bshield\b/i.test(getGearItemName(item));
 }
 
@@ -1597,6 +3278,111 @@ function lightActiveCharacter(source) {
   }
 }
 
+function setPlayerLightWithoutReset(source) {
+  state.player.torchLit = true;
+  state.player.lightSource = source === "lantern" ? "lantern" : source === "light-spell" ? "light-spell" : "torch";
+  state.player.lightRadius = source === "lantern" ? 12 : DEFAULT_LIGHT_RADIUS;
+}
+
+function extinguishHeldPartyLights({ exceptCharacterId = null } = {}) {
+  for (const character of state.characters || []) {
+    if (character?.id === exceptCharacterId) {
+      continue;
+    }
+    if (character.lightSource === "torch" && Number(character.lightRadius) > 0) {
+      removeOneTorch(character);
+      setCharacterLight(character, "");
+    } else if (character.lightSource === "lantern" && Number(character.lightRadius) > 0) {
+      setCharacterLight(character, "");
+    }
+  }
+}
+
+function applyLightRequest(source, { extinguishOld = true } = {}) {
+  const active = getActiveCharacter(state);
+  const wasHiddenLantern = source === "lantern" && active?.lightSource === "lantern" && active.lightHidden === true;
+  if (extinguishOld) {
+    if (active?.lightSource === "torch" && Number(active.lightRadius) > 0) {
+      removeOneTorch(active);
+    }
+    extinguishHeldPartyLights({ exceptCharacterId: active?.id || null });
+    lightActiveCharacter(source);
+  } else {
+    setPlayerLightWithoutReset(source);
+    if (active) {
+      setCharacterLight(active, state.player.lightSource);
+    }
+  }
+  if (source === "lantern" && !wasHiddenLantern) {
+    removeOneOil(active);
+  }
+  normalizeCharacterState(state);
+  applyCharacterAmmoOverrides();
+  syncAllCharacterEquipmentDerivedStats();
+  applyCharacterColorOverrides();
+  ensureCharacterPresentation();
+  markUserActivity();
+  recomputeVisibility(state);
+  const sighting = processMonsterVisibilityChange();
+  if (!sighting?.combatStarted && !sighting?.combatEnded) {
+    setStatus(source === "lantern"
+      ? (wasHiddenLantern ? "Lantern uncovered." : "Lantern is lit!")
+      : "New torch lit.");
+  }
+  render();
+  updatePanels();
+}
+
+function closeExtinguishOldModal() {
+  pendingLightRequest = null;
+  if (ui.extinguishOldModal) {
+    ui.extinguishOldModal.hidden = true;
+  }
+}
+
+function promptExtinguishOld(source) {
+  pendingLightRequest = { source };
+  if (!ui.extinguishOldModal) {
+    applyLightRequest(source, { extinguishOld: true });
+    return;
+  }
+  ui.extinguishOldModal.hidden = false;
+}
+
+function getLightAttemptFailure(source) {
+  const active = getActiveCharacter(state);
+  if (source === "lantern") {
+    if (!characterHasLantern(active)) return "No lantern.";
+    if (!characterHasOil(active)) return "No oil flask.";
+  } else if (!characterHasTorch(active)) {
+    return "No torch.";
+  }
+  if (!characterHasFlintAndSteel(active) && !isCharacterInLiveLight(active)) {
+    return "Need flint and steel or an existing light source.";
+  }
+  return "";
+}
+
+function attemptLightSource(source) {
+  const active = getActiveCharacter(state);
+  const failure = getLightAttemptFailure(source);
+  if (failure) {
+    setStatus(failure);
+    return;
+  }
+  if (!isCharacterInLiveLight(active) && characterHasFlintAndSteel(active)) {
+    const modifier = getCharacterActionModifier(active, "dex");
+    const disadvantage = !isThief(active);
+    const check = rollCheck(modifier, { disadvantage });
+    if (check.total < 12) {
+      setStatus(`Light ${check.total} vs DC 12: failed.`);
+      return;
+    }
+    setStatus(`Light ${check.total} vs DC 12: success.`);
+  }
+  promptExtinguishOld(source);
+}
+
 function clearActiveCharacterLight() {
   forceTorchOut(state);
   state.player.lightSource = "";
@@ -1622,6 +3408,35 @@ function snuffActiveTorch() {
   recomputeVisibility(state);
   markRunDirty();
   return true;
+}
+
+function extinguishTimedPartyLights() {
+  for (const character of state.characters || []) {
+    if (character.lightSource === "torch" && Number(character.lightRadius) > 0) {
+      removeOneTorch(character);
+      setCharacterLight(character, "");
+    } else if (character.lightSource === "lantern" && Number(character.lightRadius) > 0) {
+      setCharacterLight(character, "");
+    }
+  }
+  for (const entity of state.entities || []) {
+    if (
+      entity.subtype === "dropped-equipment" &&
+      entity.collected !== true &&
+      (entity.lightSource === "torch" || entity.lightSource === "lantern")
+    ) {
+      delete entity.lightSource;
+      delete entity.lightRadius;
+    }
+  }
+  forceTorchOut(state);
+  state.player.lightSource = "";
+  state.player.lightRadius = DEFAULT_LIGHT_RADIUS;
+  normalizeCharacterState(state);
+  syncAllCharacterEquipmentDerivedStats();
+  syncPlayerLightFromActiveCharacter();
+  recomputeVisibility(state);
+  markRunDirty();
 }
 
 function extinguishActiveLantern() {
@@ -1693,11 +3508,11 @@ function expireActiveLightFromTimer() {
   const active = getActiveCharacter(state);
   const source = active?.lightSource || state.player.lightSource || "torch";
   if (source === "torch") {
-    snuffActiveTorch();
+    extinguishTimedPartyLights();
     return "Torch snuffed!";
   }
   if (source === "lantern") {
-    extinguishActiveLantern();
+    extinguishTimedPartyLights();
     return "Lantern went out!";
   }
   if (source === "light-spell") {
@@ -1732,6 +3547,17 @@ function isLightGearItem(item, source = "") {
     return /\blantern\b/.test(name);
   }
   return /^torch\b/.test(name) || /\blantern\b/.test(name);
+}
+
+function getGearLightSource(item) {
+  const name = String(item?.name || "").toLowerCase();
+  if (/^torch\b/.test(name)) {
+    return "torch";
+  }
+  if (/\blantern\b/.test(name)) {
+    return "lantern";
+  }
+  return "";
 }
 
 function markRunDirty() {
@@ -1876,6 +3702,7 @@ function createDroppedGearEntity(item, tile, litSource = "") {
     x: tile.x,
     y: tile.y,
     roomId: tile.roomId,
+    hallId: tile.hallId || null,
     visible: true,
     revealed: true,
     collected: false,
@@ -1948,6 +3775,9 @@ function dropCharacterGear(character, gearIndex) {
   updateCharacterAmmoFromGearItem(character, droppedItem);
   normalizeCharacterState(state);
   syncAllCharacterEquipmentDerivedStats();
+  if (litSource) {
+    setCharacterLight(character, "");
+  }
   applyCharacterColorOverrides();
   ensureCharacterPresentation();
   syncPlayerLightFromActiveCharacter();
@@ -2000,22 +3830,66 @@ function pickupDroppedEquipment(entity) {
 }
 
 function canLightLantern(character) {
-  if (!characterHasLantern(character) || !characterHasFlintAndSteel(character)) {
+  if (!characterHasLantern(character)) {
     return false;
   }
   if (character?.lightSource === "lantern" && character.lightHidden === true) {
     return false;
   }
-  return characterHasOil(character);
+  return characterHasOil(character) && (characterHasFlintAndSteel(character) || isCharacterInLiveLight(character));
 }
 
 function canLightTorch(character) {
-  if (!characterHasFlintAndSteel(character)) {
-    return false;
-  }
   const torchUnits = getCharacterGearUnitsByMatcher(character, (name) => /^torch\b/.test(name));
   const litTorchUnits = character?.lightSource === "torch" ? 1 : 0;
-  return torchUnits > litTorchUnits;
+  return torchUnits > litTorchUnits && (characterHasFlintAndSteel(character) || isCharacterInLiveLight(character));
+}
+
+function getCharacterMapPosition(character) {
+  if (!character) {
+    return null;
+  }
+  const x = Number.isFinite(Number(character.x)) ? Number(character.x) : Number(state?.player?.x);
+  const y = Number.isFinite(Number(character.y)) ? Number(character.y) : Number(state?.player?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  return { x, y };
+}
+
+function isPointInLightRadius(x, y, source) {
+  const radius = Number(source?.radius ?? source?.lightRadius) || 0;
+  if (radius <= 0 || !Number.isFinite(Number(source?.x)) || !Number.isFinite(Number(source?.y))) {
+    return false;
+  }
+  return Math.hypot(Number(source.x) - x, Number(source.y) - y) <= radius;
+}
+
+function isCharacterInLiveLight(character) {
+  const position = getCharacterMapPosition(character);
+  if (!position || !state) {
+    return false;
+  }
+  if (state.player?.torchLit === true && isPointInLightRadius(position.x, position.y, {
+    x: state.player.x,
+    y: state.player.y,
+    radius: state.player.lightRadius || DEFAULT_LIGHT_RADIUS
+  })) {
+    return true;
+  }
+  for (const candidate of state.characters || []) {
+    if (candidate?.id === character?.id) {
+      continue;
+    }
+    if (isPointInLightRadius(position.x, position.y, candidate)) {
+      return true;
+    }
+  }
+  return (state.entities || []).some((entity) => (
+    entity.subtype === "dropped-equipment" &&
+    !entity.collected &&
+    isPointInLightRadius(position.x, position.y, entity)
+  ));
 }
 
 function getExplicitActiveCharacter(stateValue = state) {
@@ -2099,7 +3973,6 @@ function updateLightControlUi() {
       if (ui.lightTorchBtn) ui.lightTorchBtn.hidden = true;
       if (ui.lightLanternBtn) ui.lightLanternBtn.hidden = true;
       if (ui.castLightBtn) ui.castLightBtn.hidden = true;
-      if (ui.torchBtn) ui.torchBtn.hidden = true;
       return;
     }
     if (ui.torchOutBtn) {
@@ -2109,17 +3982,11 @@ function updateLightControlUi() {
     if (ui.lightTorchBtn) ui.lightTorchBtn.hidden = false;
     if (ui.lightLanternBtn) ui.lightLanternBtn.hidden = false;
     if (ui.castLightBtn) ui.castLightBtn.hidden = false;
-    if (ui.torchBtn) {
-      ui.torchBtn.hidden = false;
-      ui.torchBtn.textContent = "Hide Lantern";
-    }
     return;
   }
   clearInvalidCharacterLight(active);
   syncPlayerLightFromActiveCharacter();
   const activeSource = active?.lightSource || "";
-  const activeIsLit = Number(active?.lightRadius) > 0;
-  const activeLanternHidden = activeSource === "lantern" && active?.lightHidden === true;
   if (ui.lightTorchBtn) {
     ui.lightTorchBtn.hidden = !canLightTorch(active);
   }
@@ -2132,10 +3999,6 @@ function updateLightControlUi() {
   if (ui.torchOutBtn) {
     ui.torchOutBtn.hidden = !(activeSource === "torch" || activeSource === "lantern");
     ui.torchOutBtn.textContent = activeSource === "lantern" ? "Lantern went out!" : "Torch snuffed!";
-  }
-  if (ui.torchBtn) {
-    ui.torchBtn.hidden = !(activeSource === "lantern" && (activeIsLit || activeLanternHidden)) && !(activeSource === "light-spell" && activeIsLit);
-    ui.torchBtn.textContent = activeLanternHidden ? "Reveal Lantern" : activeSource === "lantern" ? "Hide Lantern" : "Hide Light";
   }
 }
 
@@ -2941,7 +4804,7 @@ function getCharacterGearSlots(character, options = {}) {
   }
   return {
     slots: lines.slice(0, maxUsedSlots),
-    freeCarry: [`coin bag x ${Math.min(100, carriedCoins)}`, ...freeCarry].slice(0, 10)
+    freeCarry: [`total coins x ${carriedCoins}`, ...freeCarry].slice(0, 10)
   };
 }
 
@@ -2953,6 +4816,21 @@ function getCharacterMoneyCopper(character) {
   return getCharacterMoney(character, "gold") * 100
     + getCharacterMoney(character, "silver") * 10
     + getCharacterMoney(character, "copper");
+}
+
+function getCoinBreakdownCopper(coinBreakdown = {}) {
+  return Math.max(0, Number(coinBreakdown.gold || 0)) * 100
+    + Math.max(0, Number(coinBreakdown.silver || 0)) * 10
+    + Math.max(0, Number(coinBreakdown.copper || 0));
+}
+
+function getMoneyFromCopper(totalCopper) {
+  const copper = Math.max(0, Math.floor(Number(totalCopper) || 0));
+  return {
+    gold: Math.floor(copper / 100),
+    silver: Math.floor((copper % 100) / 10),
+    copper: copper % 10
+  };
 }
 
 async function loadRulesData() {
@@ -2969,7 +4847,7 @@ async function loadRulesData() {
 }
 
 function setCharacterMoneyValue(character, key, value) {
-  const nextValue = Math.max(0, Math.min(2000, Number.parseInt(value, 10) || 0));
+  const nextValue = Math.max(0, Math.min(9999999, Number.parseInt(value, 10) || 0));
   character[key] = nextValue;
   character.raw = character.raw || {};
   character.raw[key] = nextValue;
@@ -3009,12 +4887,12 @@ function getCoinLabel(key) {
 
 function getCoinBagName(key) {
   if (key === "gold") {
-    return "GP coin bag";
+    return "g.p. pouch";
   }
   if (key === "silver") {
-    return "SP coin bag";
+    return "s.p. pouch";
   }
-  return "CP coin bag";
+  return "c.p. pouch";
 }
 
 function getCoinValueInCopper(key, amount) {
@@ -3047,18 +4925,19 @@ function createCoinPileEntity(character, key, amount) {
     type: "treasure",
     subtype: `dropped-${key}`,
     kind: "coin-cache",
-    name: getCoinBagName(key),
+    name: `${amount} ${key === "gold" ? "gp" : key === "silver" ? "sp" : "cp"} on floor`,
     x: tile.x,
     y: tile.y,
     roomId: tile.roomId,
+    hallId: tile.hallId || null,
     visible: true,
     revealed: true,
     collected: false,
-    value: Math.max(1, Math.round(getCoinValueInCopper(key, amount) / 100)),
-    slots: Math.max(1, Math.ceil(Math.max(1, amount) / 100)),
+    value: getCoinValueInCopper(key, amount) / 100,
+    slots: Math.max(0, Math.ceil(Math.max(0, amount - 100) / 100)),
     bonusSlots: 0,
     priceless: false,
-    description: `${amount} ${label} dropped from ${character?.name || "a character"}.`,
+    description: `${amount} ${label} on the floor.`,
     coinBreakdown: {
       gold: key === "gold" ? amount : 0,
       silver: key === "silver" ? amount : 0,
@@ -3081,10 +4960,10 @@ function dropCharacterCoinPile(character, key, amount) {
       const currentAmount = Math.max(0, Number(mergeable.coinBreakdown[key] || 0));
       const addAmount = Math.min(remaining, Math.max(0, 100 - currentAmount));
       mergeable.coinBreakdown[key] = currentAmount + addAmount;
-      mergeable.value = Math.max(1, Math.round(getCoinValueInCopper(key, mergeable.coinBreakdown[key]) / 100));
-      mergeable.slots = 1;
-      mergeable.name = getCoinBagName(key);
-      mergeable.description = `${mergeable.coinBreakdown[key]} ${getCoinLabel(key)} dropped from ${character?.name || "a character"}.`;
+      mergeable.value = getCoinValueInCopper(key, mergeable.coinBreakdown[key]) / 100;
+      mergeable.slots = Math.max(0, Math.ceil(Math.max(0, mergeable.coinBreakdown[key] - 100) / 100));
+      mergeable.name = `${mergeable.coinBreakdown[key]} ${key === "gold" ? "gp" : key === "silver" ? "sp" : "cp"} on floor`;
+      mergeable.description = `${mergeable.coinBreakdown[key]} ${getCoinLabel(key)} on the floor.`;
       remaining -= addAmount;
       lastPile = mergeable;
       continue;
@@ -3136,11 +5015,65 @@ function findOpenCharacterTile(originX, originY, occupied = new Set()) {
     }
     for (const candidate of shuffleCoordinates(candidates)) {
       if (!isCharacterTileBlocked(candidate.x, candidate.y) && !occupied.has(`${candidate.x},${candidate.y}`)) {
-        return { x: candidate.x, y: candidate.y, roomId: getTileAt(candidate.x, candidate.y)?.roomId || null };
+        const tile = getTileAt(candidate.x, candidate.y);
+        return { x: candidate.x, y: candidate.y, roomId: tile?.roomId || null, hallId: tile?.hallId || null };
       }
     }
   }
-  return { x: originX, y: originY, roomId: getTileAt(originX, originY)?.roomId || null };
+  const tile = getTileAt(originX, originY);
+  return { x: originX, y: originY, roomId: tile?.roomId || null, hallId: tile?.hallId || null };
+}
+
+function getStartingStairsOrigin() {
+  const stairs = state?.entities?.find?.((entity) => entity.doorKind === "stairs-up");
+  if (Number.isFinite(Number(stairs?.x)) && Number.isFinite(Number(stairs?.y))) {
+    return {
+      x: Number(stairs.x),
+      y: Number(stairs.y)
+    };
+  }
+  const entranceRoomId = state?.generation?.entranceRoomId;
+  const entranceRoom = entranceRoomId
+    ? state.rooms?.find?.((room) => room.id === entranceRoomId)
+    : null;
+  if (entranceRoom) {
+    return {
+      x: Math.floor(Number(entranceRoom.x || 0) + Number(entranceRoom.width || 1) / 2),
+      y: Math.floor(Number(entranceRoom.y || 0) + Number(entranceRoom.height || 1) / 2)
+    };
+  }
+  return {
+    x: Number(state?.player?.x || 0),
+    y: Number(state?.player?.y || 0)
+  };
+}
+
+function getOccupiedCharacterTiles(excludedIds = new Set()) {
+  const occupied = new Set();
+  for (const character of state?.characters || []) {
+    if (excludedIds.has(character.id) || !hasCharacterMapPosition(character) || isCharacterDead(character)) {
+      continue;
+    }
+    occupied.add(`${Number(character.x)},${Number(character.y)}`);
+  }
+  return occupied;
+}
+
+function placeCharactersNearStartingStairs(characters) {
+  const list = (characters || []).filter(Boolean);
+  if (!state || !list.length) {
+    return;
+  }
+  const excluded = new Set(list.map((character) => character.id));
+  const occupied = getOccupiedCharacterTiles(excluded);
+  const origin = getStartingStairsOrigin();
+  for (const character of list) {
+    const tile = findOpenCharacterTile(origin.x, origin.y, occupied);
+    character.x = tile.x;
+    character.y = tile.y;
+    character.roomId = tile.roomId;
+    occupied.add(`${tile.x},${tile.y}`);
+  }
 }
 
 function getCharacterSpawnOrigin(character, index) {
@@ -3383,8 +5316,6 @@ function createDyingBanner(character) {
   banner.disabled = character.dead === true;
   banner.addEventListener("click", (event) => {
     event.stopPropagation();
-    decrementCharacterDyingRounds(character);
-    refreshCharacterViews(character);
   });
   return banner;
 }
@@ -3392,7 +5323,9 @@ function createDyingBanner(character) {
 function renderCharacterCard(character) {
   const card = document.createElement("article");
   card.className = "character-card";
+  const combatEntry = getCurrentCombatEntry();
   card.classList.toggle("is-active", character.id === state.activeCharacterId);
+  card.classList.toggle("is-combat-inactive", Boolean(isCombatActive() && !(combatEntry?.type === "character" && combatEntry.id === character.id)));
   card.classList.toggle("is-slain", character.dead === true || character.slain === true);
   card.tabIndex = 0;
   card.setAttribute("role", "button");
@@ -3415,8 +5348,13 @@ function renderCharacterCard(character) {
 
   const header = document.createElement("div");
   header.className = "character-mini-header";
+  const name = document.createElement("span");
+  name.className = "character-mini-name";
+  name.textContent = character.name;
+  name.style.color = getCharacterColorValue(character);
   header.append(
-    document.createTextNode(`${character.name} | ${character.ancestry || "Unknown"} | ${character.className || "Class"} ${character.level || 1} | AC ${character.armorClass} | HP `),
+    name,
+    document.createTextNode(` | ${character.ancestry || "Unknown"} | ${character.className || "Class"} ${character.level || 1} | AC ${character.armorClass} | HP `),
     createMiniInlineNumberField(character.hp, character.maxHitPoints, (value) => {
       const currentCharacter = getCurrentCharacter(character);
       setCharacterHp(currentCharacter, value);
@@ -3532,7 +5470,7 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
   for (const key of ["STR", "INT", "DEX", "WIS", "CON", "CHA"]) {
     statCluster.append(createSdField(key, formatAbilityPair(character, key), "sd-stat-box"));
   }
-  statCluster.append(createSdField("HP", `${character.maxHitPoints} / ${character.hp}`, "sd-vital-box"));
+  statCluster.append(createSdField("HP", `${character.hp} / ${character.maxHitPoints}`, "sd-vital-box"));
   statCluster.append(createSdField("AC", `${character.armorClass}`, "sd-vital-box"));
 
   const identity = document.createElement("div");
@@ -3598,11 +5536,22 @@ function enableCharacterNameEdit(character) {
 
 function isCharacterInStartingRoom(character) {
   const entranceRoomId = state?.generation?.entranceRoomId;
-  if (!entranceRoomId) {
+  const roomId = character?.roomId || state?.player?.roomId || null;
+  if (entranceRoomId && roomId === entranceRoomId) {
+    return true;
+  }
+  const stairs = state?.entities?.find?.((entity) => entity.doorKind === "stairs-up");
+  if (!stairs) {
     return false;
   }
-  const roomId = character?.roomId || state?.player?.roomId || null;
-  return roomId === entranceRoomId;
+  if (stairs.roomId && roomId === stairs.roomId) {
+    return true;
+  }
+  const tile = getTileAt(
+    Number.isFinite(Number(character?.x)) ? Number(character.x) : state?.player?.x,
+    Number.isFinite(Number(character?.y)) ? Number(character.y) : state?.player?.y
+  );
+  return Boolean(tile?.hallId && stairs.hallId && tile.hallId === stairs.hallId);
 }
 
 function createShopGearItem(config) {
@@ -3621,6 +5570,7 @@ function createShopGearItem(config) {
 
 const STARTING_ROOM_SHOP_ITEMS = [
   { id: "torch", name: "Torch", costLabel: "5 s.p.", costCopper: 50, cost: 5, currency: "sp", slots: 1 },
+  { id: "flint-and-steel", name: "Flint and steel", costLabel: "5 s.p.", costCopper: 50, cost: 5, currency: "sp", slots: 1 },
   { id: "lantern", name: "Lantern", costLabel: "5 g.p.", costCopper: 500, cost: 5, currency: "gp", slots: 1 },
   { id: "oil-flask", name: "Oil, flask", costLabel: "5 s.p.", costCopper: 50, cost: 5, currency: "sp", slots: 1 }
 ];
@@ -3770,7 +5720,15 @@ function createSdDismissPanel(character) {
       event.stopPropagation();
       openStartingRoomShop(character, buyButton);
     });
-    actionRow.append(buyButton);
+    const sellButton = document.createElement("button");
+    sellButton.type = "button";
+    sellButton.className = "sd-sell-button";
+    sellButton.textContent = "SELL TREASURE";
+    sellButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openSellTreasurePanel(character, sellButton);
+    });
+    actionRow.append(buyButton, sellButton);
   }
   buttonWrap.append(actionRow);
 
@@ -3826,11 +5784,16 @@ function buildMiniAttackLine(character) {
     .map((attack) => createMiniAttackNode(String(attack), character))
     .filter(Boolean);
   const lightNote = createCharacterLightNote(character);
+  const stealthNote = character.stealthed === true ? document.createTextNode("Stealthed") : null;
   if (!attacks.length) {
     line.textContent = "Attacks: None";
     if (lightNote) {
       line.append(document.createTextNode("; "));
       line.append(lightNote);
+    }
+    if (stealthNote) {
+      line.append(document.createTextNode("; "));
+      line.append(stealthNote);
     }
     return line;
   }
@@ -3844,6 +5807,10 @@ function buildMiniAttackLine(character) {
   if (lightNote) {
     line.append(document.createTextNode("; "));
     line.append(lightNote);
+  }
+  if (stealthNote) {
+    line.append(document.createTextNode("; "));
+    line.append(stealthNote);
   }
   return line;
 }
@@ -4111,11 +6078,243 @@ function setCharacterMoneyFromCopper(character, copperValue) {
   setCharacterMoneyValue(character, "copper", totalCopper % 10);
 }
 
+function ensurePartyAssets() {
+  state.partyAssets = state.partyAssets || { gold: 0, silver: 0, copper: 0 };
+  state.partyAssets.gold = Math.max(0, Math.floor(Number(state.partyAssets.gold || 0) || 0));
+  state.partyAssets.silver = Math.max(0, Math.floor(Number(state.partyAssets.silver || 0) || 0));
+  state.partyAssets.copper = Math.max(0, Math.floor(Number(state.partyAssets.copper || 0) || 0));
+  return state.partyAssets;
+}
+
+function getMoneyCopper(money = {}) {
+  return Math.max(0, Number(money.gold || 0)) * 100
+    + Math.max(0, Number(money.silver || 0)) * 10
+    + Math.max(0, Number(money.copper || 0));
+}
+
+function setMoneyFromCopper(target, copperValue) {
+  const next = getMoneyFromCopper(copperValue);
+  target.gold = next.gold;
+  target.silver = next.silver;
+  target.copper = next.copper;
+  return target;
+}
+
+function addPartyAssetsCopper(copperValue) {
+  const assets = ensurePartyAssets();
+  return setMoneyFromCopper(assets, getMoneyCopper(assets) + Math.max(0, Math.floor(Number(copperValue) || 0)));
+}
+
+function formatMoneyParts(money = {}) {
+  return `${Math.max(0, Math.floor(Number(money.gold || 0) || 0))} gp, ${Math.max(0, Math.floor(Number(money.silver || 0) || 0))} sp, ${Math.max(0, Math.floor(Number(money.copper || 0) || 0))} cp`;
+}
+
+function updatePartyAssetsUi() {
+  if (!ui.partyAssetsSummary || !state) {
+    return;
+  }
+  const assets = ensurePartyAssets();
+  ui.partyAssetsSummary.textContent = `PARTY ASSETS: ${assets.gold || 0} GP`;
+  ui.partyAssetsSummary.title = `PARTY ASSETS: ${formatMoneyParts(assets).toUpperCase()}`;
+}
+
+function isLivingCharacter(character) {
+  return character && character.dead !== true && character.slain !== true && Number(character.hp || 0) > 0;
+}
+
+function awardXpFromSoldTreasure(totalCopper) {
+  const living = (state.characters || []).filter(isLivingCharacter);
+  if (!living.length) {
+    return { awarded: 0, livingCount: 0 };
+  }
+  const xpEach = Math.max(0, Number(totalCopper || 0)) / 10000 / living.length;
+  let visibleAward = 0;
+  for (const character of living) {
+    const nextHidden = Math.max(0, Number(character.hiddenXp || character.raw?.hiddenXp || 0) || 0) + xpEach;
+    const wholeXp = Math.floor(nextHidden);
+    character.hiddenXp = nextHidden - wholeXp;
+    character.XP = Math.max(0, Number(character.XP || 0) + wholeXp);
+    character.partyAssetShareCopper = Math.max(0, Number(character.partyAssetShareCopper || 0) || 0) + (Number(totalCopper || 0) / living.length);
+    character.raw = character.raw || {};
+    character.raw.hiddenXp = character.hiddenXp;
+    character.raw.XP = character.XP;
+    character.raw.xp = character.XP;
+    character.raw.partyAssetShareCopper = character.partyAssetShareCopper;
+    visibleAward = Math.max(visibleAward, wholeXp);
+  }
+  return { awarded: visibleAward, livingCount: living.length };
+}
+
+function normalizeItemNameForValue(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/\sx\s*\d+$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getRulesItemValueGp(name) {
+  const normalized = normalizeItemNameForValue(name);
+  const tables = [rulesData?.gear, rulesData?.armor, rulesData?.weapons];
+  for (const table of tables) {
+    const found = (Array.isArray(table) ? table : []).find((item) => normalizeItemNameForValue(item.name) === normalized);
+    if (found) {
+      return Math.max(0, Number(found.costGp || 0) || 0);
+    }
+  }
+  return 0;
+}
+
+function getGearItemValueCopper(item) {
+  const directGp = Number(item?.value ?? item?.costGp ?? item?.cost ?? NaN);
+  const baseGp = Number.isFinite(directGp) ? Math.max(0, directGp) : getRulesItemValueGp(item?.name);
+  const units = item?.treasureItem === true ? 1 : Math.max(1, Number(item?.totalUnits ?? item?.quantity ?? 1) || 1);
+  return Math.round(baseGp * units * 100);
+}
+
+function closeActiveSellPanel() {
+  activeSellPanel?.remove();
+  activeSellPanel = null;
+}
+
+function openSellTreasurePanel(character, anchor) {
+  closeActiveSellPanel();
+  const currentCharacter = getCurrentCharacter(character);
+  if (!currentCharacter || !isCharacterInStartingRoom(currentCharacter)) {
+    return;
+  }
+  const draft = {
+    gear: JSON.parse(JSON.stringify(currentCharacter.gear || [])),
+    money: {
+      gold: getCharacterMoney(currentCharacter, "gold"),
+      silver: getCharacterMoney(currentCharacter, "silver"),
+      copper: getCharacterMoney(currentCharacter, "copper")
+    },
+    saleCopper: 0
+  };
+  const panel = document.createElement("section");
+  panel.className = "sd-shop-popover sd-sell-popover";
+
+  const renderDraft = () => {
+    panel.innerHTML = "";
+    const heading = document.createElement("h3");
+    heading.textContent = "SELL TREASURE";
+    const assets = document.createElement("div");
+    assets.className = "sd-shop-coins";
+    assets.textContent = `PARTY ASSETS: ${formatMoneyParts(ensurePartyAssets()).toUpperCase()}`;
+    const toSell = document.createElement("div");
+    toSell.className = "sd-shop-coins";
+    toSell.textContent = `To be sold: ${formatMoneyParts(getMoneyFromCopper(draft.saleCopper))}`;
+    panel.append(heading, assets, toSell);
+
+    for (const key of ["gold", "silver", "copper"]) {
+      const row = document.createElement("div");
+      row.className = "sd-sell-row";
+      const label = document.createElement("span");
+      label.textContent = key.toUpperCase();
+      const amount = document.createElement("input");
+      amount.type = "number";
+      amount.min = "0";
+      amount.max = `${draft.money[key]}`;
+      amount.value = `${draft.money[key]}`;
+      amount.addEventListener("change", () => {
+        const next = Math.max(0, Math.min(draft.money[key], Math.floor(Number(amount.value) || 0)));
+        const sold = draft.money[key] - next;
+        draft.money[key] = next;
+        draft.saleCopper += getCoinValueInCopper(key, sold);
+        renderDraft();
+      });
+      const down = document.createElement("button");
+      down.type = "button";
+      down.textContent = "down";
+      down.disabled = draft.money[key] <= 0;
+      down.addEventListener("click", () => {
+        if (draft.money[key] <= 0) {
+          return;
+        }
+        draft.money[key] -= 1;
+        draft.saleCopper += getCoinValueInCopper(key, 1);
+        renderDraft();
+      });
+      row.append(label, amount, down);
+      panel.append(row);
+    }
+
+    for (const [index, item] of draft.gear.entries()) {
+      const valueCopper = getGearItemValueCopper(item);
+      const row = document.createElement("div");
+      row.className = "sd-sell-row sd-sell-row--gear";
+      const label = document.createElement("span");
+      label.textContent = getGearDisplayName(item);
+      const value = document.createElement("span");
+      value.textContent = formatTreasureValue(valueCopper / 100);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "sell";
+      button.addEventListener("click", () => {
+        draft.saleCopper += valueCopper;
+        draft.gear.splice(index, 1);
+        renderDraft();
+      });
+      row.append(label, value, button);
+      panel.append(row);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "sd-sell-actions";
+    const sell = document.createElement("button");
+    sell.type = "button";
+    sell.textContent = "Sell";
+    sell.disabled = draft.saleCopper <= 0;
+    sell.addEventListener("click", () => {
+      currentCharacter.gear = draft.gear;
+      currentCharacter.gold = draft.money.gold;
+      currentCharacter.silver = draft.money.silver;
+      currentCharacter.copper = draft.money.copper;
+      currentCharacter.raw = currentCharacter.raw || {};
+      currentCharacter.raw.gear = JSON.parse(JSON.stringify(draft.gear));
+      currentCharacter.raw.gold = currentCharacter.gold;
+      currentCharacter.raw.silver = currentCharacter.silver;
+      currentCharacter.raw.copper = currentCharacter.copper;
+      addPartyAssetsCopper(draft.saleCopper);
+      const xp = awardXpFromSoldTreasure(draft.saleCopper);
+      normalizeCharacterState(state);
+      syncAllCharacterEquipmentDerivedStats();
+      applyCharacterColorOverrides();
+      ensureCharacterPresentation();
+      markUserActivity();
+      markRunDirty();
+      refreshCharacterViews(currentCharacter);
+      render();
+      updatePanels();
+      closeActiveSellPanel();
+      setStatus(`Sold treasure for ${formatMoneyParts(getMoneyFromCopper(draft.saleCopper))}.${xp.livingCount ? ` XP checked for ${xp.livingCount} living character${xp.livingCount === 1 ? "" : "s"}.` : ""}`);
+    });
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", closeActiveSellPanel);
+    actions.append(sell, cancel);
+    panel.append(actions);
+  };
+
+  renderDraft();
+  document.body.append(panel);
+  const anchorRect = anchor?.getBoundingClientRect?.() || getCharacterSheetCard()?.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  const left = Math.min(window.innerWidth - panelRect.width - 12, Math.max(12, anchorRect.left));
+  const top = Math.min(window.innerHeight - panelRect.height - 12, Math.max(12, anchorRect.bottom + 6));
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  activeSellPanel = panel;
+}
+
 function closeCharacterSheet() {
   if (!ui.characterSheetModal) {
     return;
   }
   closeActiveShopPanel();
+  closeActiveSellPanel();
   ui.characterSheetModal.hidden = true;
   characterSheetDrag = null;
 }
@@ -4296,9 +6495,13 @@ async function importShadowdarklingsCharacterOneClick() {
     }
 
     const importedCharacters = characters.slice(0, availableSlots);
+    placeCharactersNearStartingStairs(importedCharacters);
     state.characters.push(...importedCharacters);
+    queueCharactersForNextCombatRound(importedCharacters);
     normalizeCharacterState(state);
     ensureCharacterPresentation();
+    recomputeVisibility(state);
+    const sighting = processMonsterVisibilityChange();
     state.run.dirty = true;
     markUserActivity();
     updatePanels();
@@ -4306,7 +6509,9 @@ async function importShadowdarklingsCharacterOneClick() {
 
     ui.charactersEmpty.hidden = state.characters.length > 0;
     ui.charactersEmpty.textContent = state.characters.length > 0 ? "" : "No characters imported yet.";
-    setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"} from ShadowDarklings.`);
+    if (!sighting?.combatStarted && !sighting?.combatEnded) {
+      setStatus(`Imported ${importedCharacters.length} character${importedCharacters.length === 1 ? "" : "s"} from ShadowDarklings.`);
+    }
   } catch (error) {
     ui.charactersEmpty.hidden = false;
     ui.charactersEmpty.textContent = error?.message || "ShadowDarklings import failed.";
@@ -4430,19 +6635,23 @@ function performSpellCast(character, spell) {
   const message = succeeded
     ? `${characterName} casts ${spell.name}!`
     : `${characterName} fails to cast ${spell.name}!`;
+  let sighting = null;
 
   if (!succeeded) {
     markCharacterSpellFailed(currentCharacter, spell);
   } else if (getSpellKey(spell) === "light") {
     lightActiveCharacter("light-spell");
     recomputeVisibility(state);
+    sighting = processMonsterVisibilityChange();
   }
 
   markUserActivity();
   if (state?.run) {
     state.run.dirty = true;
   }
-  setStatus(message);
+  if (!sighting?.combatStarted && !sighting?.combatEnded) {
+    setStatus(message);
+  }
   showCheckResult(result, "Spell", {
     headline: `${result.total} spell check`,
     message,
@@ -5122,6 +7331,25 @@ function createSdGearPanel(character) {
       row.append(shieldToggle);
     }
     if (entry.text && entry.primary && Number.isInteger(entry.gearIndex)) {
+      const gearLightSource = getGearLightSource(item);
+      if (
+        gearLightSource &&
+        entry.gearIndex !== getLitGearIndex(character) &&
+        ((gearLightSource === "torch" && canLightTorch(character)) ||
+          (gearLightSource === "lantern" && canLightLantern(character)))
+      ) {
+        const lightButton = document.createElement("button");
+        lightButton.type = "button";
+        lightButton.className = "sd-gear-drop-button sd-gear-light-button";
+        lightButton.textContent = "Light";
+        lightButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const currentCharacter = getCurrentCharacter(character);
+          setActiveCharacter(state, currentCharacter.id);
+          attemptLightSource(gearLightSource);
+        });
+        row.append(lightButton);
+      }
       const dropButton = document.createElement("button");
       dropButton.type = "button";
       dropButton.className = "sd-gear-drop-button";
@@ -5225,12 +7453,196 @@ function getLootCoinCount(loot) {
     + Math.max(0, Number(loot?.coinBreakdown?.copper || 0));
 }
 
+function getCoinEntityKey(loot) {
+  const breakdown = loot?.coinBreakdown || {};
+  if (Number(breakdown.gold || 0) > 0) {
+    return "gold";
+  }
+  if (Number(breakdown.silver || 0) > 0) {
+    return "silver";
+  }
+  return "copper";
+}
+
+function getCoinEntityAmount(loot, key = getCoinEntityKey(loot)) {
+  return Math.max(0, Math.floor(Number(loot?.coinBreakdown?.[key] || 0) || 0));
+}
+
+function getCoinEntityCpLabel(loot) {
+  return `${getCoinBreakdownCopper(loot?.coinBreakdown)} cp`;
+}
+
+function isFloorCoinEntity(loot) {
+  return /^dropped-(gold|silver|copper)$/.test(String(loot?.subtype || ""));
+}
+
+function findCoinCounterpart(loot, key = getCoinEntityKey(loot)) {
+  const wantFloor = !isFloorCoinEntity(loot);
+  return state.entities.find((entity) => (
+    entity !== loot &&
+    entity.type === "treasure" &&
+    entity.kind === "coin-cache" &&
+    !entity.collected &&
+    entity.x === loot.x &&
+    entity.y === loot.y &&
+    entity.roomId === loot.roomId &&
+    getCoinEntityKey(entity) === key &&
+    isFloorCoinEntity(entity) === wantFloor
+  )) || null;
+}
+
+function refreshCoinEntity(entity, key = getCoinEntityKey(entity)) {
+  if (!entity) {
+    return;
+  }
+  entity.coinBreakdown = entity.coinBreakdown || { gold: 0, silver: 0, copper: 0 };
+  entity.coinBreakdown.gold = key === "gold" ? getCoinEntityAmount(entity, "gold") : 0;
+  entity.coinBreakdown.silver = key === "silver" ? getCoinEntityAmount(entity, "silver") : 0;
+  entity.coinBreakdown.copper = key === "copper" ? getCoinEntityAmount(entity, "copper") : 0;
+  const amount = getCoinEntityAmount(entity, key);
+  entity.value = getCoinBreakdownCopper(entity.coinBreakdown) / 100;
+  entity.slots = Math.max(0, Math.ceil(Math.max(0, amount - 100) / 100));
+  entity.name = isFloorCoinEntity(entity)
+    ? `${amount} ${key === "gold" ? "gp" : key === "silver" ? "sp" : "cp"} on floor`
+    : `${key === "gold" ? "g.p." : key === "silver" ? "s.p." : "c.p."} pouch`;
+  entity.description = isFloorCoinEntity(entity)
+    ? `${amount} ${getCoinLabel(key)} on the floor.`
+    : `${amount} ${getCoinLabel(key)} in a pouch.`;
+  if (amount <= 0) {
+    entity.collected = true;
+    entity.visible = false;
+  }
+}
+
+function createFloorCoinEntityFromPouch(loot, key, amount) {
+  const coinBreakdown = { gold: 0, silver: 0, copper: 0 };
+  coinBreakdown[key] = Math.max(0, Math.floor(Number(amount) || 0));
+  const entity = {
+    id: `coin-floor-${key}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    type: "treasure",
+    subtype: `dropped-${key}`,
+    kind: "coin-cache",
+    name: "",
+    x: loot.x,
+    y: loot.y,
+    roomId: loot.roomId,
+    visible: true,
+    revealed: true,
+    collected: false,
+    value: 0,
+    slots: 0,
+    bonusSlots: 0,
+    priceless: false,
+    description: "",
+    coinBreakdown
+  };
+  refreshCoinEntity(entity, key);
+  state.entities.push(entity);
+  return entity;
+}
+
+function moveCoinUnits(source, target, key, amount) {
+  const moveAmount = Math.min(getCoinEntityAmount(source, key), Math.max(0, Math.floor(Number(amount) || 0)));
+  if (!moveAmount || !source || !target) {
+    return 0;
+  }
+  source.coinBreakdown[key] = getCoinEntityAmount(source, key) - moveAmount;
+  target.coinBreakdown = target.coinBreakdown || { gold: 0, silver: 0, copper: 0 };
+  target.coinBreakdown[key] = getCoinEntityAmount(target, key) + moveAmount;
+  target.collected = false;
+  target.visible = true;
+  refreshCoinEntity(source, key);
+  refreshCoinEntity(target, key);
+  return moveAmount;
+}
+
+function adjustCoinFeature(loot, direction) {
+  const key = getCoinEntityKey(loot);
+  const floor = isFloorCoinEntity(loot);
+  let counterpart = findCoinCounterpart(loot, key);
+  if (!counterpart && ((floor && direction === "down") || (!floor && direction === "up"))) {
+    return false;
+  }
+  if (!counterpart) {
+    counterpart = createFloorCoinEntityFromPouch(loot, key, 0);
+  }
+  const source = (floor && direction === "down") || (!floor && direction === "up") ? loot : counterpart;
+  const target = source === loot ? counterpart : loot;
+  const moved = moveCoinUnits(source, target, key, 1);
+  if (moved) {
+    markUserActivity();
+    markRunDirty();
+    render();
+    updatePanels();
+  }
+  return moved > 0;
+}
+
+function setCoinFeatureAmount(loot, nextAmount) {
+  const key = getCoinEntityKey(loot);
+  const current = getCoinEntityAmount(loot, key);
+  const counterpart = findCoinCounterpart(loot, key);
+  const total = current + getCoinEntityAmount(counterpart, key);
+  const targetAmount = Math.max(0, Math.min(total, Math.floor(Number(nextAmount) || 0)));
+  if (targetAmount === current) {
+    return;
+  }
+  const needsCounterpart = targetAmount < current || counterpart;
+  if (!needsCounterpart) {
+    return;
+  }
+  const other = counterpart || createFloorCoinEntityFromPouch(loot, key, 0);
+  if (targetAmount > current) {
+    moveCoinUnits(other, loot, key, targetAmount - current);
+  } else {
+    moveCoinUnits(loot, other, key, current - targetAmount);
+  }
+  markUserActivity();
+  markRunDirty();
+  render();
+  updatePanels();
+}
+
+function createCoinFeatureControls(loot) {
+  const controls = document.createElement("span");
+  controls.className = "coin-feature-controls";
+  const up = document.createElement("button");
+  up.type = "button";
+  up.textContent = "up";
+  const down = document.createElement("button");
+  down.type = "button";
+  down.textContent = "down";
+  const amount = document.createElement("input");
+  amount.type = "number";
+  amount.min = "0";
+  amount.step = "1";
+  amount.value = `${getCoinEntityAmount(loot)}`;
+  amount.title = "Coins in this pile or pouch";
+  up.addEventListener("click", (event) => {
+    event.stopPropagation();
+    adjustCoinFeature(loot, "up");
+  });
+  down.addEventListener("click", (event) => {
+    event.stopPropagation();
+    adjustCoinFeature(loot, "down");
+  });
+  amount.addEventListener("click", (event) => event.stopPropagation());
+  amount.addEventListener("change", (event) => {
+    event.stopPropagation();
+    setCoinFeatureAmount(loot, amount.value);
+  });
+  controls.append(up, down, amount);
+  return controls;
+}
+
 function formatRoomLootButtonText(loot) {
   const slotCount = Math.max(1, Number(loot?.slots || 1) || 1);
   const slotText = `${slotCount} slot${slotCount === 1 ? "" : "s"}`;
   if (loot?.coinBreakdown) {
-    const label = loot.name || "coin bag";
-    return getLootCoinCount(loot) > 100 ? `${label} (${slotText})` : label;
+    if (isFloorCoinEntity(loot)) {
+      return `${getCoinEntityAmount(loot)} ${getCoinEntityKey(loot) === "gold" ? "gp" : getCoinEntityKey(loot) === "silver" ? "sp" : "cp"} on floor`;
+    }
+    return `coin pouch (${getCoinEntityCpLabel(loot)})`;
   }
   if (loot?.subtype === "dropped-equipment") {
     return `${loot.name || "equipment"} (${slotText})`;
@@ -5248,10 +7660,10 @@ function updateRoomLootPanel() {
     entity.subtype !== "room-feature" &&
     entity.subtype !== "door" &&
     entity.visible !== false &&
-    entity.roomId === state.player.roomId
+    (entity.roomId === state.player.roomId || isTileVisible(state, Number(entity.x), Number(entity.y)))
   ));
-  if (!state.player.roomId || (roomLoot.length === 0 && roomFeatures.length === 0)) {
-    ui.roomLootPanel.textContent = "No revealed treasure or features in this room.";
+  if (roomLoot.length === 0 && roomFeatures.length === 0) {
+    ui.roomLootPanel.textContent = "No revealed treasure or features in view.";
     return;
   }
 
@@ -5274,6 +7686,8 @@ function updateRoomLootPanel() {
   }
 
   for (const loot of roomLoot) {
+    const row = document.createElement("div");
+    row.className = ["room-loot-row", loot.coinBreakdown ? "room-loot-row--coins" : ""].filter(Boolean).join(" ");
     const lootButton = document.createElement("button");
     lootButton.type = "button";
     const isDroppedEquipment = loot.subtype === "dropped-equipment";
@@ -5292,12 +7706,17 @@ function updateRoomLootPanel() {
         }
       }
       markUserActivity();
+      markRunDirty();
       setStatus(result.message || result);
       render();
       updatePanels();
       maybeShowFullyLooted();
     });
-    ui.roomLootPanel.append(lootButton);
+    row.append(lootButton);
+    if (loot.coinBreakdown) {
+      row.append(createCoinFeatureControls(loot));
+    }
+    ui.roomLootPanel.append(row);
   }
 
   for (const feature of roomFeatures) {
@@ -5353,6 +7772,8 @@ function updateMonsterPanel() {
   for (const monster of monsters) {
     const card = document.createElement("article");
     card.className = "monster-card";
+    const combatEntry = getCurrentCombatEntry();
+    card.classList.toggle("is-combat-inactive", Boolean(isCombatActive() && !(combatEntry?.type === "monster" && combatEntry.id === monster.id)));
 
     const title = document.createElement("h3");
     title.textContent = monster.wandering ? `${monster.name} (wandering)` : monster.name;
@@ -5385,7 +7806,10 @@ function updateMonsterPanel() {
       monster.hp = Math.max(0, Math.min(999, Number.parseInt(nextHp, 10) || 0));
       if (monster.hp <= 0) {
         const result = defeatMonster(state, monster);
-        setStatus(result.message);
+        const ended = isCombatActive() ? checkCombatEnd() : false;
+        if (!ended) {
+          setStatus(result.message);
+        }
       } else {
         setStatus(`${monster.name || "Monster"} HP set to ${monster.hp}.`);
       }
@@ -5399,6 +7823,24 @@ function updateMonsterPanel() {
     hpInput.addEventListener("change", () => applyMonsterHp(hpInput.value));
     hpControls.append(hpLabel, minusButton, hpInput, plusButton);
     card.append(hpControls);
+
+    if (monster.attitude === "indifferent" && !isCombatActive()) {
+      const attitudeActions = document.createElement("div");
+      attitudeActions.className = "monster-attitude-actions";
+      if (monsterAllowsDiplomacy(monster)) {
+        const persuadeButton = document.createElement("button");
+        persuadeButton.type = "button";
+        persuadeButton.textContent = "Persuade Monster";
+        persuadeButton.addEventListener("click", () => persuadeMonster(monster));
+        attitudeActions.append(persuadeButton);
+      }
+      const attackButton = document.createElement("button");
+      attackButton.type = "button";
+      attackButton.textContent = "Attack Monster";
+      attackButton.addEventListener("click", () => attackIndifferentMonster(monster));
+      attitudeActions.append(attackButton);
+      card.append(attitudeActions);
+    }
 
     const abilityEntries = Object.entries(monster.abilities || {});
     if (abilityEntries.length) {
@@ -5479,6 +7921,7 @@ function updateTrapPanel() {
 }
 
 function updatePanels() {
+  updatePartyAssetsUi();
   updateLootUi();
   updateCharactersUi();
   updateLightControlUi();
@@ -5486,6 +7929,7 @@ function updatePanels() {
   updateMonsterPanel();
   updateTrapPanel();
   updateTrapActionUi();
+  updateCombatUi();
   renderMultiplayerUi();
 }
 
@@ -5592,6 +8036,33 @@ function applyTorchAdvance(result) {
   }
 }
 
+function processOutOfCombatDyingTick() {
+  if (!state || isCombatActive()) {
+    lastDyingAutoTickAt = Date.now();
+    return false;
+  }
+  const now = Date.now();
+  if (now - lastDyingAutoTickAt < 10000) {
+    return false;
+  }
+  lastDyingAutoTickAt = now;
+  const dying = (state.characters || []).filter(isCharacterDying);
+  if (!dying.length) {
+    return false;
+  }
+  const messages = [];
+  for (const character of dying) {
+    decrementCharacterDyingRounds(character);
+    syncCharacterDyingRaw(character);
+    messages.push(character.dead
+      ? `${character.name} dies.`
+      : `${character.name} is dying in ${character.dyingRounds} ${character.dyingRounds === 1 ? "round" : "rounds"}.`);
+  }
+  markRunDirty();
+  setStatus(messages[messages.length - 1]);
+  return true;
+}
+
 function performSearch() {
   if (!state) {
     return;
@@ -5687,7 +8158,11 @@ function sanitizeWanderingInput(input) {
   const value = Math.max(0, Math.min(99, Number.parseInt(input.value || "0", 10) || 0));
   input.value = `${value}`;
   sizeControlField(input);
-  normalizeWanderingChance(state, ui.wanderingNumerator.value, ui.wanderingDenominator.value);
+  normalizeWanderingChance(
+    state,
+    ui.wanderingNumerator?.value,
+    ui.wanderingDenominator?.value
+  );
   markUserActivity();
   updateWanderingUi();
 }
@@ -5761,8 +8236,21 @@ async function loadSelectedCharacter(savedCharacter) {
     if (!character) {
       throw new Error("Saved character did not include usable character data.");
     }
+    if (Number(character.partyAssetShareCopper || 0) > 0) {
+      addPartyAssetsCopper(character.partyAssetShareCopper);
+      character.partyAssetShareCopper = 0;
+      character.raw = character.raw || {};
+      character.raw.partyAssetShareCopper = 0;
+    }
+    const previousActiveCharacterId = state.activeCharacterId;
+    placeCharactersNearStartingStairs([character]);
     state.characters.push(character);
-    state.activeCharacterId = character.id;
+    if (!isCombatActive()) {
+      state.activeCharacterId = character.id;
+    } else {
+      state.activeCharacterId = previousActiveCharacterId;
+      queueCharactersForNextCombatRound([character]);
+    }
     normalizeCharacterState(state);
     applyCharacterAmmoOverrides();
     syncAllCharacterEquipmentDerivedStats();
@@ -5770,12 +8258,15 @@ async function loadSelectedCharacter(savedCharacter) {
     ensureCharacterPresentation();
     syncPlayerLightFromActiveCharacter();
     recomputeVisibility(state);
+    const sighting = processMonsterVisibilityChange();
     markUserActivity();
     updateCharactersUi();
     render();
     updatePanels();
     closeSaveLoadModal();
-    setStatus(`Loaded character ${character.name || "saved character"}.`);
+    if (!sighting?.combatStarted && !sighting?.combatEnded) {
+      setStatus(`Loaded character ${character.name || "saved character"}.`);
+    }
   } catch (error) {
     ui.saveLoadStatus.textContent = error.message;
   }
@@ -5900,13 +8391,17 @@ async function loadSelectedRun(run) {
     state.run.name = normalizeSaveName(loaded.name || state.run.name);
     state.run.dirty = false;
     state.run.hasUserActivity = false;
+    ensureCombatState();
     recomputeVisibility(state);
+    const sighting = processMonsterVisibilityChange();
     setupCanvasLayers(state);
     updatePanels();
     updateWanderingUi();
     render();
     closeSaveLoadModal();
-    setStatus(`Loaded ${state.run.name || "saved run"}.`);
+    if (!sighting?.combatStarted && !sighting?.combatEnded) {
+      setStatus(`Loaded ${state.run.name || "saved run"}.`);
+    }
   } catch (error) {
     ui.saveLoadStatus.textContent = error.message;
   }
@@ -6226,7 +8721,14 @@ function hookInputEvents() {
     if (!state) {
       return;
     }
-    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(event.target.tagName)) {
+    const targetTag = event.target?.tagName || "";
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(targetTag)) {
+      return;
+    }
+    if (event.key === "Enter" && getCurrentCombatEntry()?.type === "character") {
+      event.preventDefault();
+      endCurrentTurn();
+      ui.mapHost?.focus?.();
       return;
     }
     if (event.key === "+" || event.key === "=") {
@@ -6256,19 +8758,34 @@ function hookInputEvents() {
       ArrowUp: [0, -1],
       ArrowDown: [0, 1],
       ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0]
+      ArrowRight: [1, 0],
+      Numpad1: [-1, 1],
+      Numpad2: [0, 1],
+      Numpad3: [1, 1],
+      Numpad4: [-1, 0],
+      Numpad6: [1, 0],
+      Numpad7: [-1, -1],
+      Numpad8: [0, -1],
+      Numpad9: [1, -1]
     };
-    const delta = moves[event.key];
+    const delta = moves[event.code] || moves[event.key];
     if (delta) {
       event.preventDefault();
+      if (handleCombatMovement(delta)) {
+        return;
+      }
       syncPlayerToActiveCharacter();
       const result = movePlayer(state, delta[0], delta[1]);
+      let sighting = null;
       if (result.moved) {
         syncActiveCharacterToPlayer();
         recomputeVisibility(state);
+        sighting = processMonsterVisibilityChange();
       }
       markUserActivity();
-      setStatus(result);
+      if (!sighting?.combatStarted && !sighting?.combatEnded) {
+        setStatus(result);
+      }
       render();
       updatePanels();
       return;
@@ -6346,7 +8863,18 @@ function hookInputEvents() {
       ui.spellDetailModal.hidden = true;
     }
   });
-  ui.levelInput.addEventListener("input", () => sizeControlField(ui.levelInput));
+  ui.levelInput.addEventListener("input", () => {
+    sizeControlField(ui.levelInput);
+    updateHowToPlayLevel();
+  });
+
+  ui.howToPlayBtn?.addEventListener("click", () => {
+    const expanded = ui.howToPlayBtn.getAttribute("aria-expanded") === "true";
+    ui.howToPlayBtn.setAttribute("aria-expanded", expanded ? "false" : "true");
+    if (ui.howToPlayContent) {
+      ui.howToPlayContent.hidden = expanded;
+    }
+  });
 
   ui.saveBtn.addEventListener("click", () => {
     openSaveLoadModal("save");
@@ -6374,46 +8902,11 @@ function hookInputEvents() {
   });
 
   ui.lightTorchBtn.addEventListener("click", () => {
-    const active = getActiveCharacter(state);
-    if (!canLightTorch(active)) {
-      return;
-    }
-    if (active?.lightSource === "torch") {
-      removeOneTorch(active);
-    }
-    lightActiveCharacter("torch");
-    normalizeCharacterState(state);
-    applyCharacterAmmoOverrides();
-    syncAllCharacterEquipmentDerivedStats();
-    applyCharacterColorOverrides();
-    ensureCharacterPresentation();
-    markUserActivity();
-    recomputeVisibility(state);
-    setStatus("New torch lit.");
-    render();
-    updatePanels();
+    attemptLightSource("torch");
   });
 
   ui.lightLanternBtn?.addEventListener("click", () => {
-    const active = getActiveCharacter(state);
-    if (!canLightLantern(active)) {
-      return;
-    }
-    const wasHiddenLantern = active?.lightSource === "lantern" && active.lightHidden === true;
-    if (!wasHiddenLantern) {
-      removeOneOil(active);
-    }
-    lightActiveCharacter("lantern");
-    normalizeCharacterState(state);
-    applyCharacterAmmoOverrides();
-    syncAllCharacterEquipmentDerivedStats();
-    applyCharacterColorOverrides();
-    ensureCharacterPresentation();
-    markUserActivity();
-    recomputeVisibility(state);
-    setStatus(wasHiddenLantern ? "Lantern uncovered." : "Lantern is lit!");
-    render();
-    updatePanels();
+    attemptLightSource("lantern");
   });
 
   ui.castLightBtn?.addEventListener("click", async () => {
@@ -6428,7 +8921,7 @@ function hookInputEvents() {
     updatePanels();
   });
 
-  ui.torchOutBtn.addEventListener("click", () => {
+  ui.torchOutBtn?.addEventListener("click", () => {
     const active = getActiveCharacter(state);
     if (active?.lightSource === "lantern") {
       extinguishActiveLantern();
@@ -6442,26 +8935,6 @@ function hookInputEvents() {
     }
     markUserActivity();
     recomputeVisibility(state);
-    render();
-    updatePanels();
-  });
-
-  ui.torchBtn.addEventListener("click", () => {
-    const active = getActiveCharacter(state);
-    if (active?.lightSource === "lantern" && Number(active.lightRadius) > 0) {
-      hideActiveLantern();
-      setStatus("Lantern hidden.");
-    } else if (active?.lightSource === "lantern" && active.lightHidden === true) {
-      revealActiveLantern();
-      setStatus("Lantern revealed.");
-    } else if (active?.lightSource === "light-spell" && Number(active.lightRadius) > 0) {
-      clearActiveCharacterLight();
-      recomputeVisibility(state);
-      setStatus("Light hidden.");
-    } else {
-      return;
-    }
-    markUserActivity();
     render();
     updatePanels();
   });
@@ -6484,9 +8957,20 @@ function hookInputEvents() {
     performSearch();
   });
 
+  ui.stealthBtn?.addEventListener("click", () => {
+    performStealth();
+  });
+
+  ui.endTurnBtn?.addEventListener("click", () => {
+    endCurrentTurn();
+  });
+
   ui.pickLockBtn.addEventListener("click", () => {
     const context = getCharacterActionContext("pick");
-    const result = attemptLockedDoor(state, "pick", context.modifier, { doubleRoll: context.doubleRoll });
+    const result = attemptLockedDoor(state, "pick", context.modifier, {
+      doubleRoll: context.doubleRoll,
+      disadvantage: context.disadvantage
+    });
     const message = result.opened
       ? `Pick Lock ${result.total}. Lock picked.`
       : `Pick Lock ${result.total}. The lock holds.`;
@@ -6503,7 +8987,10 @@ function hookInputEvents() {
 
   ui.breakDoorBtn.addEventListener("click", () => {
     const context = getCharacterActionContext("break");
-    const result = attemptLockedDoor(state, "break", context.modifier, { doubleRoll: context.doubleRoll });
+    const result = attemptLockedDoor(state, "break", context.modifier, {
+      doubleRoll: context.doubleRoll,
+      disadvantage: context.disadvantage
+    });
     const message = result.opened ? "door destroyed." : "you can't budge the door.";
     markUserActivity();
     setStatus(result.trapSprung ? `${message} ${result.message}` : message);
@@ -6516,13 +9003,13 @@ function hookInputEvents() {
     updatePanels();
   });
 
-  ui.blackoutToggle.addEventListener("change", () => {
+  ui.blackoutToggle?.addEventListener("change", () => {
     forceBlackoutWhenTorchOut = ui.blackoutToggle.checked;
     render();
   });
 
-  ui.wanderingNumerator.addEventListener("input", () => sanitizeWanderingInput(ui.wanderingNumerator));
-  ui.wanderingDenominator.addEventListener("input", () => sanitizeWanderingInput(ui.wanderingDenominator));
+  ui.wanderingNumerator?.addEventListener("input", () => sanitizeWanderingInput(ui.wanderingNumerator));
+  ui.wanderingDenominator?.addEventListener("input", () => sanitizeWanderingInput(ui.wanderingDenominator));
   ui.saveNameInput.addEventListener("input", () => {
     ui.saveNameInput.value = ui.saveNameInput.value.slice(0, MAX_SAVE_NAME_LENGTH);
     ui.overwriteConfirmation.hidden = true;
@@ -6542,6 +9029,28 @@ function hookInputEvents() {
   ui.saveLoadClose.addEventListener("click", closeSaveLoadModal);
   ui.lootCompleteClose.addEventListener("click", () => {
     ui.lootCompleteModal.hidden = true;
+  });
+
+  ui.extinguishOldYesBtn?.addEventListener("click", () => {
+    const source = pendingLightRequest?.source;
+    closeExtinguishOldModal();
+    if (source) {
+      applyLightRequest(source, { extinguishOld: true });
+    }
+  });
+
+  ui.extinguishOldNoBtn?.addEventListener("click", () => {
+    const source = pendingLightRequest?.source;
+    closeExtinguishOldModal();
+    if (source) {
+      applyLightRequest(source, { extinguishOld: false });
+    }
+  });
+
+  ui.extinguishOldModal?.addEventListener("click", (event) => {
+    if (event.target === ui.extinguishOldModal) {
+      closeExtinguishOldModal();
+    }
   });
 }
 
@@ -6589,9 +9098,16 @@ function hookMapViewportInteractions() {
       updatePanels();
       return;
     }
-    const result = clickEntity(state, x, y);
+    const clickedMonster = getVisibleMonsterAtTile(x, y);
+    const result = clickedMonster ? attackClickedMonster(clickedMonster) : clickEntity(state, x, y);
+    let sighting = null;
+    if (!clickedMonster) {
+      sighting = processMonsterVisibilityChange();
+    }
     markUserActivity();
-    setStatus(result);
+    if (!clickedMonster && !sighting?.combatStarted && !sighting?.combatEnded) {
+      setStatus(result);
+    }
     render();
     if (!/^No interactive token\b|^That tile is hidden by darkness\./.test(result.message || "")) {
       updatePanels();
@@ -6672,24 +9188,45 @@ async function generateAndRender() {
   ui.seedInput.value = `${seed}`;
   const level = Number(ui.levelInput.value || 1);
   setStatus("Generating dungeon...");
-  [shadowdarkContent, rulesData] = await Promise.all([loadShadowdarkContent(), loadRulesData(), ensureSpellLibraryLoaded()]);
-  [trapTable, monsterTable] = await Promise.all([loadTrapTable(), loadMonsterTableForLevel(level)]);
+  [shadowdarkContent, rulesData, organicAssetNames, innerWallAssetNames] = await Promise.all([
+    loadShadowdarkContent(),
+    loadRulesData(),
+    loadOrganicAssets(),
+    loadInnerWallAssets(),
+    ensureSpellLibraryLoaded()
+  ]);
+  [trapTable, monsterTable, bossMonsterTable] = await Promise.all([
+    loadTrapTable(),
+    loadMonsterTableForLevel(level),
+    loadBossMonsterTableForLevel(level)
+  ]);
   state = generateDungeon(seed, level, {
     monsterTable,
+    bossMonsterTable,
     trapTable,
     contentCatalog: shadowdarkContent,
-    rulesData
+    rulesData,
+    organicAssets: organicAssetNames,
+    innerWallAssets: innerWallAssetNames
   });
   normalizeCharacterState(state);
-  normalizeWanderingChance(state, ui.wanderingNumerator.value, ui.wanderingDenominator.value);
+  normalizeWanderingChance(
+    state,
+    ui.wanderingNumerator?.value,
+    ui.wanderingDenominator?.value
+  );
   state.run.hasUserActivity = false;
   state.run.dirty = false;
+  ensureCombatState();
   recomputeVisibility(state);
+  const sighting = processMonsterVisibilityChange();
   setupCanvasLayers(state);
   updatePanels();
   setActiveTab(activeTab);
   render();
-  setStatus(`Generated level ${level} map with seed ${seed}. Move with arrow keys.`);
+  if (!sighting?.combatStarted && !sighting?.combatEnded) {
+    setStatus(`Generated level ${level} map with seed ${seed}. Move with arrow keys.`);
+  }
 }
 
 function startClock() {
@@ -6705,6 +9242,9 @@ function startClock() {
     }
     if (result.expired) {
       setStatus(expireActiveLightFromTimer());
+      changed = true;
+    }
+    if (processOutOfCombatDyingTick()) {
       changed = true;
     }
     if (!changed) {
@@ -6725,6 +9265,7 @@ async function initialize() {
   hookInputEvents();
   hookMapViewportInteractions();
   ui.seedInput.value = `${createRandomDungeonSeed()}`;
+  updateHowToPlayLevel();
   updateControlSizing();
   syncSidebarWidth();
   syncBaseClassesOnlyToggleState(readBaseClassesOnlyPreference());

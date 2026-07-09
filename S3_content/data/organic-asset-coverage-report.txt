@@ -1,0 +1,156 @@
+﻿Organic Artist-Time Coverage Report
+This report is optimized for saving drawing time, not exact one-to-one placement signatures.
+It treats the 5x5 corner pattern and 44px side-strip pattern as separate transform classes, then checks which classes current art already covers.
+Coverage source: filename signatures plus every current bitmap transformed by rotate/flip and sampled with organic-contact threshold 0.15.
+Generator rule: every filled N/E/S/W side blocks movement and lighting across that edge. org-free means occupiable tile, with edge passability still controlled by side strips.
+When moving or tracing light between adjacent organic tiles, the shared edge is open only when both tiles have an "x" on their side of that edge.
+There are 36 possible corner/side artist-time classes: 6 corner orbits x 6 side-strip orbits.
+For org-free movement, the all-four-sides-filled side class NoEoSoWo is invalid and excluded, leaving 30 valid free target classes.
+
+Unparsed organic filenames:
+none
+
+Existing org-free files/signatures excluded from free movement because side class is NoEoSoWo:
+org-free-NWxNEoSEoSWoNoEoSoWx1.png
+  NWoNEoSEoSWxNoEoSoWo
+  NWoNEoSExSWoNoEoSoWo
+  NWoNExSEoSWoNoEoSoWo
+  NWxNEoSEoSWoNoEoSoWo
+
+Existing org-free files sharing valid artist-time classes:
+corners=NWoNEoSEoSWo; sides=NoEoSoWx
+  org-free-NWoNEoSEoSWoNoEoSoWx.png
+  org-free-NWoNEoSEoSWoNoEoSoWx3.png
+  org-free-NWxNEoSEoSWoNxEoSxWo.png
+corners=NWoNEoSEoSWo; sides=NoEoSxWx
+  org-free-NWoNEoSEoSWoNxEoSoWx1.png
+  org-free-NWoNEoSEoSWoNxExSoWo1.png
+corners=NWoNEoSEoSWo; sides=NoExSoWx
+  org-free-NWoNEoSEoSWoNxEoSxWo1.png
+  org-free-NWoNEoSEoSWoNxEoSxWo2.png
+  org-free-NWxNExSEoSWoNxEoSxWo.png
+corners=NWoNEoSEoSWx; sides=NoEoSxWx
+  org-free-NWoNEoSEoSWxNxEoSoWx1.png
+  org-free-NWoNEoSEoSWxNxExSoWo1.png
+  org-free-NWoNEoSExSWoNoExSxWo1.png
+  org-free-NWoNExSEoSWoNxEoSoWx1.png
+  org-free-NWoNExSEoSWoNxEoSoWx2.png
+  org-free-NWxNEoSEoSWoNxEoSoWx.png
+  org-free-NWxNEoSEoSWoNxEoSoWx1.png
+corners=NWoNEoSEoSWx; sides=NoExSoWx
+  org-free-NWoNEoSEoSWxNxEoSxWo1.png
+  org-free-NWxNEoSEoSWoNxEoSxWo.png
+corners=NWoNEoSEoSWx; sides=NoExSxWx
+  org-free-NWoNEoSEoSWxNxEoSxWx1.png
+  org-free-NWoNEoSExSWoNxExSxWo1.png
+corners=NWoNEoSExSWx; sides=NoExSoWx
+  org-free-NWoNEoSExSWxNxEoSxWo1.png
+  org-free-NWoNEoSExSWxNxEoSxWo2.png
+  org-free-NWxNExSEoSWoNxEoSxWo.png
+  org-free-NWxNExSExSWxNoExSoWx.png
+corners=NWoNEoSExSWx; sides=NoExSxWx
+  org-free-NWxNEoSEoSWxNxEoSxWx.png
+  org-free-NWxNExSEoSWxNxEoSxWx.png
+  org-free-NWxNExSEoSWxNxEoSxWx2.png
+corners=NWoNExSExSWx; sides=NoExSxWx
+  org-free-NWxNExSEoSWxNxEoSxWx.png
+  org-free-NWxNExSEoSWxNxEoSxWx2.png
+  org-free-NWxNExSEoSWxNxEoSxWx3.png
+  org-free-NWxNExSEoSWxNxExSoWx.png
+
+Existing org-blocks files sharing artist-time classes:
+corners=NWoNEoSEoSWo; sides=NoEoSoWo
+  org-blocks-NWoNEoSEoSWoNoExSxWo1.png
+  org-blocks-NWoNEoSEoSWoNoExSxWx.png
+  org-blocks-NWoNEoSEoSWoNxExSxWx.png
+  org-blocks-NWoNEoSEoSWxNoEoSoWo1.png
+corners=NWoNEoSEoSWo; sides=NoEoSoWx
+  org-blocks-NWoNEoSEoSWoNoEoSoWx.png
+  org-blocks-NWoNEoSEoSWoNoEoSoWx1.png
+  org-blocks-NWoNEoSEoSWoNoEoSoWx2.png
+  org-blocks-NWoNEoSEoSWoNoEoSxWx.png
+  org-blocks-NWoNEoSEoSWoNoExSoWx1.png
+  org-blocks-NWxNEoSEoSWxNoEoSoWx.png
+  org-blocks-NWxNEoSEoSWxNoEoSoWx2.png
+corners=NWoNEoSEoSWo; sides=NoEoSxWx
+  org-blocks-NWoNEoSEoSWoNoEoSxWx.png
+  org-blocks-NWoNEoSEoSWoNoExSxWo1.png
+corners=NWoNEoSEoSWx; sides=NoEoSoWo
+  org-blocks-NWoNEoSEoSWxNoEoSoWo1.png
+  org-blocks-NWoNEoSExSWoNoEoSoWo1.png
+  org-blocks-NWoNExSEoSWoNoEoSoWo1.png
+  org-blocks-NWxNEoSEoSWoNoEoSoWo1.png
+corners=NWoNEoSEoSWx; sides=NoEoSoWx
+  org-blocks-NWoNEoSEoSWxNoExSoWo.png
+  org-blocks-NWoNEoSEoSWxNoExSxWo.png
+  org-blocks-NWxNEoSEoSWoNxEoSoWx.png
+  org-blocks-NWxNExSEoSWxNxEoSoWx.png
+corners=NWoNEoSEoSWx; sides=NoEoSxWx
+  org-blocks-NWoNEoSEoSWxNoExSxWo.png
+  org-blocks-NWxNEoSEoSWoNxEoSoWx.png
+  org-blocks-NWxNEoSEoSWxNxEoSoWx.png
+  org-blocks-NWxNExSEoSWoNxEoSoWx.png
+corners=NWoNEoSEoSWx; sides=NoExSxWx
+  org-blocks-NWoNEoSEoSWxNxExSoWx.png
+  org-blocks-NWoNEoSEoSWxNxExSxWx.png
+  org-blocks-NWoNEoSExSWxNxExSoWx.png
+corners=NWoNEoSExSWx; sides=NoEoSoWo
+  org-blocks-NWoNEoSExSWxNoEoSoWo.png
+  org-blocks-NWoNEoSExSWxNoExSoWx.png
+  org-blocks-NWoNEoSExSWxNxEoSoWo.png
+corners=NWoNEoSExSWx; sides=NoEoSoWx
+  org-blocks-NWoNEoSExSWxNoEoSoWx.png
+  org-blocks-NWoNEoSExSWxNoEoSxWx.png
+  org-blocks-NWoNEoSExSWxNxEoSoWo.png
+  org-blocks-NWoNEoSExSWxNxEoSoWx.png
+  org-blocks-NWxNEoSEoSWxNoEoSoWx.png
+  org-blocks-NWxNEoSEoSWxNoEoSoWx2.png
+  org-blocks-NWxNExSEoSWoNxEoSoWx2.png
+corners=NWoNEoSExSWx; sides=NoEoSxWx
+  org-blocks-NWoNEoSExSWxNoEoSxWx.png
+  org-blocks-NWoNEoSExSWxNxEoSoWx.png
+  org-blocks-NWxNEoSEoSWxNxEoSoWx.png
+  org-blocks-NWxNExSEoSWoNxEoSoWx.png
+  org-blocks-NWxNExSEoSWoNxEoSoWx2.png
+  org-blocks-NWxNExSExSWxNxExSoWx.png
+corners=NWoNEoSExSWx; sides=NoExSxWx
+  org-blocks-NWoNEoSExSWxNxExSoWx.png
+  org-blocks-NWxNExSEoSWoNxExSoWx.png
+  org-blocks-NWxNExSEoSWoNxExSxWx.png
+corners=NWoNExSEoSWx; sides=NoEoSoWx
+  org-blocks-NWxNEoSExSWoNxEoSoWo.png
+  org-blocks-NWxNEoSExSWoNxEoSoWo2.png
+  org-blocks-NWxNEoSExSWoNxExSxWx.png
+corners=NWxNEoSExSWo; sides=NxExSoWo
+  org-blocks-NWxNEoSExSWoNxExSoWo.png
+corners=NWoNExSExSWx; sides=NoEoSxWx
+  org-blocks-NWoNExSExSWxNxEoSxWx.png
+  org-blocks-NWxNExSEoSWxNxEoSoWx.png
+corners=NWoNExSExSWx; sides=NoExSxWx
+  org-blocks-NWoNExSExSWxNxEoSxWx.png
+  org-blocks-NWxNExSEoSWxNxExSoWx.png
+corners=NWxNExSExSWx; sides=NoEoSoWx
+  org-blocks-NWxNExSExSWxNxEoSxWo.png
+  org-blocks-NWxNExSExSWxNxExSoWo2.png
+corners=NWxNExSExSWx; sides=NoExSxWx
+  org-blocks-NWxNExSExSWxNxExSoWx.png
+  org-blocks-NWxNExSExSWxNxExSxWx.png
+
+org-free
+source files: 45
+valid target artist-time classes: 30
+excluded invalid target classes: 6
+covered valid artist-time classes: 30 / 30
+minimum new drawings, one per missing valid class: 0
+
+
+org-blocks
+source files: 52
+valid target artist-time classes: 36
+covered valid artist-time classes: 36 / 36
+minimum new drawings, one per missing valid class: 0
+combined movement-agnostic shape coverage
+source files: 97
+valid target artist-time classes: 36
+covered valid artist-time classes: 36 / 36
+minimum new drawings, one per missing valid class: 0

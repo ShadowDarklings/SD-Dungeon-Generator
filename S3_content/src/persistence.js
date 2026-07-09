@@ -19,6 +19,26 @@ function asSet(value) {
   return new Set();
 }
 
+function serializeDoorSideMap(value) {
+  if (!(value instanceof Map)) {
+    return {};
+  }
+  return Object.fromEntries([...value.entries()].map(([doorId, sides]) => [
+    doorId,
+    Array.from(sides || [])
+  ]));
+}
+
+function hydrateDoorSideMap(value) {
+  if (value instanceof Map) {
+    return new Map([...value.entries()].map(([doorId, sides]) => [doorId, asSet(sides)]));
+  }
+  if (!value || typeof value !== "object") {
+    return new Map();
+  }
+  return new Map(Object.entries(value).map(([doorId, sides]) => [doorId, asSet(sides)]));
+}
+
 function normalizeExploredLightPolygons(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -73,6 +93,31 @@ function normalizeInventory(raw = {}) {
   };
 }
 
+function normalizeCombat(raw = {}) {
+  return {
+    active: raw.active === true,
+    round: Math.max(0, Number.parseInt(raw.round ?? 0, 10) || 0),
+    turnIndex: Math.max(0, Number.parseInt(raw.turnIndex ?? 0, 10) || 0),
+    turnOrder: Array.isArray(raw.turnOrder) ? raw.turnOrder : [],
+    playerOrderIds: Array.isArray(raw.playerOrderIds) ? raw.playerOrderIds : [],
+    pendingPlayerIds: Array.isArray(raw.pendingPlayerIds) ? raw.pendingPlayerIds : [],
+    monsterIds: Array.isArray(raw.monsterIds) ? raw.monsterIds : [],
+    sideFirst: raw.sideFirst === "monsters" ? "monsters" : "characters",
+    movementRemaining: Math.max(0, Number.parseInt(raw.movementRemaining ?? 0, 10) || 0),
+    actionUsed: raw.actionUsed === true,
+    initiative: Array.isArray(raw.initiative) ? raw.initiative : [],
+    log: Array.isArray(raw.log) ? raw.log.slice(-12) : []
+  };
+}
+
+function normalizeMoney(raw = {}) {
+  return {
+    gold: Math.max(0, Math.floor(Number(raw.gold || 0) || 0)),
+    silver: Math.max(0, Math.floor(Number(raw.silver || 0) || 0)),
+    copper: Math.max(0, Math.floor(Number(raw.copper || 0) || 0))
+  };
+}
+
 export function normalizeSaveName(name) {
   return String(name || "").trim().slice(0, MAX_SAVE_NAME_LENGTH);
 }
@@ -84,7 +129,8 @@ export function serializeDungeonState(state) {
       visibleNow: Array.from(state.visibility?.visibleNow || []),
       exploredEver: Array.from(state.visibility?.exploredEver || []),
       exploredLightPolygons: normalizeExploredLightPolygons(state.visibility?.exploredLightPolygons),
-      visitedRoomIds: Array.from(state.visibility?.visitedRoomIds || [])
+      visitedRoomIds: Array.from(state.visibility?.visitedRoomIds || []),
+      closedDoorExploredSides: serializeDoorSideMap(state.visibility?.closedDoorExploredSides)
     }
   });
   copy.run = normalizeRunMeta(state.run);
@@ -93,6 +139,8 @@ export function serializeDungeonState(state) {
     lastTickAt: null
   };
   copy.wanderingMonsters = normalizeWandering(state.wanderingMonsters);
+  copy.combat = normalizeCombat(state.combat);
+  copy.partyAssets = normalizeMoney(state.partyAssets);
   normalizeCharacterState(copy);
   return copy;
 }
@@ -105,13 +153,15 @@ export function hydrateDungeonState(raw) {
   const exploredEver = asSet(raw.visibility?.exploredEver);
   const visitedRoomIds = asSet(raw.visibility?.visitedRoomIds);
   const exploredLightPolygons = normalizeExploredLightPolygons(raw.visibility?.exploredLightPolygons);
+  const closedDoorExploredSides = hydrateDoorSideMap(raw.visibility?.closedDoorExploredSides);
   const state = clonePlain({
     ...raw,
     visibility: {
       visibleNow: Array.from(visibleNow),
       exploredEver: Array.from(exploredEver),
       exploredLightPolygons,
-      visitedRoomIds: Array.from(visitedRoomIds)
+      visitedRoomIds: Array.from(visitedRoomIds),
+      closedDoorExploredSides: serializeDoorSideMap(closedDoorExploredSides)
     }
   });
   state.run = normalizeRunMeta(state.run);
@@ -127,18 +177,29 @@ export function hydrateDungeonState(raw) {
     torchLit: state.player?.torchLit !== false
   };
   state.lockedDoorAction = state.lockedDoorAction?.doorId ? state.lockedDoorAction : null;
+  state.combat = normalizeCombat(state.combat);
   state.visibility = {
     visibleNow,
     exploredEver,
     exploredLightPolygons,
     visitedRoomIds,
-    closedDoorVisibleSides: new Map()
+    closedDoorVisibleSides: new Map(),
+    closedDoorExploredSides
   };
   state.lootLog = {
     entries: Array.isArray(state.lootLog?.entries) ? state.lootLog.entries : [],
     totalValue: Number(state.lootLog?.totalValue) || 0,
     fullyLootedShown: state.lootLog?.fullyLootedShown === true
   };
+  state.decor = {
+    ...(state.decor || {}),
+    columns: Array.isArray(state.decor?.columns) ? state.decor.columns : [],
+    water: Array.isArray(state.decor?.water) ? state.decor.water : [],
+    canals: Array.isArray(state.decor?.canals) ? state.decor.canals : [],
+    junk: Array.isArray(state.decor?.junk) ? state.decor.junk : [],
+    wells: Array.isArray(state.decor?.wells) ? state.decor.wells : []
+  };
+  state.partyAssets = normalizeMoney(state.partyAssets);
   normalizeCharacterState(state);
   state.inventory = normalizeInventory(state.inventory);
   return state;

@@ -2,6 +2,9 @@ import { ENTITY_TYPES, TILE_TYPES } from "./constants.js";
 import { getTile, tileKey } from "./state-schema.js";
 import { SeededRng } from "./rng.js";
 
+export const DEFAULT_WANDERING_NUMERATOR = 1;
+export const DEFAULT_WANDERING_DENOMINATOR = 6;
+
 function normalizeInteger(value, fallback = 0) {
   const digits = String(value ?? "").replace(/\D/g, "");
   if (!digits) {
@@ -12,8 +15,8 @@ function normalizeInteger(value, fallback = 0) {
 
 export function normalizeWanderingChance(state, numerator, denominator) {
   state.wanderingMonsters = {
-    numerator: normalizeInteger(numerator, 0),
-    denominator: normalizeInteger(denominator, 0),
+    numerator: normalizeInteger(numerator, DEFAULT_WANDERING_NUMERATOR),
+    denominator: normalizeInteger(denominator, DEFAULT_WANDERING_DENOMINATOR),
     spawnedCount: Math.max(0, Number.parseInt(state.wanderingMonsters?.spawnedCount ?? 0, 10) || 0)
   };
   return state.wanderingMonsters;
@@ -73,10 +76,15 @@ function monsterDetails(rng, monsterTable) {
   }
   return {
     name: monster["Monster Name"],
+    level: monster["**LV**"] || monster.level || null,
     ac: monster["**AC**"] || null,
     hp: monster["**HP**"] || null,
     attack: monster["**ATK**"] || null,
-    abilities: monster.abilities || {}
+    movement: monster["**MV**"] || monster.movement || null,
+    D: monster["**D**"] || monster.D || "",
+    abilities: monster.abilities || {},
+    tags: monster.tags || [],
+    diplomacy: monster.diplomacy || monster.Diplomacy || monster["Diplomacy"] || ""
   };
 }
 

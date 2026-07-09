@@ -1,0 +1,680 @@
+Aboleth
+tags: aberration, underdark
+Diplomacy: Y
+Acolyte
+tags: humanoid, underdark, civil
+Diplomacy: Y
+Angel, Domini
+tags: angel
+Diplomacy: Y
+Angel, Principi
+tags: angel
+Diplomacy: Y
+Angel, Seraph
+tags: angel
+Diplomacy: Y
+Animated Armor
+tags: construct, horror, civil
+
+Ankheg
+tags: monstrosity, underdark
+
+Ape
+tags: animal
+
+Ape, Snow
+tags: animal
+
+Apprentice
+tags: humanoid, civil
+Diplomacy: Y
+Archangel
+tags: angel
+Diplomacy: Y
+Archdevil
+tags: devil, horror
+Diplomacy: Y
+Archmage
+tags: humanoid, civil
+Diplomacy: Y
+Assassin
+tags: humanoid, thieves
+Diplomacy: Y
+Azer
+tags: elemental
+Diplomacy: Y
+Badger
+tags: animal
+
+Bandit
+tags: humanoid, thieves
+Diplomacy: Y
+Basilisk
+tags: monstrosity, underdark
+
+Bat, Giant
+tags: animal, horror, underdark
+
+Bat, Swarm
+tags: animal, horror, swarm, underdark
+
+Bear, Brown
+tags: animal
+
+Bear, Polar
+tags: animal
+
+Beastman
+tags: humanoid, monstrosity
+
+Berserker
+tags: humanoid, tough
+Diplomacy: Y
+Black Pudding
+tags: ooze, underdark
+
+Boar
+tags: animal
+
+Brachiosaurus
+tags: animal, dinosaur
+
+Brain Eater
+tags: horror, underdark
+
+Bugbear
+tags: goblinoid, humanoid, underdark
+Diplomacy: Y
+Bulette
+tags: monstrosity, underdark
+
+Camel
+tags: animal, civil
+
+Cave Brute
+tags: humanoid, tough, underdark
+
+Cave Creeper
+tags: horror, underdark
+
+Centaur
+tags: monstrosity
+Diplomacy: Y
+Centipede, Giant
+tags: animal, horror, underdark
+
+Centipede, Swarm
+tags: animal, horror, swarm, underdark
+
+Chimera
+tags: monstrosity
+
+Chuul
+tags: aberration, underdark
+
+Cloaker
+tags: aberration, underdark
+
+Cockatrice
+tags: horror, monstrosity
+
+Couatl
+tags: celestial
+Diplomacy: Y
+Crab, Giant
+tags: animal
+
+Crocodile
+tags: animal
+
+Cultist
+tags: horror, humanoid
+Diplomacy: Y
+Cyclops
+tags: giant
+Diplomacy: Y
+Darkmantle
+tags: monstrosity, underdark
+
+Deep One
+tags: horror, humanoid, underdark
+
+Demon, Balor
+tags: demon, fiend
+Diplomacy: Y
+Demon, Dretch
+tags: demon, fiend
+Diplomacy: Y
+Demon, Glabrezu
+tags: demon, fiend
+Diplomacy: Y
+Demon, Marilith
+tags: demon, fiend, horror
+Diplomacy: Y
+Demon, Vrock
+tags: demon, fiend, horror
+Diplomacy: Y
+Devil, Barbed
+tags: devil
+Diplomacy: Y
+Devil, Cubi
+tags: devil, horror
+Diplomacy: Y
+Devil, Erinyes
+tags: devil, fiend, horror
+Diplomacy: Y
+Devil, Horned
+tags: devil, horror
+Diplomacy: Y
+Devil, Imp
+tags: devil, fiend, horror, shapechanger
+Diplomacy: Y
+Djinni
+tags: elemental
+Diplomacy: Y
+Doppelganger
+tags: horror, monstrosity, shapechanger, underdark, civil
+Diplomacy: Y
+Dragon, Desert
+tags: dragon
+Diplomacy: Y
+Dragon, Fire
+tags: dragon
+Diplomacy: Y
+Dragon, Forest
+tags: dragon, fey
+Diplomacy: Y
+Dragon, Frost
+tags: dragon
+Diplomacy: Y
+Dragon, Sea
+tags: dragon
+Diplomacy: Y
+Dragon, Swamp
+tags: dragon, fey
+Diplomacy: Y
+Drow
+tags: elf, humanoid, underdark
+Diplomacy: Y
+Drow, Drider
+tags: elf, monstrosity, underdark
+Diplomacy: Y
+Drow, Priestess
+tags: elf, humanoid, underdark
+Diplomacy: Y
+Druid
+tags: humanoid, fey, plant
+Diplomacy: Y
+Dryad
+tags: fey
+Diplomacy: Y
+Duergar
+tags: dwarf, humanoid, underdark
+Diplomacy: Y
+Dung Beetle, Giant
+tags: animal
+
+Efreeti
+tags: elemental
+Diplomacy: Y
+Elemental, Air
+tags: elemental
+
+Elemental, Earth
+tags: elemental
+
+Elemental, Fire
+tags: elemental
+
+Elemental, Water
+tags: elemental
+
+Elephant
+tags: animal
+
+Elf
+tags: humanoid, thieves, civil
+Diplomacy: Y
+Ettercap
+tags: horror, monstrosity, underdark
+Diplomacy: Y
+Fairy
+tags: fey
+Diplomacy: Y
+Frog, Giant
+tags: animal
+
+Gargoyle
+tags: elemental, horror
+Diplomacy: Y
+Gelatinous Cube
+tags: ooze, underdark
+
+Ghast
+tags: horror, undead
+Diplomacy: Y
+Ghost
+tags: horror, undead
+Diplomacy: Y
+Ghoul
+tags: horror, undead
+Diplomacy: Y
+Giant, Cloud
+tags: giant
+Diplomacy: Y
+Giant, Fire
+tags: giant
+Diplomacy: Y
+Giant, Frost
+tags: giant
+Diplomacy: Y
+Giant, Goat
+tags: animal, giant
+Diplomacy: Y
+Giant, Hill
+tags: giant
+Diplomacy: Y
+Giant, Stone
+tags: giant
+Diplomacy: Y
+Giant, Storm
+tags: giant
+Diplomacy: Y
+Gibbering Mouther
+tags: aberration, horror, underdark
+
+Gladiator
+tags: humanoid
+Diplomacy: Y
+Gnoll
+tags: gnoll, humanoid
+Diplomacy: Y
+Gnome, Deep
+tags: humanoid, thieves, underdark
+Diplomacy: Y
+Goblin
+tags: goblinoid, humanoid, thieves, underdark
+Diplomacy: Y
+Goblin, Boss
+tags: goblinoid, humanoid, underdark
+Diplomacy: Y
+Goblin, Shaman
+tags: goblinoid, humanoid, underdark
+Diplomacy: Y
+Golem, Clay
+tags: golem
+
+Golem, Flesh
+tags: golem, horror
+
+Golem, Iron
+tags: golem, civil
+
+Golem, Stone
+tags: golem
+
+Gorgon
+tags: monstrosity
+
+Gorilla
+tags: animal
+
+Gray Ooze
+tags: horror, ooze, underdark
+
+Grick
+tags: animal, monstrosity, underdark
+
+Griffon
+tags: animal, monstrosity
+
+Grimlow
+tags: monstrosity
+
+Guard
+tags: humanoid, civil
+Diplomacy: Y
+Hag, Night
+tags: hag, horror, underdark
+Diplomacy: Y
+Hag, Sea
+tags: hag, horror
+Diplomacy: Y
+Hag, Weald
+tags: hag, horror
+Diplomacy: Y
+Harpy
+tags: horror, monstrosity
+Diplomacy: Y
+Hell Hound
+tags: fiend, horror
+
+Hippogriff
+tags: monstrosity
+
+Hippopotamus
+tags: animal
+
+Hobgoblin
+tags: goblinoid, humanoid, orc, underdark
+Diplomacy: Y
+Horse
+tags: animal, civil
+
+Invisible Stalker
+tags: elemental, horror
+
+Knight
+tags: humanoid, civil
+Diplomacy: Y
+Kobold, Sorcerer
+tags: humanoid, kobold, underdark
+Diplomacy: Y
+Kraken
+tags: animal, horror, monstrosity
+
+Leech, Giant
+tags: animal, horror
+
+Leprechaun
+tags: fey
+Diplomacy: Y
+Lich
+tags: horror, undead
+Diplomacy: Y
+Lion
+tags: animal
+
+Lizardfolk
+tags: horror, humanoid, lizardfolk
+Diplomacy: Y
+Mage
+tags: humanoid, civil
+Diplomacy: Y
+Mammoth
+tags: animal
+
+Manta Ray, Giant
+tags: animal
+
+Manticore
+tags: horror, monstrosity
+Diplomacy: Y
+Mastiff
+tags: animal
+
+Medusa
+tags: horror, monstrosity
+Diplomacy: Y
+Merfolk
+tags: humanoid, merfolk
+Diplomacy: Y
+Mimic
+tags: monstrosity, shapechanger, underdark
+
+Minotaur
+tags: monstrosity, underdark
+Diplomacy: Y
+Moose
+tags: animal
+
+Mummy
+tags: horror, undead
+Diplomacy: Y
+Mushroomfolk
+tags: humanoid, plant, underdark
+Diplomacy: Y
+Naga
+tags: monstrosity
+Diplomacy: Y
+Naga, Bone
+tags: monstrosity, undead
+Diplomacy: Y
+Nightmare
+tags: fiend, horror
+
+Ochre Jelly
+tags: ooze, underdark
+
+Octopus, Giant
+tags: animal, horror
+
+Ogre
+tags: giant, underdark
+Diplomacy: Y
+Oni
+tags: giant, horror
+
+Orc
+tags: humanoid, orc, underdark
+Diplomacy: Y
+Orc, Chieftain
+tags: humanoid, orc, underdark
+Diplomacy: Y
+Otyugh
+tags: aberration, underdark
+
+Owlbear
+tags: animal, monstrosity
+
+Panther
+tags: animal
+
+Peasant
+tags: humanoid, civil
+Diplomacy: Y
+Pegasus
+tags: celestial
+
+Phoenix
+tags: elemental
+
+Piranha, Swarm
+tags: animal, swarm
+
+Pirate
+tags: humanoid, thieves
+Diplomacy: Y
+Priest
+tags: humanoid, civil
+Diplomacy: Y
+Primordial Slime
+tags: outsider
+
+Pterodactyl
+tags: animal, dinosaur
+
+Purple Worm
+tags: monstrosity, underdark
+
+Rakshasa
+tags: fiend
+Diplomacy: Y
+Rat, Dire
+tags: animal, horror
+
+Rat, Giant
+tags: animal, horror
+
+Rat, Swarm
+tags: animal, horror, swarm
+
+Reaver
+tags: horror
+
+Remorhaz
+tags: monstrosity, underdark
+
+Rhinoceros
+tags: animal
+
+Rime Walker
+tags: horror, outsider
+
+Roc
+tags: monstrosity
+
+Roper
+tags: monstrosity, underdark
+
+Rot Flower
+tags: plant
+
+Rust Monster
+tags: monstrosity, underdark
+
+Sahuagin
+tags: humanoid, sahuagin
+Diplomacy: Y
+Salamander
+tags: elemental
+
+Scarab, Swarm
+tags: animal, swarm
+
+Scarecrow
+tags: construct, horror
+
+Scorpion, Giant
+tags: animal, horror
+
+Shadow
+tags: horror, undead, underdark
+Diplomacy: Y
+Shambling Mound
+tags: horror, plant, underdark
+
+Shark
+tags: animal
+
+Siren
+tags: fey, horror
+Diplomacy: Y
+Skeleton
+tags: horror, undead, underdark
+
+Smilodon
+tags: animal
+
+Snake, Cobra
+tags: animal, snake
+
+Snake, Giant
+tags: animal, snake
+
+Snake, Swarm
+tags: animal, horror, snake, swarm
+
+Soldier
+tags: humanoid, civil
+Diplomacy: Y
+Sphinx
+tags: monstrosity
+
+Spider, Giant
+tags: animal, horror, underdark
+
+Spider, Swarm
+tags: animal, horror, swarm, underdark
+
+Stingbat
+tags: horror, underdark
+
+Strangler
+tags: horror, underdark
+
+The Tarrasque
+tags: monstrosity
+
+The Ten-Eyed Oracle
+tags: horror
+
+Thief
+tags: humanoid, thieves
+
+Thug
+tags: humanoid, thieves
+Diplomacy: Y
+Treant
+tags: plant
+Diplomacy: Y
+Triceratops
+tags: animal, dinosaur
+
+Troll
+tags: giant, underdark
+Diplomacy: Y
+Troll, Frost
+tags: troll
+Diplomacy: Y
+Tyrannosaurus
+tags: animal, dinosaur
+
+Unicorn
+tags: celestial
+
+Vampire
+tags: horror, shapechanger, undead
+Diplomacy: Y
+Vampire Spawn
+tags: horror, undead, thieves
+Diplomacy: Y
+Velociraptor
+tags: animal, dinosaur
+
+Violet Fungus
+tags: horror, plant, underdark
+
+Viperian
+tags: horror
+Diplomacy: Y
+Viperian, Ophid
+tags: horror
+Diplomacy: Y
+Viperian, Wizard
+tags: horror
+Diplomacy: Y
+Void Spawn
+tags: horror, outsider
+
+Void Spider
+tags: horror, outsider, underdark
+
+Vulture
+tags: animal
+
+Wasp, Giant
+tags: animal
+
+Wererat
+tags: horror, humanoid, lycanthrope, shapechanger, thieves
+Diplomacy: Y
+Werewolf
+tags: fiend, horror, humanoid, lycanthrope, shapechanger
+Diplomacy: Y
+Wight
+tags: horror, undead
+Diplomacy: Y
+Will-O'-Wisp
+tags: horror, undead, underdark
+
+Wolf
+tags: animal
+
+Wolf, Dire
+tags: animal, horror, wolf
+
+Wolf, Winter
+tags: animal, horror, wolf
+
+Worg
+tags: monstrosity
+
+Wraith
+tags: horror, undead
+Diplomacy: Y
+Wyvern
+tags: dragon
+
+Zombie
+tags: undead, underdark

@@ -1,1070 +1,420 @@
 [
-  {
-    "slug": "aboleth",
-    "name": "Aboleth",
-    "level": 8,
-    "ac": "16",
-    "hp": "39",
-    "attack": "2 tentacle (near) +5 (1d8 + curse) or 1 tail +5 (3d6)",
-    "movement": "near (swim)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "-1",
-      "CON": "+3",
-      "INT": "+4",
-      "WIS": "+2",
-      "CHA": "+2"
+    {
+        "Monster Name": "Aboleth",
+        "**AC**": "16",
+        "**HP**": "39",
+        "**ATK**": "2 tentacle (near) +5 (1d8 + curse) or 1 tail +5 (3d6)",
+        "**MV**": "near (swim)",
+        "**S**": "+4",
+        "**D**": "-1",
+        "**C**": "+3",
+        "**I**": "+4",
+        "**W**": "+2",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "construct",
+            "horror",
+            "civil"
+        ],
+        "abilities": {
+            "**Curse**": "DC 15 CON or target gains a magical curse, turning into a deep one over 2d10 days.",
+            "**Enslave**": "In place of attacks, one creature within far DC 15 WIS or aboleth controls for 1d4 rounds.",
+            "**Telepathic**": "Read the thoughts of all creatures within far. Monster Statistics"
+        },
+        "diplomacy": "Y"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 tentacle (near) +5 (1d8 + curse) or 1 tail +5 (3d6)"
-      },
-      {
-        "expression": "3d6",
-        "display": "3d6",
-        "context": "2 tentacle (near) +5 (1d8 + curse) or 1 tail +5 (3d6)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Curse",
-        "text": "DC 15 CON or target gains a magical curse, turning into a deep one over 2d10 days.",
-        "damage": [
-          {
-            "expression": "2d10",
-            "display": "2d10",
-            "context": "DC 15 CON or target gains a magical curse, turning into a deep one over 2d10 days."
-          }
-        ]
-      },
-      {
-        "name": "Enslave",
-        "text": "In place of attacks, one creature within far DC 15 WIS or aboleth controls for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "In place of attacks, one creature within far DC 15 WIS or aboleth controls for 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Telepathic",
-        "text": "Read the thoughts of all creatures within far. Monster Statistics",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Aboleth",
-    "**AC**": "16",
-    "**HP**": "39",
-    "**ATK**": "2 tentacle (near) +5 (1d8 + curse) or 1 tail +5 (3d6)",
-    "**MV**": "near (swim)",
-    "**S**": "+4",
-    "**D**": "-1",
-    "**C**": "+3",
-    "**I**": "+4",
-    "**W**": "+2",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Curse**": "DC 15 CON or target gains a magical curse, turning into a deep one over 2d10 days.",
-      "**Enslave**": "In place of attacks, one creature within far DC 15 WIS or aboleth controls for 1d4 rounds.",
-      "**Telepathic**": "Read the thoughts of all creatures within far. Monster Statistics"
+    {
+        "Monster Name": "Assassin",
+        "**AC**": "15 (leather)",
+        "**HP**": "38",
+        "**ATK**": "2 poisoned dagger (close/near) +6 (2d4)",
+        "**MV**": "near (climb)",
+        "**S**": "+2",
+        "**D**": "+4",
+        "**C**": "+2",
+        "**I**": "+2",
+        "**W**": "+3",
+        "**CH**": "+3",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "humanoid"
+        ],
+        "abilities": {
+            "**Execute**": "Deals x3 damage against surprised targets."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Brain Eater",
+        "**AC**": "14 (leather)",
+        "**HP**": "36",
+        "**ATK**": "4 tentacle +5 (1d8 + latch) or 1 mind blast or 1 mind control",
+        "**MV**": "near",
+        "**S**": "+2",
+        "**D**": "+3",
+        "**C**": "+0",
+        "**I**": "+4",
+        "**W**": "+2",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "horror",
+            "underdark"
+        ],
+        "abilities": {
+            "**Hear Thoughts**": "Can hear the surface thoughts of all intelligent creatures within near.",
+            "**Latch**": "Tentacles attach to hit targets, automatically hitting the next round (DC 12 STR on turn to remove 1d4 tentacles). If all four remain latched onto the same humanoid target for 1 round, the target's brain is ripped out and devoured.",
+            "**Mind Blast**": "Fills a near-sized cube extending from brain eater. DC 15 INT or 3d6 damage and paralyzed 1d4 rounds.",
+            "**Mind Control**": "One target in near DC 15 CHA or brain eater controls for 1d4 rounds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Bulette",
+        "**AC**": "17",
+        "**HP**": "40",
+        "**ATK**": "3 bite +5 (2d6) or 1 leap",
+        "**MV**": "near (burrow)",
+        "**S**": "+5",
+        "**D**": "+1",
+        "**C**": "+4",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Leap**": "Jump up to near in height and double near in distance, then make 2 bite attacks."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Cyclops",
+        "**AC**": "11 (leather)",
+        "**HP**": "38",
+        "**ATK**": "2 greatclub +7 (2d8) or 1 rock (far) +5 (1d12)",
+        "**MV**": "double near",
+        "**S**": "+5",
+        "**D**": "+0",
+        "**C**": "+2",
+        "**I**": "-1",
+        "**W**": "-2",
+        "**CH**": "+0",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "giant"
+        ],
+        "abilities": {},
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Demon, Glabrezu",
+        "**AC**": "15",
+        "**HP**": "40",
+        "**ATK**": "2 pincer +7 (2d8 + crush)",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+4",
+        "**I**": "+3",
+        "**W**": "+2",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "demon",
+            "fiend"
+        ],
+        "abilities": {
+            "**Crush**": "DC 15 STR or target takes 2d8 damage."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Giant, Goat",
+        "**AC**": "12 (leather)",
+        "**HP**": "39",
+        "**ATK**": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)",
+        "**MV**": "double near (climb)",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+3",
+        "**I**": "-2",
+        "**W**": "+0",
+        "**CH**": "-2",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "animal",
+            "giant"
+        ],
+        "abilities": {},
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Giant, Stone",
+        "**AC**": "17",
+        "**HP**": "40",
+        "**ATK**": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)",
+        "**MV**": "double near",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+4",
+        "**I**": "+1",
+        "**W**": "+1",
+        "**CH**": "-1",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "golem"
+        ],
+        "abilities": {
+            "**Stone Hide**": "Half damage from stabbing and cutting weapons."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Golem, Clay",
+        "**AC**": "14",
+        "**HP**": "40",
+        "**ATK**": "3 slam +6 (1d8)",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "+0",
+        "**C**": "+4",
+        "**I**": "-2",
+        "**W**": "+0",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "golem"
+        ],
+        "abilities": {
+            "**Golem**": "Immune to damage from fire, cold, electricity, or non-magical sources. Healed by acid.",
+            "**Curse**": "Slam damage can only be healed by level 5+ priest."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Golem, Stone",
+        "**AC**": "18",
+        "**HP**": "40",
+        "**ATK**": "3 slam +6 (1d10) and 1 slow",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "-1",
+        "**C**": "+4",
+        "**I**": "-2",
+        "**W**": "+0",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "golem"
+        ],
+        "abilities": {
+            "**Golem**": "Immune to damage from fire, cold, electricity, or non-magical sources.",
+            "**Slow**": "Far range, one target. DC 15 CON or speed halved 1d4 rds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Hag, Night",
+        "**AC**": "14",
+        "**HP**": "37",
+        "**ATK**": "2 bite +6 (1d10) and 1 blind",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+1",
+        "**I**": "+2",
+        "**W**": "+3",
+        "**CH**": "+3",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "hag",
+            "horror"
+        ],
+        "abilities": {
+            "**Blind**": "One target within near DC 15 CHA or blinded for 1d4 days.",
+            "**Shapechange**": "Instantly change to look like any other humanoid."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Manta Ray, Giant",
+        "**AC**": "13",
+        "**HP**": "37",
+        "**ATK**": "2 sting +5 (1d12 + poison)",
+        "**MV**": "double near (swim)",
+        "**S**": "+3",
+        "**D**": "+3",
+        "**C**": "+1",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Poison**": "DC 15 CON or drop to 0 hit points in 1d4 rounds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Medusa",
+        "**AC**": "14",
+        "**HP**": "38",
+        "**ATK**": "1 snake bite +6 (1d6 + poison)",
+        "**MV**": "near",
+        "**S**": "+2",
+        "**D**": "+1",
+        "**C**": "+2",
+        "**I**": "+2",
+        "**W**": "+3",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "monstrosity",
+            "shapechanger",
+            "underdark"
+        ],
+        "abilities": {
+            "**Godborn**": "Hostile spells targeting the medusa are DC 15 to cast.",
+            "**Petrify**": "Any creature (including medusa) who looks directly at medusa, DC 15 CON or petrified.",
+            "**Poison**": "DC 15 CON or go to 0 HP."
+        },
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Rakshasa",
+        "**AC**": "16",
+        "**HP**": "39",
+        "**ATK**": "2 claw +6 (1d8)",
+        "**MV**": "near",
+        "**S**": "+1",
+        "**D**": "+3",
+        "**C**": "+3",
+        "**I**": "+3",
+        "**W**": "+3",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "animal",
+            "horror"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by magical sources. Immune to hostile spells of 3rd tier or lower.",
+            "**Mesmerism**": "Can read the minds of all creatures within near. Can instantly take on the illusory appearance of any humanoid.",
+            "**Weakness**": "A crossbow bolt under the effects of the holy weapon spell kills the rakshasa."
+        },
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Treant",
+        "**AC**": "14",
+        "**HP**": "38",
+        "**ATK**": "3 slam +8 (1d10) or 1 rock (far) +8 (2d12)",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "-1",
+        "**C**": "+2",
+        "**I**": "+2",
+        "**W**": "+3",
+        "**CH**": "+1",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "plant"
+        ],
+        "abilities": {
+            "**Animate Tree**": "2/day. In place of attacks, one tree within near awakens as a treant ally without this ability. Reverts back in 1 day."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Viperian, Wizard",
+        "**AC**": "13",
+        "**HP**": "37",
+        "**ATK**": "1 dagger (close/ near) +2 (1d4) or 2 spell +5",
+        "**MV**": "near",
+        "**S**": "+0",
+        "**D**": "+1",
+        "**C**": "+0",
+        "**I**": "+3",
+        "**W**": "+1",
+        "**CH**": "+1",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "horror"
+        ],
+        "abilities": {
+            "**Hiss (INT Spell)**": "DC 12. End one spell within far.",
+            "**Summon Cobra (INT Spell)**": "DC 13. Summon 1d4 loyal cobras that appear within near. They leave in 1d4 rounds.",
+            "**Venom (INT Spell)**": "DC 12. One target in far takes 2d8 damage.",
+            "**Whispers (INT Spell)**": "DC 14. Focus. All enemies within near of viperian wizard have DISADV on spellcasting checks for the duration."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Wraith",
+        "**AC**": "14",
+        "**HP**": "36",
+        "**ATK**": "3 death touch +6 (1d10 + life drain)",
+        "**MV**": "near (fly)",
+        "**S**": "-4",
+        "**D**": "+4",
+        "**C**": "+0",
+        "**I**": "+0",
+        "**W**": "+0",
+        "**CH**": "+3",
+        "**AL**": "C",
+        "**LV**": "8",
+        "tags": [
+            "dragon"
+        ],
+        "abilities": {
+            "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
+            "**Incorporeal**": "In place of attacks, become corporeal or incorporeal.",
+            "**Life Drain**": "1d4 CON damage. Death if reduced to 0 CON."
+        },
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Wyvern",
+        "**AC**": "15",
+        "**HP**": "37",
+        "**ATK**": "2 rend +6 (1d8) and 1 stinger +6 (1d6 + poison)",
+        "**MV**": "double near (fly)",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+1",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "8",
+        "tags": [
+            "dragon"
+        ],
+        "abilities": {
+            "**Poison**": "DC 15 CON or take 2d10 damage."
+        },
+        "diplomacy": "N"
     }
-  },
-  {
-    "slug": "assassin",
-    "name": "Assassin",
-    "level": 8,
-    "ac": "15 (leather)",
-    "hp": "38",
-    "attack": "2 poisoned dagger (close/near) +6 (2d4)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+4",
-      "CON": "+2",
-      "INT": "+2",
-      "WIS": "+3",
-      "CHA": "+3"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d4",
-        "display": "2d4",
-        "context": "2 poisoned dagger (close/near) +6 (2d4)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Execute",
-        "text": "Deals x3 damage against surprised targets.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Assassin",
-    "**AC**": "15 (leather)",
-    "**HP**": "38",
-    "**ATK**": "2 poisoned dagger (close/near) +6 (2d4)",
-    "**MV**": "near (climb)",
-    "**S**": "+2",
-    "**D**": "+4",
-    "**C**": "+2",
-    "**I**": "+2",
-    "**W**": "+3",
-    "**CH**": "+3",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Execute**": "Deals x3 damage against surprised targets."
-    }
-  },
-  {
-    "slug": "brain-eater",
-    "name": "Brain Eater",
-    "level": 8,
-    "ac": "14 (leather)",
-    "hp": "36",
-    "attack": "4 tentacle +5 (1d8 + latch) or 1 mind blast or 1 mind control",
-    "movement": "near",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+3",
-      "CON": "+0",
-      "INT": "+4",
-      "WIS": "+2",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "4 tentacle +5 (1d8 + latch) or 1 mind blast or 1 mind control"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Hear Thoughts",
-        "text": "Can hear the surface thoughts of all intelligent creatures within near.",
-        "damage": []
-      },
-      {
-        "name": "Latch",
-        "text": "Tentacles attach to hit targets, automatically hitting the next round (DC 12 STR on turn to remove 1d4 tentacles). If all four remain latched onto the same humanoid target for 1 round, the target's brain is ripped out and devoured.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "Tentacles attach to hit targets, automatically hitting the next round (DC 12 STR on turn to remove 1d4 tentacles)."
-          }
-        ]
-      },
-      {
-        "name": "Mind Blast",
-        "text": "Fills a near-sized cube extending from brain eater. DC 15 INT or 3d6 damage and paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "3d6",
-            "display": "3d6",
-            "context": "DC 15 INT or 3d6 damage and paralyzed 1d4 rounds."
-          },
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 INT or 3d6 damage and paralyzed 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Mind Control",
-        "text": "One target in near DC 15 CHA or brain eater controls for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "One target in near DC 15 CHA or brain eater controls for 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Brain Eater",
-    "**AC**": "14 (leather)",
-    "**HP**": "36",
-    "**ATK**": "4 tentacle +5 (1d8 + latch) or 1 mind blast or 1 mind control",
-    "**MV**": "near",
-    "**S**": "+2",
-    "**D**": "+3",
-    "**C**": "+0",
-    "**I**": "+4",
-    "**W**": "+2",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Hear Thoughts**": "Can hear the surface thoughts of all intelligent creatures within near.",
-      "**Latch**": "Tentacles attach to hit targets, automatically hitting the next round (DC 12 STR on turn to remove 1d4 tentacles). If all four remain latched onto the same humanoid target for 1 round, the target's brain is ripped out and devoured.",
-      "**Mind Blast**": "Fills a near-sized cube extending from brain eater. DC 15 INT or 3d6 damage and paralyzed 1d4 rounds.",
-      "**Mind Control**": "One target in near DC 15 CHA or brain eater controls for 1d4 rounds."
-    }
-  },
-  {
-    "slug": "bulette",
-    "name": "Bulette",
-    "level": 8,
-    "ac": "17",
-    "hp": "40",
-    "attack": "3 bite +5 (2d6) or 1 leap",
-    "movement": "near (burrow)",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+1",
-      "CON": "+4",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "3 bite +5 (2d6) or 1 leap"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Leap",
-        "text": "Jump up to near in height and double near in distance, then make 2 bite attacks.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Bulette",
-    "**AC**": "17",
-    "**HP**": "40",
-    "**ATK**": "3 bite +5 (2d6) or 1 leap",
-    "**MV**": "near (burrow)",
-    "**S**": "+5",
-    "**D**": "+1",
-    "**C**": "+4",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Leap**": "Jump up to near in height and double near in distance, then make 2 bite attacks."
-    }
-  },
-  {
-    "slug": "cyclops",
-    "name": "Cyclops",
-    "level": 8,
-    "ac": "11 (leather)",
-    "hp": "38",
-    "attack": "2 greatclub +7 (2d8) or 1 rock (far) +5 (1d12)",
-    "movement": "double near",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+0",
-      "CON": "+2",
-      "INT": "-1",
-      "WIS": "-2",
-      "CHA": "+0"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "2 greatclub +7 (2d8) or 1 rock (far) +5 (1d12)"
-      },
-      {
-        "expression": "1d12",
-        "display": "1d12",
-        "context": "2 greatclub +7 (2d8) or 1 rock (far) +5 (1d12)"
-      }
-    ],
-    "abilityDetails": [],
-    "Monster Name": "Cyclops",
-    "**AC**": "11 (leather)",
-    "**HP**": "38",
-    "**ATK**": "2 greatclub +7 (2d8) or 1 rock (far) +5 (1d12)",
-    "**MV**": "double near",
-    "**S**": "+5",
-    "**D**": "+0",
-    "**C**": "+2",
-    "**I**": "-1",
-    "**W**": "-2",
-    "**CH**": "+0",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {}
-  },
-  {
-    "slug": "demon-glabrezu",
-    "name": "Demon, Glabrezu",
-    "level": 8,
-    "ac": "15",
-    "hp": "40",
-    "attack": "2 pincer +7 (2d8 + crush)",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+4",
-      "INT": "+3",
-      "WIS": "+2",
-      "CHA": "+2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "2 pincer +7 (2d8 + crush)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Crush",
-        "text": "DC 15 STR or target takes 2d8 damage.",
-        "damage": [
-          {
-            "expression": "2d8",
-            "display": "2d8",
-            "context": "DC 15 STR or target takes 2d8 damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Demon, Glabrezu",
-    "**AC**": "15",
-    "**HP**": "40",
-    "**ATK**": "2 pincer +7 (2d8 + crush)",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+4",
-    "**I**": "+3",
-    "**W**": "+2",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Crush**": "DC 15 STR or target takes 2d8 damage."
-    }
-  },
-  {
-    "slug": "giant-goat",
-    "name": "Giant, Goat",
-    "level": 8,
-    "ac": "12 (leather)",
-    "hp": "39",
-    "attack": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)",
-    "movement": "double near (climb)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+3",
-      "INT": "-2",
-      "WIS": "+0",
-      "CHA": "-2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)"
-      },
-      {
-        "expression": "2d10",
-        "display": "2d10",
-        "context": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)"
-      }
-    ],
-    "abilityDetails": [],
-    "Monster Name": "Giant, Goat",
-    "**AC**": "12 (leather)",
-    "**HP**": "39",
-    "**ATK**": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)",
-    "**MV**": "double near (climb)",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+3",
-    "**I**": "-2",
-    "**W**": "+0",
-    "**CH**": "-2",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {}
-  },
-  {
-    "slug": "giant-stone",
-    "name": "Giant, Stone",
-    "level": 8,
-    "ac": "17",
-    "hp": "40",
-    "attack": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)",
-    "movement": "double near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+4",
-      "INT": "+1",
-      "WIS": "+1",
-      "CHA": "-1"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)"
-      },
-      {
-        "expression": "2d10",
-        "display": "2d10",
-        "context": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Stone Hide",
-        "text": "Half damage from stabbing and cutting weapons.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Giant, Stone",
-    "**AC**": "17",
-    "**HP**": "40",
-    "**ATK**": "2 greatclub +7 (2d8) or 1 boulder (far) +7 (2d10)",
-    "**MV**": "double near",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+4",
-    "**I**": "+1",
-    "**W**": "+1",
-    "**CH**": "-1",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Stone Hide**": "Half damage from stabbing and cutting weapons."
-    }
-  },
-  {
-    "slug": "golem-clay",
-    "name": "Golem, Clay",
-    "level": 8,
-    "ac": "14",
-    "hp": "40",
-    "attack": "3 slam +6 (1d8)",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+0",
-      "CON": "+4",
-      "INT": "-2",
-      "WIS": "+0",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 slam +6 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Golem",
-        "text": "Immune to damage from fire, cold, electricity, or non-magical sources. Healed by acid.",
-        "damage": []
-      },
-      {
-        "name": "Curse",
-        "text": "Slam damage can only be healed by level 5+ priest.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Golem, Clay",
-    "**AC**": "14",
-    "**HP**": "40",
-    "**ATK**": "3 slam +6 (1d8)",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "+0",
-    "**C**": "+4",
-    "**I**": "-2",
-    "**W**": "+0",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Golem**": "Immune to damage from fire, cold, electricity, or non-magical sources. Healed by acid.",
-      "**Curse**": "Slam damage can only be healed by level 5+ priest."
-    }
-  },
-  {
-    "slug": "golem-stone",
-    "name": "Golem, Stone",
-    "level": 8,
-    "ac": "18",
-    "hp": "40",
-    "attack": "3 slam +6 (1d10) and 1 slow",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "-1",
-      "CON": "+4",
-      "INT": "-2",
-      "WIS": "+0",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "3 slam +6 (1d10) and 1 slow"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Golem",
-        "text": "Immune to damage from fire, cold, electricity, or non-magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Slow",
-        "text": "Far range, one target. DC 15 CON or speed halved 1d4 rds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or speed halved 1d4 rds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Golem, Stone",
-    "**AC**": "18",
-    "**HP**": "40",
-    "**ATK**": "3 slam +6 (1d10) and 1 slow",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "-1",
-    "**C**": "+4",
-    "**I**": "-2",
-    "**W**": "+0",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Golem**": "Immune to damage from fire, cold, electricity, or non-magical sources.",
-      "**Slow**": "Far range, one target. DC 15 CON or speed halved 1d4 rds."
-    }
-  },
-  {
-    "slug": "hag-night",
-    "name": "Hag, Night",
-    "level": 8,
-    "ac": "14",
-    "hp": "37",
-    "attack": "2 bite +6 (1d10) and 1 blind",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+1",
-      "INT": "+2",
-      "WIS": "+3",
-      "CHA": "+3"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "2 bite +6 (1d10) and 1 blind"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Blind",
-        "text": "One target within near DC 15 CHA or blinded for 1d4 days.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "One target within near DC 15 CHA or blinded for 1d4 days."
-          }
-        ]
-      },
-      {
-        "name": "Shapechange",
-        "text": "Instantly change to look like any other humanoid.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Hag, Night",
-    "**AC**": "14",
-    "**HP**": "37",
-    "**ATK**": "2 bite +6 (1d10) and 1 blind",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+1",
-    "**I**": "+2",
-    "**W**": "+3",
-    "**CH**": "+3",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Blind**": "One target within near DC 15 CHA or blinded for 1d4 days.",
-      "**Shapechange**": "Instantly change to look like any other humanoid."
-    }
-  },
-  {
-    "slug": "manta-ray-giant",
-    "name": "Manta Ray, Giant",
-    "level": 8,
-    "ac": "13",
-    "hp": "37",
-    "attack": "2 sting +5 (1d12 + poison)",
-    "movement": "double near (swim)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+3",
-      "CON": "+1",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-3"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d12",
-        "display": "1d12",
-        "context": "2 sting +5 (1d12 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or drop to 0 hit points in 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or drop to 0 hit points in 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Manta Ray, Giant",
-    "**AC**": "13",
-    "**HP**": "37",
-    "**ATK**": "2 sting +5 (1d12 + poison)",
-    "**MV**": "double near (swim)",
-    "**S**": "+3",
-    "**D**": "+3",
-    "**C**": "+1",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Poison**": "DC 15 CON or drop to 0 hit points in 1d4 rounds."
-    }
-  },
-  {
-    "slug": "medusa",
-    "name": "Medusa",
-    "level": 8,
-    "ac": "14",
-    "hp": "38",
-    "attack": "1 snake bite +6 (1d6 + poison)",
-    "movement": "near",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+1",
-      "CON": "+2",
-      "INT": "+2",
-      "WIS": "+3",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "1 snake bite +6 (1d6 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Godborn",
-        "text": "Hostile spells targeting the medusa are DC 15 to cast.",
-        "damage": []
-      },
-      {
-        "name": "Petrify",
-        "text": "Any creature (including medusa) who looks directly at medusa, DC 15 CON or petrified.",
-        "damage": []
-      },
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or go to 0 HP.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Medusa",
-    "**AC**": "14",
-    "**HP**": "38",
-    "**ATK**": "1 snake bite +6 (1d6 + poison)",
-    "**MV**": "near",
-    "**S**": "+2",
-    "**D**": "+1",
-    "**C**": "+2",
-    "**I**": "+2",
-    "**W**": "+3",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Godborn**": "Hostile spells targeting the medusa are DC 15 to cast.",
-      "**Petrify**": "Any creature (including medusa) who looks directly at medusa, DC 15 CON or petrified.",
-      "**Poison**": "DC 15 CON or go to 0 HP."
-    }
-  },
-  {
-    "slug": "rakshasa",
-    "name": "Rakshasa",
-    "level": 8,
-    "ac": "16",
-    "hp": "39",
-    "attack": "2 claw +6 (1d8)",
-    "movement": "near",
-    "stats": {
-      "STR": "+1",
-      "DEX": "+3",
-      "CON": "+3",
-      "INT": "+3",
-      "WIS": "+3",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 claw +6 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by magical sources. Immune to hostile spells of 3rd tier or lower.",
-        "damage": []
-      },
-      {
-        "name": "Mesmerism",
-        "text": "Can read the minds of all creatures within near. Can instantly take on the illusory appearance of any humanoid.",
-        "damage": []
-      },
-      {
-        "name": "Weakness",
-        "text": "A crossbow bolt under the effects of the holy weapon spell kills the rakshasa.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Rakshasa",
-    "**AC**": "16",
-    "**HP**": "39",
-    "**ATK**": "2 claw +6 (1d8)",
-    "**MV**": "near",
-    "**S**": "+1",
-    "**D**": "+3",
-    "**C**": "+3",
-    "**I**": "+3",
-    "**W**": "+3",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Impervious**": "Only damaged by magical sources. Immune to hostile spells of 3rd tier or lower.",
-      "**Mesmerism**": "Can read the minds of all creatures within near. Can instantly take on the illusory appearance of any humanoid.",
-      "**Weakness**": "A crossbow bolt under the effects of the holy weapon spell kills the rakshasa."
-    }
-  },
-  {
-    "slug": "treant",
-    "name": "Treant",
-    "level": 8,
-    "ac": "14",
-    "hp": "38",
-    "attack": "3 slam +8 (1d10) or 1 rock (far) +8 (2d12)",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "-1",
-      "CON": "+2",
-      "INT": "+2",
-      "WIS": "+3",
-      "CHA": "+1"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "3 slam +8 (1d10) or 1 rock (far) +8 (2d12)"
-      },
-      {
-        "expression": "2d12",
-        "display": "2d12",
-        "context": "3 slam +8 (1d10) or 1 rock (far) +8 (2d12)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Animate Tree",
-        "text": "2/day. In place of attacks, one tree within near awakens as a treant ally without this ability. Reverts back in 1 day.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Treant",
-    "**AC**": "14",
-    "**HP**": "38",
-    "**ATK**": "3 slam +8 (1d10) or 1 rock (far) +8 (2d12)",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "-1",
-    "**C**": "+2",
-    "**I**": "+2",
-    "**W**": "+3",
-    "**CH**": "+1",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Animate Tree**": "2/day. In place of attacks, one tree within near awakens as a treant ally without this ability. Reverts back in 1 day."
-    }
-  },
-  {
-    "slug": "viperian-wizard",
-    "name": "Viperian, Wizard",
-    "level": 8,
-    "ac": "13",
-    "hp": "37",
-    "attack": "1 dagger (close/ near) +2 (1d4) or 2 spell +5",
-    "movement": "near",
-    "stats": {
-      "STR": "+0",
-      "DEX": "+1",
-      "CON": "+0",
-      "INT": "+3",
-      "WIS": "+1",
-      "CHA": "+1"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d4",
-        "display": "1d4",
-        "context": "1 dagger (close/ near) +2 (1d4) or 2 spell +5"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Hiss (INT Spell)",
-        "text": "DC 12. End one spell within far.",
-        "damage": []
-      },
-      {
-        "name": "Summon Cobra (INT Spell)",
-        "text": "DC 13. Summon 1d4 loyal cobras that appear within near. They leave in 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "Summon 1d4 loyal cobras that appear within near."
-          },
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "They leave in 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Venom (INT Spell)",
-        "text": "DC 12. One target in far takes 2d8 damage.",
-        "damage": [
-          {
-            "expression": "2d8",
-            "display": "2d8",
-            "context": "One target in far takes 2d8 damage."
-          }
-        ]
-      },
-      {
-        "name": "Whispers (INT Spell)",
-        "text": "DC 14. Focus. All enemies within near of viperian wizard have DISADV on spellcasting checks for the duration.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Viperian, Wizard",
-    "**AC**": "13",
-    "**HP**": "37",
-    "**ATK**": "1 dagger (close/ near) +2 (1d4) or 2 spell +5",
-    "**MV**": "near",
-    "**S**": "+0",
-    "**D**": "+1",
-    "**C**": "+0",
-    "**I**": "+3",
-    "**W**": "+1",
-    "**CH**": "+1",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Hiss (INT Spell)**": "DC 12. End one spell within far.",
-      "**Summon Cobra (INT Spell)**": "DC 13. Summon 1d4 loyal cobras that appear within near. They leave in 1d4 rounds.",
-      "**Venom (INT Spell)**": "DC 12. One target in far takes 2d8 damage.",
-      "**Whispers (INT Spell)**": "DC 14. Focus. All enemies within near of viperian wizard have DISADV on spellcasting checks for the duration."
-    }
-  },
-  {
-    "slug": "wraith",
-    "name": "Wraith",
-    "level": 8,
-    "ac": "14",
-    "hp": "36",
-    "attack": "3 death touch +6 (1d10 + life drain)",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "-4",
-      "DEX": "+4",
-      "CON": "+0",
-      "INT": "+0",
-      "WIS": "+0",
-      "CHA": "+3"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "3 death touch +6 (1d10 + life drain)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Greater Undead",
-        "text": "Immune to morale checks. Only damaged by silver or magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Incorporeal",
-        "text": "In place of attacks, become corporeal or incorporeal.",
-        "damage": []
-      },
-      {
-        "name": "Life Drain",
-        "text": "1d4 CON damage. Death if reduced to 0 CON.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "1d4 CON damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Wraith",
-    "**AC**": "14",
-    "**HP**": "36",
-    "**ATK**": "3 death touch +6 (1d10 + life drain)",
-    "**MV**": "near (fly)",
-    "**S**": "-4",
-    "**D**": "+4",
-    "**C**": "+0",
-    "**I**": "+0",
-    "**W**": "+0",
-    "**CH**": "+3",
-    "**AL**": "C",
-    "**LV**": "8",
-    "abilities": {
-      "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
-      "**Incorporeal**": "In place of attacks, become corporeal or incorporeal.",
-      "**Life Drain**": "1d4 CON damage. Death if reduced to 0 CON."
-    }
-  },
-  {
-    "slug": "wyvern",
-    "name": "Wyvern",
-    "level": 8,
-    "ac": "15",
-    "hp": "37",
-    "attack": "2 rend +6 (1d8) and 1 stinger +6 (1d6 + poison)",
-    "movement": "double near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+1",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-3"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 rend +6 (1d8) and 1 stinger +6 (1d6 + poison)"
-      },
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "2 rend +6 (1d8) and 1 stinger +6 (1d6 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or take 2d10 damage.",
-        "damage": [
-          {
-            "expression": "2d10",
-            "display": "2d10",
-            "context": "DC 15 CON or take 2d10 damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Wyvern",
-    "**AC**": "15",
-    "**HP**": "37",
-    "**ATK**": "2 rend +6 (1d8) and 1 stinger +6 (1d6 + poison)",
-    "**MV**": "double near (fly)",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+1",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "8",
-    "abilities": {
-      "**Poison**": "DC 15 CON or take 2d10 damage."
-    }
-  }
 ]

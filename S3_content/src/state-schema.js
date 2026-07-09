@@ -79,19 +79,42 @@ export function createEmptyDungeonState(seed = Date.now(), level = 1) {
       exploredEver: new Set(),
       exploredLightPolygons: [],
       visitedRoomIds: new Set(),
-      closedDoorVisibleSides: new Map()
+      closedDoorVisibleSides: new Map(),
+      closedDoorExploredSides: new Map()
     },
     lootLog: {
       entries: [],
       totalValue: 0,
       fullyLootedShown: false
     },
+    partyAssets: {
+      gold: 0,
+      silver: 0,
+      copper: 0
+    },
     decor: {
       columns: [],
-      water: []
+      water: [],
+      canals: [],
+      junk: [],
+      wells: []
     },
     characters: [],
     activeCharacterId: null,
+    combat: {
+      active: false,
+      round: 0,
+      turnIndex: 0,
+      turnOrder: [],
+      playerOrderIds: [],
+      pendingPlayerIds: [],
+      monsterIds: [],
+      sideFirst: "characters",
+      movementRemaining: 0,
+      actionUsed: false,
+      initiative: [],
+      log: []
+    },
     inventory: {
       baseSlots: 10,
       bonusSlots: 0,

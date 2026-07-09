@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ShadowSpawner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Tagesschrift&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -14,34 +17,32 @@
           <div class="save-load-controls" aria-label="Saved runs">
             <button id="save-btn" type="button">Save</button>
             <button id="load-btn" type="button">Load</button>
-            <button id="load-character-btn" type="button">Load Character</button>
             <button id="multiplayer-btn" type="button">Invite Players</button>
           </div>
-          <div class="sidebar-row sidebar-row--wrap">
-            <button id="generate-btn" type="button">Generate Dungeon</button>
+          <div class="dungeon-config-row">
             <label>
-              Seed
+              DUNGEON LEVEL
+              <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
+            </label>
+            <label>
+              SEED
               <input id="seed-input" type="number" />
             </label>
           </div>
-          <label>
-            Dungeon Level
-            <input id="level-input" type="number" min="1" max="10" value="1" data-autosize-field data-size-chars="2" />
-          </label>
           <div class="sidebar-row sidebar-row--wrap">
-            <button id="torch-out-btn" type="button">Torch snuffed!</button>
+            <button id="generate-btn" type="button">Generate Dungeon</button>
+          </div>
+          <div class="sidebar-row sidebar-row--wrap">
             <button id="light-torch-btn" type="button">Light New Torch</button>
             <button id="light-lantern-btn" type="button">Light Lantern</button>
             <button id="cast-light-btn" type="button">Cast Light</button>
           </div>
-          <button id="torch-btn" type="button">Hide Lantern</button>
-          <label class="toggle">
-            <input id="blackout-toggle" type="checkbox" checked />
-            Full blackout when torch is out
-          </label>
-          <section id="character-summary-panel" class="character-summary-panel" aria-label="Imported characters summary">
+          <section id="character-summary-panel" class="character-summary-panel" aria-labelledby="party-heading">
+            <h2 id="party-heading" class="party-heading">The Party</h2>
+            <p id="party-assets-summary" class="party-assets-summary">PARTY ASSETS: 0 GP</p>
             <div class="character-import-toolbar">
               <button id="import-character-btn" type="button">Import from ShadowDarklings</button>
+              <button id="load-character-btn" type="button">Load Character</button>
               <label class="base-classes-toggle" title="Use only ShadowDark core sources">
                 <input id="base-classes-only-toggle" type="checkbox" />
                 <span>Base Classes Only</span>
@@ -51,40 +52,33 @@
             <div id="characters-list" class="characters-list"></div>
           </section>
 
-          <h2>Dungeon Features</h2>
-          <div id="room-loot-panel" class="room-loot-panel">
-            No revealed dungeon features in this room.
-          </div>
-
-          <h2>Revealed Traps</h2>
-          <div id="trap-panel" class="trap-panel">
-            No revealed traps in this room.
-          </div>
-
-          <h2>Search</h2>
-          <div class="search-controls">
-            <button id="search-btn" type="button">Search</button>
-            <span id="locked-door-actions" class="locked-door-actions" hidden>
-              <button id="pick-lock-btn" type="button">Pick Lock DC 8</button>
-              <button id="break-door-btn" type="button">Smash DC 8</button>
-            </span>
-          </div>
-
-          <h2>Wandering Monsters</h2>
-          <section id="wandering-section" class="wandering-section">
-            <div class="wandering-controls">
-              <input id="wandering-numerator" type="number" min="0" max="99" value="1" aria-label="Wandering monster chance numerator" data-autosize-field data-size-chars="2" />
-              <span>in</span>
-              <input id="wandering-denominator" type="number" min="0" max="99" value="6" aria-label="Wandering monster chance denominator" data-autosize-field data-size-chars="2" />
-            </div>
-          </section>
-
-          <h2>Monsters</h2>
+          <h2 class="party-heading">Monsters</h2>
           <div id="monster-panel" class="monster-panel">
             No monsters in this room.
           </div>
 
-          <h2>Dice Roller</h2>
+          <div id="room-loot-panel" class="room-loot-panel">
+            No revealed treasure or features in this room.
+          </div>
+
+          <div id="trap-panel" class="trap-panel">
+            No revealed traps in this room.
+          </div>
+
+          <div class="search-controls">
+            <button id="search-btn" type="button">Search</button>
+            <button id="stealth-btn" type="button">Stealth</button>
+            <span id="locked-door-actions" class="locked-door-actions" hidden>
+              <button id="pick-lock-btn" type="button">Pick Lock DC 8</button>
+              <button id="break-door-btn" type="button">Smash DC 8</button>
+            </span>
+            <span id="combat-actions" class="combat-actions" hidden>
+              <button id="end-turn-btn" type="button">End Turn</button>
+            </span>
+          </div>
+          <div id="combat-panel" class="combat-panel" hidden></div>
+
+          <h2 class="party-heading">Dice Roller</h2>
           <div id="manual-dice-controls" class="manual-dice-controls" aria-label="Manual dice roller">
             <div class="manual-die-button-row">
               <button class="manual-die-button" type="button" data-die-sides="100">d%</button>
@@ -116,15 +110,21 @@
 
           <p>Status: <span id="status-text">Ready.</span></p>
 
-          <p class="hint">
-            Controls: arrow keys move player, S searches, G gets treasure, L leaves carried treasure,
-            and click a revealed trap's Disarm? button to disarm it. Click map tokens to interact with
-            monsters, doors, features, and traps. Drag the map to pan; use mouse wheel, keyboard +/-, or the map
-            zoom buttons to zoom.
-          </p>
+          <button id="how-to-play-btn" class="how-to-play-btn" type="button" aria-expanded="false" aria-controls="how-to-play-content">How to Play</button>
+          <section id="how-to-play-content" class="how-to-play-content" hidden>
+            <p>Import from ShadowDarklings imports a new random character into the dungeon. Only Base Classes are supported. Uncheck at your own risk!</p>
+            <p>Click map tokens to select an imported character, interact with monsters, doors, features, and traps.</p>
+            <p>Controls: arrow keys move player: Left: &larr;, Right: &rarr;, Up: &uarr;, Down: &darr;</p>
+            <p>Numpad also moves: 8 up, 2 down, 4 left, 6 right, diagonals on 7, 9, 1, and 3.</p>
+            <p>Drag the map to pan; use mouse wheel, keyboard +/-, or the map zoom buttons to zoom.</p>
+            <p>Character Sheet and Inventory: I / i</p>
+            <p>In the start room, new torches can be bought or treasures sold for XP.</p>
+            <p>Characters can be saved and loaded to explore new dungeons.</p>
+            <p>Dungeon Level [<span id="how-to-play-level">1</span>]: a dungeon that 4 characters of [<span id="how-to-play-level-repeat">1</span>] character level will find moderately challenging.</p>
+          </section>
           <nav class="site-links" aria-label="Project links">
-            <a href="about.html">Back to About</a>
-            <a href="https://github.com/ShadowDarklings">ShadowDarklings GitHub</a>
+            <a href="about.html">About the site Creators</a>
+            <a href="https://github.com/ShadowDarklings">ShadowSpawners Github</a>
           </nav>
         </section>
 
@@ -138,8 +138,9 @@
           <button id="zoom-in-btn" type="button" aria-label="Zoom in">+</button>
           <button id="zoom-out-btn" type="button" aria-label="Zoom out">-</button>
         </div>
+        <div id="combat-banner-layer" class="combat-banner-layer" aria-live="polite"></div>
         <div id="darkness-message" class="darkness-message" aria-live="polite"></div>
-        <div id="map-host" class="map-host" aria-label="Dungeon Map"></div>
+        <div id="map-host" class="map-host" aria-label="Dungeon Map" tabindex="-1"></div>
       </section>
     </main>
 
@@ -226,6 +227,17 @@
         <h2 id="loot-complete-title">Dungeon fully Looted!</h2>
         <p>Every treasure currently in this dungeon has been collected.</p>
         <button id="loot-complete-close" type="button">Close</button>
+      </section>
+    </div>
+
+    <div id="extinguish-old-modal" class="modal-backdrop" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="extinguish-old-title">
+        <h2 id="extinguish-old-title">Extinguish Old?</h2>
+        <p>Extinguish currently held party lights before lighting this one?</p>
+        <div class="modal-actions">
+          <button id="extinguish-old-yes-btn" type="button">Yes</button>
+          <button id="extinguish-old-no-btn" type="button">No</button>
+        </div>
       </section>
     </div>
 

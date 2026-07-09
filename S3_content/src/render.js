@@ -1,6 +1,14 @@
 import { DOOR_STATES, ENTITY_TYPES, TILE_SIZE_PX, TILE_TYPES } from "./constants.js";
 import { collectLightSources, computeLightPolygon } from "./light-geometry.js";
 import { tileKey } from "./state-schema.js";
+import { getOrganicTileData, isOrganicMovementBlockingTile } from "./organic-tiles.js";
+import { getInnerWallTileData } from "./inner-walls.js";
+import {
+  getAngledWallTileData,
+  isAngledWallLightBlockingTile,
+  isAngledWallMovementBlockingTile
+} from "./angled-walls.js";
+import { isDoorThresholdTile } from "./visibility.js";
 
 const USE_HAND_DRAWN_RENDERER = true;
 const USE_WATABOU_INK_OVERLAY = true;
@@ -21,6 +29,18 @@ const WALL_IMAGE_VARIANTS = Object.freeze({
   west: Object.freeze(["54x810-1x15-w.png"]),
   east: Object.freeze(["54x810-1x15-e.png"]),
   south: Object.freeze(["54x810-1x15-s.png"])
+});
+const TILE_WALL_EDGE_VARIANTS = Object.freeze({
+  north: Object.freeze(["wall-n-1.png", "wall-n-2.png", "wall-n-3.png"]),
+  west: Object.freeze(["wall-n-1.png", "wall-n-2.png", "wall-n-3.png"]),
+  east: Object.freeze(["wall-s-1.png", "wall-s-2.png", "wall-s-3.png"]),
+  south: Object.freeze(["wall-s-1.png", "wall-s-2.png", "wall-s-3.png"])
+});
+const TILE_WALL_EDGE_ROTATION = Object.freeze({
+  north: 0,
+  west: 3,
+  east: 3,
+  south: 0
 });
 const ROTUNDA_VARIANTS = Object.freeze({
   7: Object.freeze([
@@ -47,30 +67,42 @@ const ROTUNDA_VARIANTS = Object.freeze({
 });
 const CORNER_VARIANTS = Object.freeze({
   4: Object.freeze([
-    "round-corner-4x4-nw.png",
-    "round-corner-4x4-ne.png",
-    "round-corner-4x4-se.png",
-    "round-corner-4x4-sw.png"
+    "black-round-corner-4x4-nw.png",
+    "black-round-corner-4x4-ne.png",
+    "black-round-corner-4x4-se.png",
+    "black-round-corner-4x4-sw.png"
   ]),
   3: Object.freeze([
-    "round-corner-3x3-nw.png",
-    "round-corner-3x3-ne.png",
-    "round-corner-3x3-se.png",
-    "round-corner-3x3-sw.png"
+    "black-round-corner-3x3-nw.png",
+    "black-round-corner-3x3-ne.png",
+    "black-round-corner-3x3-se.png",
+    "black-round-corner-3x3-sw.png"
   ]),
-  2: Object.freeze([
-    "round-corner-2x2-nw.png",
-    "round-corner-2x2-ne.png",
-    "round-corner-2x2-se.png",
-    "round-corner-2x2-sw.png"
-  ]),
+  2: Object.freeze([]),
   1: Object.freeze([
-    "round-corner-1x1-nw.png",
-    "round-corner-1x1-ne.png",
-    "round-corner-1x1-se.png",
-    "round-corner-1x1-sw.png"
+    "b-round-corner-1x1-nw.png",
+    "b-round-corner-1x1-ne.png",
+    "b-round-corner-1x1-se.png",
+    "b-round-corner-1x1-sw.png"
   ])
 });
+const ANGLED_WALL_VARIANTS = Object.freeze([
+  "1x1-wall-angle-ne-1.png",
+  "1x1-wall-angle-ne-2.png",
+  "1x1-wall-angle-ne-3.png",
+  "1x1-wall-angle-ne-4.png",
+  "1x1-wall-angle-ne-pillar1.png",
+  "1x1-wall-angle-ne-pillar2.png",
+  "1x1-wall-angle-ne-pillar3.png",
+  "1x1-wall-angle-sw-1.png",
+  "1x1-wall-angle-sw-2.png",
+  "1x1-wall-angle-sw-pillar1.png",
+  "1x1-wall-angle-sw-pillar2.png",
+  "1x1-wall-angle-sw-pillar3.png",
+  "1-black.png",
+  "1-nw-corner-fill.png",
+  "1-sw-corner-fill.png"
+]);
 const DOOR_SPRITE_COUNT = 4;
 const DOOR_STATE_SUFFIXES = Object.freeze(["", "-o", "-l", "-t"]);
 const NEW_DOOR_KEYS = Object.freeze([
@@ -79,7 +111,13 @@ const NEW_DOOR_KEYS = Object.freeze([
   "door-open",
   "door-portcullis",
   "door-portculis",
-  "door-secret",
+  "door-secret-1",
+  "door-secret-1-open",
+  "door-secret-2",
+  "door-secret-2-open",
+  "door-secret-3",
+  "door-secret-3-open",
+  "door-secret-found",
   "door-trap"
 ]);
 const WATER_FLAT_KEYS = Object.freeze([
@@ -88,11 +126,57 @@ const WATER_FLAT_KEYS = Object.freeze([
 ]);
 const WATER_DIAGONAL_KEYS = Object.freeze(Array.from({ length: 13 }, (_, index) => `water-nw-${index + 1}`));
 const WATER_ALL_KEYS = Object.freeze(["water-c", ...WATER_FLAT_KEYS, ...WATER_DIAGONAL_KEYS]);
+const CANAL_KEYS = Object.freeze([
+  "canal-center-piece",
+  "canal-1x1-NWbNEbSEbSWwNbEbSwWw1",
+  "canal-1x1-NWbNEbSEwSWbNbEwSbWb1",
+  "canal-1x1-NWbNEbSEwSWbNbEwSbWb2",
+  "canal-1x1-NWbNEbSEwSWwNbEwSwWw1",
+  "canal-1x1-NWbNEbSEwSWwNbEwSwWw2",
+  "canal-1x1-NWbNEwSEwSWbNbEwSbWb1",
+  "canal-1x1-NWwNEbSEwSWwNwEwSwWw1",
+  "canal-1x1-NWwNEwSEwSWbNwEwSbWb1",
+  "canal-1x1-NWwNEwSEwSWbNwEwSwWb1",
+  "canal-2x1-NWbNEwSEwSWbNbEwSbWb1",
+  "canal-2x1-NWbNEwSEwSWbNbEwSbWb2",
+  "canal-bridge-4x4-ns",
+  "canal-bridge-cap-4x4-N"
+]);
+const JUNK_KEYS = Object.freeze([
+  "junk-1x1-1",
+  "junk-1x1-2",
+  "junk-1x1-3",
+  "junk-1x1-4",
+  "junk-1x1-5",
+  "junk-1x1-6",
+  "junk-1x1-7",
+  "junk-1x1-8",
+  "junk-1x1-9",
+  "junk-1x1-10",
+  "junk-1x1-11",
+  "junk-1x1-e",
+  "junk-1x1-sw",
+  "junk-1x1-w",
+  "junk-2x1-2",
+  "junk-2x1-E",
+  "junk-2x1-ew",
+  "junk-2x1-n",
+  "junk-2x1-ns",
+  "junk-2x1-nw",
+  "junk-2x1-w",
+  "junk-4x4-nesw",
+  "junk-4x4-sw",
+  "junk-4x4-w"
+]);
+const WELL_KEYS = Object.freeze(["well-1x1", "well-3x3", "well-3x3-2"]);
 const ROUND_CORNERS_ENABLED = true;
 const EXPLORED_FOG_ALPHA = 0.45;
 const UNEXPLORED_FOG_ALPHA = 0.95;
+const PILLAR_SHADOW_SIZE_PX = TILE_SIZE_PX / 3;
+const PILLAR_SHADOW_INSET_PX = (TILE_SIZE_PX - PILLAR_SHADOW_SIZE_PX) / 2;
 const STAIR_DOWN_KEYS = Object.freeze(["d-stair-1", "d-stair-2", "d-stair-3", "d-stair-4"]);
 const STAIR_UP_KEYS = Object.freeze(["u-stair-n", "u-stair-e", "u-stair-s", "u-stair-w"]);
+const FLOOR_TRAP_KEYS = Object.freeze(["floor-trap1"]);
 const PILLAR_KEYS = Object.freeze(["plr-1", "plr-2", "plr-3", "plr-4", "plr-5", "plr-6", "plr-7", "plr-8"]);
 const PILLAR_BLOCK_KEYS = Object.freeze(["plr-b-1", "plr-b-2", "plr-b-3", "plr-b-4", "plr-b-5", "plr-b-6", "plr-b-7", "plr-b-8", "plr-b-9", "plr-b-10"]);
 
@@ -105,10 +189,17 @@ const rendererAssets = {
     east: [],
     south: []
   },
+  wallEdges: {
+    north: [],
+    west: [],
+    east: [],
+    south: []
+  },
   doors: {},
   decor: {
     pillars: [],
     blockPillars: [],
+    floorTraps: [],
     stairsDown: [],
     stairsUp: {},
     waterCenter: null,
@@ -124,7 +215,14 @@ const rendererAssets = {
       2: [],
       3: [],
       4: []
-    }
+    },
+    organic: {},
+    innerWalls: {},
+    angledWalls: {},
+    canals: {},
+    junk: {},
+    wells: {},
+    stealth: null
   }
 };
 
@@ -159,6 +257,52 @@ async function loadOptionalImageList(paths) {
   return images;
 }
 
+async function loadAssetImageMap(keys) {
+  const entries = await Promise.all(keys.map(async (key) => [
+    key,
+    await loadOptionalImage(`./assets/${key}.png`, { quiet: true })
+  ]));
+  return Object.fromEntries(entries.filter(([, image]) => image));
+}
+
+async function loadOptionalJson(src, fallback = []) {
+  try {
+    const response = await fetch(src);
+    if (!response.ok) {
+      return fallback;
+    }
+    return await response.json();
+  } catch (error) {
+    return fallback;
+  }
+}
+
+async function loadOrganicImageMap() {
+  const paths = await loadOptionalJson("./data/organic-assets.json", []);
+  const entries = await Promise.all(paths.map(async (path) => {
+    const image = await loadOptionalImage(`./assets/${path}`, { quiet: true });
+    return [String(path).replace(/\.png$/i, ""), image];
+  }));
+  return Object.fromEntries(entries.filter(([, image]) => image));
+}
+
+async function loadInnerWallImageMap() {
+  const paths = await loadOptionalJson("./data/inner-wall-assets.json", []);
+  const entries = await Promise.all(paths.map(async (path) => {
+    const image = await loadOptionalImage(`./assets/${path}`, { quiet: true });
+    return [String(path).replace(/\.png$/i, ""), image];
+  }));
+  return Object.fromEntries(entries.filter(([, image]) => image));
+}
+
+async function loadAngledWallImageMap() {
+  const entries = await Promise.all(ANGLED_WALL_VARIANTS.map(async (path) => {
+    const image = await loadOptionalImage(`./assets/${path}`, { quiet: true });
+    return [String(path).replace(/\.png$/i, ""), image];
+  }));
+  return Object.fromEntries(entries.filter(([, image]) => image));
+}
+
 export async function preloadRendererAssets() {
   const entries = await Promise.all(
     Object.entries(ASSET_PATHS).map(async ([key, src]) => [key, await loadImage(src)])
@@ -169,6 +313,12 @@ export async function preloadRendererAssets() {
     west: await loadOptionalImageList(WALL_IMAGE_VARIANTS.west),
     east: await loadOptionalImageList(WALL_IMAGE_VARIANTS.east),
     south: await loadOptionalImageList(WALL_IMAGE_VARIANTS.south)
+  };
+  rendererAssets.wallEdges = {
+    north: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.north),
+    west: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.west),
+    east: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.east),
+    south: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.south)
   };
   const doorEntries = [];
   for (let i = 1; i <= DOOR_SPRITE_COUNT; i += 1) {
@@ -184,6 +334,7 @@ export async function preloadRendererAssets() {
   rendererAssets.decor = {
     pillars: await Promise.all(PILLAR_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
     blockPillars: await Promise.all(PILLAR_BLOCK_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
+    floorTraps: await Promise.all(FLOOR_TRAP_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
     stairsDown: await Promise.all(STAIR_DOWN_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
     stairsUp: {
       n: await loadOptionalImage("./assets/u-stair-n.png"),
@@ -208,7 +359,14 @@ export async function preloadRendererAssets() {
       3: await loadOptionalImageList(CORNER_VARIANTS[3]),
       2: await loadOptionalImageList(CORNER_VARIANTS[2]),
       1: await loadOptionalImageList(CORNER_VARIANTS[1])
-    }
+    },
+    organic: await loadOrganicImageMap(),
+    innerWalls: await loadInnerWallImageMap(),
+    angledWalls: await loadAngledWallImageMap(),
+    canals: await loadAssetImageMap(CANAL_KEYS),
+    junk: await loadAssetImageMap(JUNK_KEYS),
+    wells: await loadAssetImageMap(WELL_KEYS),
+    stealth: await loadOptionalImage("./assets/stealth.png", { quiet: true })
   };
   rendererAssets.ready = true;
 }
@@ -300,15 +458,19 @@ function collectSideRuns(state, room, side) {
 }
 
 function collectWallRuns(state) {
-  return state.rooms.filter((room) => room.rotunda !== true).flatMap((room) => (
+  return state.rooms.filter((room) => room.rotunda !== true && room.organic !== true && room.renderer !== "organic").flatMap((room) => (
     ["north", "south", "west", "east"].flatMap((side) => (
       collectSideRuns(state, room, side).map((run) => ({ ...run, room }))
     ))
   ));
 }
 
-function isHallFloorTile(tile) {
-  return tile?.hallId && tile.type === TILE_TYPES.FLOOR && tile.roomId === null;
+function isOrganicHall(state, hallId) {
+  return (state.halls || []).some((hall) => hall.id === hallId && (hall.organic === true || hall.style === "organic"));
+}
+
+function isHallFloorTile(state, tile) {
+  return tile?.hallId && tile.type === TILE_TYPES.FLOOR && tile.roomId === null && !isOrganicHall(state, tile.hallId);
 }
 
 function isHallPerimeterSide(state, tile, side) {
@@ -345,7 +507,7 @@ function compareHallEdges(a, b) {
 function collectHallWallRuns(state) {
   const edges = [];
   for (const tile of state.tiles) {
-    if (!isHallFloorTile(tile)) {
+    if (!isHallFloorTile(state, tile)) {
       continue;
     }
     for (const side of ["north", "south", "west", "east"]) {
@@ -439,7 +601,7 @@ function parseExitKey(key) {
 }
 
 function parseCornerKey(key) {
-  const match = String(key || "").match(/round-corner-\d+x\d+-([nesw]{2})(?:\.png)?$/i);
+  const match = String(key || "").match(/(?:b-)?round-corner-\d+x\d+-([nesw]{2})(?:\.png)?$/i);
   return [match ? match[1] : "sw"];
 }
 
@@ -603,6 +765,56 @@ function drawWallSlice(ctx, image, state, run) {
   ctx.restore();
 }
 
+function getWallEdgeTile(run, offset) {
+  if (run.room) {
+    if (run.side === "north") {
+      return { x: run.room.x + run.start + offset, y: run.room.y };
+    }
+    if (run.side === "south") {
+      return { x: run.room.x + run.start + offset, y: run.room.y + run.room.height - 1 };
+    }
+    if (run.side === "west") {
+      return { x: run.room.x, y: run.room.y + run.start + offset };
+    }
+    return { x: run.room.x + run.room.width - 1, y: run.room.y + run.start + offset };
+  }
+
+  if (run.side === "north") {
+    return { x: run.x + offset, y: run.y };
+  }
+  if (run.side === "south") {
+    return { x: run.x + offset, y: run.y - 1 };
+  }
+  if (run.side === "west") {
+    return { x: run.x, y: run.y + offset };
+  }
+  return { x: run.x - 1, y: run.y + offset };
+}
+
+function chooseTileWallEdgeImage(state, run, tile, offset) {
+  const pool = (rendererAssets.wallEdges?.[run.side] || []).filter((entry) => entry?.image);
+  if (!pool.length) {
+    return null;
+  }
+  const runId = run.room?.id || run.hallId || "wall";
+  const hash = hashString(`${state.seed}:${runId}:${run.side}:${tile.x},${tile.y}:${offset}:tile-wall-edge`);
+  return pool[hash % pool.length]?.image || null;
+}
+
+function drawTileWallEdgeOverlays(state, ctx, wallRuns) {
+  for (const run of wallRuns) {
+    if (run.length <= 0) {
+      continue;
+    }
+    const rotationTurns = TILE_WALL_EDGE_ROTATION[run.side] || 0;
+    for (let offset = 0; offset < run.length; offset += 1) {
+      const tile = getWallEdgeTile(run, offset);
+      const image = chooseTileWallEdgeImage(state, run, tile, offset);
+      drawTileImage(ctx, image, tile.x, tile.y, rotationTurns);
+    }
+  }
+}
+
 function getRunNormal(run) {
   if (run.side === "north") return { x: 0, y: -1 };
   if (run.side === "south") return { x: 0, y: 1 };
@@ -723,6 +935,39 @@ function drawTileImage(
   ctx.rotate(turns * Math.PI / 2);
   ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
   ctx.drawImage(image, -width / 2, -height / 2, width, height);
+  ctx.restore();
+}
+
+function drawNativeTileImage(
+  ctx,
+  image,
+  x,
+  y,
+  rotationTurns = 0,
+  offsetXPx = 0,
+  offsetYPx = 0,
+  flipX = false,
+  flipY = false
+) {
+  if (!image) {
+    return;
+  }
+  const imageWidth = Number(image.naturalWidth || image.width || TILE_SIZE_PX) || TILE_SIZE_PX;
+  const imageHeight = Number(image.naturalHeight || image.height || TILE_SIZE_PX) || TILE_SIZE_PX;
+  const turns = ((Number(rotationTurns) || 0) % 4 + 4) % 4;
+  const boundingWidth = turns % 2 === 1 ? imageHeight : imageWidth;
+  const boundingHeight = turns % 2 === 1 ? imageWidth : imageHeight;
+  const px = x * TILE_SIZE_PX + offsetXPx;
+  const py = y * TILE_SIZE_PX + offsetYPx;
+  if (!turns && !flipX && !flipY) {
+    ctx.drawImage(image, px, py, imageWidth, imageHeight);
+    return;
+  }
+  ctx.save();
+  ctx.translate(px + boundingWidth / 2, py + boundingHeight / 2);
+  ctx.rotate(turns * Math.PI / 2);
+  ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+  ctx.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
   ctx.restore();
 }
 
@@ -1080,6 +1325,150 @@ function drawColumnDecor(state, ctx) {
   }
 }
 
+function drawPlacedDecorList(state, ctx, placements, imageMap) {
+  for (const placement of placements || []) {
+    if (!Number.isFinite(Number(placement?.x)) || !Number.isFinite(Number(placement?.y))) {
+      continue;
+    }
+    const key = String(placement.assetKey || placement.asset || "").replace(/\.png$/i, "");
+    const image = imageMap?.[key];
+    if (!image) {
+      continue;
+    }
+    const size = getImageTileSize(image);
+    drawTileImage(
+      ctx,
+      image,
+      Number(placement.x),
+      Number(placement.y),
+      Number(placement.rotationTurns || 0) || 0,
+      Number(placement.widthTiles || size.widthTiles || 1) || 1,
+      Number(placement.heightTiles || size.heightTiles || 1) || 1,
+      (Number(placement.nudgeX) || 0) * TILE_SIZE_PX,
+      (Number(placement.nudgeY) || 0) * TILE_SIZE_PX,
+      placement.flipX === true,
+      placement.flipY === true
+    );
+  }
+}
+
+function drawNativePlacedDecorList(state, ctx, placements, imageMap) {
+  for (const placement of placements || []) {
+    if (!Number.isFinite(Number(placement?.x)) || !Number.isFinite(Number(placement?.y))) {
+      continue;
+    }
+    const key = String(placement.assetKey || placement.asset || "").replace(/\.png$/i, "");
+    const image = imageMap?.[key];
+    if (!image) {
+      continue;
+    }
+    drawNativeTileImage(
+      ctx,
+      image,
+      Number(placement.x),
+      Number(placement.y),
+      Number(placement.rotationTurns || 0) || 0,
+      (Number(placement.nudgeX) || 0) * TILE_SIZE_PX,
+      (Number(placement.nudgeY) || 0) * TILE_SIZE_PX,
+      placement.flipX === true,
+      placement.flipY === true
+    );
+  }
+}
+
+function drawCanalDecor(state, ctx) {
+  drawPlacedDecorList(state, ctx, state.decor?.canals, rendererAssets.decor.canals);
+}
+
+function drawJunkDecor(state, ctx) {
+  drawNativePlacedDecorList(state, ctx, state.decor?.junk, rendererAssets.decor.junk);
+}
+
+function drawWellDecor(state, ctx) {
+  drawPlacedDecorList(state, ctx, state.decor?.wells, rendererAssets.decor.wells);
+}
+
+function drawOrganicTileDecor(state, ctx) {
+  for (const tile of state.tiles || []) {
+    const organic = getOrganicTileData(tile);
+    if (!organic?.asset) {
+      continue;
+    }
+    const key = organic.asset.replace(/\.png$/i, "");
+    const image = rendererAssets.decor.organic[key];
+    if (!image) {
+      continue;
+    }
+    drawTileImage(
+      ctx,
+      image,
+      tile.x,
+      tile.y,
+      organic.rotationTurns,
+      1,
+      1,
+      0,
+      0,
+      organic.flipX,
+      organic.flipY
+    );
+  }
+}
+
+function drawInnerWallTileDecor(state, ctx) {
+  for (const tile of state.tiles || []) {
+    const innerWall = getInnerWallTileData(tile);
+    if (!innerWall?.asset) {
+      continue;
+    }
+    const key = innerWall.asset.replace(/\.png$/i, "");
+    const image = rendererAssets.decor.innerWalls[key];
+    if (!image) {
+      continue;
+    }
+    drawTileImage(
+      ctx,
+      image,
+      tile.x,
+      tile.y,
+      innerWall.rotationTurns,
+      1,
+      1,
+      0,
+      0,
+      innerWall.flipX,
+      innerWall.flipY
+    );
+  }
+}
+
+function drawAngledWallTileDecor(state, ctx) {
+  for (const tile of state.tiles || []) {
+    const angledWall = getAngledWallTileData(tile);
+    if (!angledWall?.asset) {
+      continue;
+    }
+    const key = angledWall.asset.replace(/\.png$/i, "");
+    const image = rendererAssets.decor.angledWalls[key];
+    if (!image) {
+      continue;
+    }
+    drawTileImage(
+      ctx,
+      image,
+      tile.x,
+      tile.y,
+      angledWall.rotationTurns,
+      1,
+      1,
+      0,
+      0,
+      angledWall.flipX,
+      angledWall.flipY
+    );
+  }
+}
+
 function drawHandDrawnTopology(state, ctx) {
   const floorImage = rendererAssets.images.floor;
   for (const tile of state.tiles) {
@@ -1093,7 +1482,12 @@ function drawHandDrawnTopology(state, ctx) {
     ctx.drawImage(floorImage, sx, sy, TILE_SIZE_PX, TILE_SIZE_PX, dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
   }
   drawWaterDecor(state, ctx);
+  drawCanalDecor(state, ctx);
   drawRotundaDecor(state, ctx);
+  drawWellDecor(state, ctx);
+  drawJunkDecor(state, ctx);
+  drawOrganicTileDecor(state, ctx);
+  drawInnerWallTileDecor(state, ctx);
 
   const wallRuns = [
     ...collectWallRuns(state),
@@ -1105,7 +1499,9 @@ function drawHandDrawnTopology(state, ctx) {
     }
     drawWallSlice(ctx, chooseWallImage(state, run), state, run);
   }
+  drawTileWallEdgeOverlays(state, ctx, wallRuns);
   drawRoundedCornerDecor(state, ctx);
+  drawAngledWallTileDecor(state, ctx);
   if (USE_WATABOU_INK_OVERLAY) {
     drawWatabouInspiredWallOverlay(state, ctx, wallRuns);
   }
@@ -1246,9 +1642,6 @@ function getNewDoorSpriteKey(state, door) {
   if (kind === "gate" || kind === "portcullis") {
     return "door-portcullis";
   }
-  if (kind === "secret") {
-    return "door-secret";
-  }
   if (kind === "trap") {
     return "door-trap";
   }
@@ -1259,6 +1652,85 @@ function getNewDoorSpriteKey(state, door) {
     return "door-open";
   }
   return "door-closed";
+}
+
+function getSecretDoorRotationAngle(door) {
+  if (door.wallSide === "north") {
+    return Math.PI;
+  }
+  if (door.wallSide === "east") {
+    return -Math.PI / 2;
+  }
+  if (door.wallSide === "west") {
+    return Math.PI / 2;
+  }
+  return 0;
+}
+
+function getSecretDoorSpriteKey(door) {
+  const baseKey = /^door-secret-\d+$/i.test(String(door.doorSpriteId || ""))
+    ? door.doorSpriteId
+    : "door-secret-1";
+  if (door.doorState === DOOR_STATES.OPEN && rendererAssets.doors[`${baseKey}-open`]) {
+    return `${baseKey}-open`;
+  }
+  return baseKey;
+}
+
+function isSecretDoorFoundMarkVisible(state, door) {
+  if (door.secretFound !== true && door.revealed !== true) {
+    return false;
+  }
+  if (state.visibility.visibleNow?.has?.(tileKey(door.x, door.y))) {
+    return true;
+  }
+  const roomTile = getSecretDoorRoomTile(door);
+  if (state.visibility.visibleNow?.has?.(tileKey(roomTile.x, roomTile.y))) {
+    return true;
+  }
+  const visibleSides = state.visibility.closedDoorVisibleSides?.get?.(door.id);
+  return visibleSides instanceof Set && visibleSides.size > 0;
+}
+
+function getSecretDoorRoomTile(door) {
+  if (door.wallSide === "east") {
+    return { x: door.x - 1, y: door.y };
+  }
+  if (door.wallSide === "west") {
+    return { x: door.x + 1, y: door.y };
+  }
+  if (door.wallSide === "south") {
+    return { x: door.x, y: door.y - 1 };
+  }
+  return { x: door.x, y: door.y + 1 };
+}
+
+function drawSecretDoorSprite(state, entity, ctx) {
+  if (entity.secretFound !== true && entity.revealed !== true) {
+    return;
+  }
+  const image = rendererAssets.doors[getSecretDoorSpriteKey(entity)];
+  if (!image) {
+    drawDoorFallback(state, entity, ctx);
+    return;
+  }
+  const center = getDoorBoundaryCenter(entity);
+  ctx.save();
+  ctx.translate(center.x, center.y);
+  ctx.rotate(getSecretDoorRotationAngle(entity));
+  ctx.drawImage(image, -image.width / 2, -image.height / 2, image.width, image.height);
+  ctx.restore();
+
+  const foundImage = rendererAssets.doors["door-secret-found"];
+  if (foundImage && isSecretDoorFoundMarkVisible(state, entity)) {
+    ctx.drawImage(
+      foundImage,
+      center.x - foundImage.width / 2,
+      center.y - foundImage.height / 2,
+      foundImage.width,
+      foundImage.height
+    );
+  }
 }
 
 function drawDoorFallback(state, entity, ctx) {
@@ -1283,6 +1755,10 @@ function drawDoorSprite(state, entity, ctx) {
     if (drawStairSprite(entity, ctx, visualKind)) {
       return;
     }
+  }
+  if (entity.secret === true || entity.isSecret === true) {
+    drawSecretDoorSprite(state, entity, ctx);
+    return;
   }
   const newKey = getNewDoorSpriteKey(state, entity);
   const key = getDoorSpriteKey(state, entity);
@@ -1319,6 +1795,18 @@ function drawTopology(state, ctx) {
   }
 }
 
+function drawFloorTrapSprite(state, entity, ctx) {
+  const image = pickDeterministicImage(
+    rendererAssets.decor.floorTraps,
+    `${state.seed}:floor-trap:${entity.id || ""}:${entity.x},${entity.y}`
+  );
+  if (!image) {
+    return false;
+  }
+  drawTileImage(ctx, image, entity.x, entity.y, 0);
+  return true;
+}
+
 function drawEntity(entity, ctx, state) {
   const cx = entity.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
   const cy = entity.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
@@ -1327,6 +1815,12 @@ function drawEntity(entity, ctx, state) {
   if (entity.subtype === "door") {
     drawDoorSprite(state, entity, ctx);
     return;
+  }
+
+  if (entity.type === ENTITY_TYPES.TRAP && entity.targetType !== "door") {
+    if (drawFloorTrapSprite(state, entity, ctx)) {
+      return;
+    }
   }
 
   if (entity.subtype === "dropped-equipment" && Number(entity.lightRadius) > 0) {
@@ -1473,6 +1967,24 @@ function drawCharacterDot(character, ctx, isActive) {
     ctx.lineWidth = 3;
     ctx.stroke();
   }
+  if (character.stealthed === true) {
+    const image = rendererAssets.decor.stealth;
+    const size = TILE_SIZE_PX * 0.74;
+    if (image) {
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(image, cx - size / 2, cy - size / 2, size, size);
+      ctx.restore();
+    } else {
+      ctx.strokeStyle = "#1f1f1f";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE_SIZE_PX * 0.36, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
 }
 
 function drawCharacters(state, ctx) {
@@ -1548,12 +2060,15 @@ function drawFog(state, ctx, widthPx, heightPx, forceBlackout) {
   for (const tile of state.tiles) {
     const px = tile.x * TILE_SIZE_PX;
     const py = tile.y * TILE_SIZE_PX;
-    const alpha = getCurvedDecorFogAlpha(state, tile, UNEXPLORED_FOG_ALPHA);
+    const alpha = tile?.meta?.neverExplore === true
+      ? 1
+      : getCurvedDecorFogAlpha(state, tile, UNEXPLORED_FOG_ALPHA);
     ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
     ctx.fillRect(px, py, TILE_SIZE_PX, TILE_SIZE_PX);
   }
   drawExploredFog(state, ctx);
   drawAngledShadowWedges(state, ctx);
+  drawVisibleBlockingDecorFogCutouts(state, ctx);
   drawClosedDoorFogBisectors(state, ctx);
 }
 
@@ -1564,7 +2079,7 @@ function wasExploredBeforeCurrentLight(state, x, y) {
   return explored.has(tileKey(x, y));
 }
 
-function drawShadowPolygon(ctx, points) {
+function addShadowPolygonPath(ctx, points) {
   if (!points.length) {
     return;
   }
@@ -1574,6 +2089,13 @@ function drawShadowPolygon(ctx, points) {
     ctx.lineTo(points[index][0], points[index][1]);
   }
   ctx.closePath();
+}
+
+function drawShadowPolygon(ctx, points) {
+  if (!points.length) {
+    return;
+  }
+  addShadowPolygonPath(ctx, points);
   ctx.fill();
 }
 
@@ -1654,6 +2176,15 @@ function drawFogRect(ctx, x, y, width, height, alpha) {
   ctx.restore();
 }
 
+function clearFogRect(ctx, x, y, width, height) {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
+}
+
 function drawFogPolygon(ctx, points, alpha) {
   if (!Array.isArray(points) || points.length < 3) {
     return;
@@ -1669,6 +2200,70 @@ function drawFogPolygon(ctx, points, alpha) {
   ctx.restore();
 }
 
+function isBlockingDecorFogTile(tile) {
+  if (tile?.meta?.neverExplore === true) {
+    return false;
+  }
+  const innerWall = getInnerWallTileData(tile);
+  if (innerWall?.blocksMovement === true) {
+    return false;
+  }
+  return isOrganicMovementBlockingTile(tile) ||
+    isAngledWallLightBlockingTile(tile) ||
+    isAngledWallMovementBlockingTile(tile);
+}
+
+function isInnerWallAdjacentToLiveLightSource(tile, lightSources) {
+  if (!getInnerWallTileData(tile)?.blocksMovement) {
+    return false;
+  }
+  return (lightSources || []).some((source) => {
+    const dx = Math.abs(Number(source.x) - Number(tile.x));
+    const dy = Math.abs(Number(source.y) - Number(tile.y));
+    return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+  });
+}
+
+function drawVisibleBlockingDecorFogCutouts(state, ctx) {
+  for (const tile of state.tiles || []) {
+    if (!isBlockingDecorFogTile(tile) || !state.visibility.visibleNow.has(tileKey(tile.x, tile.y))) {
+      continue;
+    }
+    clearFogRect(
+      ctx,
+      tile.x * TILE_SIZE_PX,
+      tile.y * TILE_SIZE_PX,
+      TILE_SIZE_PX,
+      TILE_SIZE_PX
+    );
+  }
+}
+
+function drawAdjacentInnerWallFogCutouts(state, ctx, lightSources) {
+  for (const tile of state.tiles || []) {
+    if (!isInnerWallAdjacentToLiveLightSource(tile, lightSources)) {
+      continue;
+    }
+    clearFogRect(
+      ctx,
+      tile.x * TILE_SIZE_PX,
+      tile.y * TILE_SIZE_PX,
+      TILE_SIZE_PX,
+      TILE_SIZE_PX
+    );
+  }
+}
+
+function getExploredInnerWallInteriors(state) {
+  if (state.visibility.exploredInnerWallInteriors instanceof Set) {
+    return state.visibility.exploredInnerWallInteriors;
+  }
+  if (Array.isArray(state.visibility.exploredInnerWallInteriors)) {
+    return new Set(state.visibility.exploredInnerWallInteriors);
+  }
+  return new Set();
+}
+
 function getVisitedRoomIds(state) {
   if (state.visibility.visitedRoomIds instanceof Set) {
     return state.visibility.visitedRoomIds;
@@ -1679,7 +2274,22 @@ function getVisitedRoomIds(state) {
   return new Set();
 }
 
-function canUseCoarseExploredTileFog(visitedRoomIds, tile) {
+function isClosedDoorFogTile(state, tile) {
+  return (state.entities || []).some((entity) => (
+    entity.subtype === "door" &&
+    entity.doorState !== DOOR_STATES.OPEN &&
+    entity.x === tile.x &&
+    entity.y === tile.y
+  ));
+}
+
+function canUseCoarseExploredTileFog(state, visitedRoomIds, tile) {
+  if (getInnerWallTileData(tile)?.blocksMovement === true) {
+    return false;
+  }
+  if (isClosedDoorFogTile(state, tile)) {
+    return false;
+  }
   if (!tile.roomId) {
     return true;
   }
@@ -1693,7 +2303,7 @@ function drawExploredTileFog(state, ctx) {
     if (
       !wasExploredBeforeCurrentLight(state, tile.x, tile.y) ||
       state.visibility.visibleNow.has(key) ||
-      !canUseCoarseExploredTileFog(visitedRoomIds, tile)
+      !canUseCoarseExploredTileFog(state, visitedRoomIds, tile)
     ) {
       continue;
     }
@@ -1719,9 +2329,146 @@ function drawExploredLightPolygonFog(state, ctx) {
   ctx.restore();
 }
 
+function getColumnShadowRect(column) {
+  if (!Number.isFinite(Number(column?.x)) || !Number.isFinite(Number(column?.y))) {
+    return null;
+  }
+  const placement = String(column.placement || "center");
+  const drawX = placement === "vertex" ? Number(column.x) - 0.5 : Number(column.x);
+  const drawY = placement === "vertex" ? Number(column.y) - 0.5 : Number(column.y);
+  const left = drawX * TILE_SIZE_PX + PILLAR_SHADOW_INSET_PX;
+  const top = drawY * TILE_SIZE_PX + PILLAR_SHADOW_INSET_PX;
+  return {
+    left,
+    top,
+    right: left + PILLAR_SHADOW_SIZE_PX,
+    bottom: top + PILLAR_SHADOW_SIZE_PX
+  };
+}
+
+function getColumnShadowPolygon(source, column, radiusPx) {
+  const rect = getColumnShadowRect(column);
+  if (!rect) {
+    return null;
+  }
+  const sourcePoint = [
+    (Number(source.x) + 0.5) * TILE_SIZE_PX,
+    (Number(source.y) + 0.5) * TILE_SIZE_PX
+  ];
+  if (
+    sourcePoint[0] >= rect.left &&
+    sourcePoint[0] <= rect.right &&
+    sourcePoint[1] >= rect.top &&
+    sourcePoint[1] <= rect.bottom
+  ) {
+    return null;
+  }
+  const center = [
+    (rect.left + rect.right) / 2,
+    (rect.top + rect.bottom) / 2
+  ];
+  if (Math.hypot(center[0] - sourcePoint[0], center[1] - sourcePoint[1]) > radiusPx + PILLAR_SHADOW_SIZE_PX) {
+    return null;
+  }
+  const corners = [
+    [rect.left, rect.top],
+    [rect.right, rect.top],
+    [rect.right, rect.bottom],
+    [rect.left, rect.bottom]
+  ].map((point) => ({
+    point,
+    angle: Math.atan2(point[1] - sourcePoint[1], point[0] - sourcePoint[0])
+  })).sort((a, b) => a.angle - b.angle);
+  let largestGap = -Infinity;
+  let gapIndex = 0;
+  for (let index = 0; index < corners.length; index += 1) {
+    const current = corners[index].angle;
+    const next = corners[(index + 1) % corners.length].angle + (index === corners.length - 1 ? Math.PI * 2 : 0);
+    const gap = next - current;
+    if (gap > largestGap) {
+      largestGap = gap;
+      gapIndex = index;
+    }
+  }
+  const start = corners[(gapIndex + 1) % corners.length];
+  const end = corners[gapIndex];
+  const startAngle = start.angle + (start.angle < end.angle ? Math.PI * 2 : 0);
+  const endAngle = end.angle;
+  const farStart = [
+    sourcePoint[0] + Math.cos(startAngle) * radiusPx,
+    sourcePoint[1] + Math.sin(startAngle) * radiusPx
+  ];
+  const farEnd = [
+    sourcePoint[0] + Math.cos(endAngle) * radiusPx,
+    sourcePoint[1] + Math.sin(endAngle) * radiusPx
+  ];
+  return [start.point, farStart, farEnd, end.point];
+}
+
+function drawCurrentPillarShadowFog(state, ctx) {
+  const columns = Array.isArray(state.decor?.columns) ? state.decor.columns : [];
+  if (!columns.length) {
+    return;
+  }
+  const lightSources = collectLightSources(state);
+  if (!lightSources.length) {
+    return;
+  }
+  const stateWithoutColumns = {
+    ...state,
+    decor: {
+      ...(state.decor || {}),
+      columns: []
+    }
+  };
+  for (const source of lightSources) {
+    const radiusPx = (Math.max(1, Number(source.radius) || 6) + 0.5) * TILE_SIZE_PX;
+    const unblockedByPillarsPolygon = computeLightPolygon(stateWithoutColumns, source);
+    if (unblockedByPillarsPolygon.length < 3) {
+      continue;
+    }
+    ctx.save();
+    clipToFloorTiles(ctx, state, () => true);
+    addShadowPolygonPath(ctx, unblockedByPillarsPolygon);
+    ctx.clip();
+    for (const column of columns) {
+      const shadow = getColumnShadowPolygon(source, column, radiusPx);
+      if (shadow?.length >= 3) {
+        drawFogPolygon(ctx, shadow, EXPLORED_FOG_ALPHA);
+      }
+    }
+    ctx.restore();
+  }
+}
+
+function drawExploredInnerWallInteriorFog(state, ctx) {
+  const exploredInnerWallInteriors = getExploredInnerWallInteriors(state);
+  if (!exploredInnerWallInteriors.size) {
+    return;
+  }
+  for (const tile of state.tiles || []) {
+    if (!getInnerWallTileData(tile)?.blocksMovement) {
+      continue;
+    }
+    if (!exploredInnerWallInteriors.has(tileKey(tile.x, tile.y))) {
+      continue;
+    }
+    drawFogRect(
+      ctx,
+      tile.x * TILE_SIZE_PX,
+      tile.y * TILE_SIZE_PX,
+      TILE_SIZE_PX,
+      TILE_SIZE_PX,
+      EXPLORED_FOG_ALPHA
+    );
+  }
+}
+
 function drawExploredFog(state, ctx) {
   drawExploredTileFog(state, ctx);
   drawExploredLightPolygonFog(state, ctx);
+  drawCurrentPillarShadowFog(state, ctx);
+  drawExploredInnerWallInteriorFog(state, ctx);
 }
 
 function drawAngledShadowWedges(state, ctx) {
@@ -1741,45 +2488,54 @@ function drawAngledShadowWedges(state, ctx) {
       continue;
     }
     ctx.save();
-    clipToFloorTiles(ctx, state, () => true);
+    clipToFloorTiles(ctx, state, (tile) => (
+      !isDoorThresholdTile(state, tile) ||
+      state.visibility.visibleNow.has(tileKey(tile.x, tile.y))
+    ));
     drawCutoutPolygon(ctx, polygon);
     ctx.restore();
   }
   ctx.restore();
+  drawAdjacentInnerWallFogCutouts(state, ctx, lightSources);
 }
 
 function drawClosedDoorFogBisectors(state, ctx) {
+  const applyDoorHalfFog = (x, y, width, height, current, explored) => {
+    if (current) {
+      clearFogRect(ctx, x, y, width, height);
+    } else if (explored) {
+      drawFogRect(ctx, x, y, width, height, EXPLORED_FOG_ALPHA);
+    } else {
+      drawFogRect(ctx, x, y, width, height, UNEXPLORED_FOG_ALPHA);
+    }
+  };
+
   for (const door of state.entities || []) {
     if (door.subtype !== "door" || door.doorState === DOOR_STATES.OPEN) {
       continue;
     }
-    const key = tileKey(door.x, door.y);
-    if (!state.visibility.visibleNow.has(key)) {
+    if (door.secret === true && door.secretFound !== true && door.revealed !== true) {
+      continue;
+    }
+    const visibleSides = state.visibility.closedDoorVisibleSides?.get?.(door.id) || new Set();
+    const exploredSides = state.visibility.closedDoorExploredSides?.get?.(door.id) || new Set();
+    if (!visibleSides.size && !exploredSides.size) {
       continue;
     }
     const px = door.x * TILE_SIZE_PX;
     const py = door.y * TILE_SIZE_PX;
     const half = TILE_SIZE_PX / 2;
-    const visibleSides = state.visibility.closedDoorVisibleSides?.get?.(door.id) || new Set();
-    const fogAlpha = door.everOpened === true ? 0.45 : 0.95;
-    ctx.fillStyle = `rgba(0, 0, 0, ${fogAlpha})`;
     if (door.orientation !== "horizontal") {
       const leftVisible = visibleSides.has("left");
       const rightVisible = visibleSides.has("right");
-      if (leftVisible && !rightVisible) {
-        ctx.fillRect(px + half, py, half, TILE_SIZE_PX);
-      } else if (rightVisible && !leftVisible) {
-        ctx.fillRect(px, py, half, TILE_SIZE_PX);
-      }
+      applyDoorHalfFog(px, py, half, TILE_SIZE_PX, leftVisible, exploredSides.has("left"));
+      applyDoorHalfFog(px + half, py, half, TILE_SIZE_PX, rightVisible, exploredSides.has("right"));
       continue;
     }
     const topVisible = visibleSides.has("top");
     const bottomVisible = visibleSides.has("bottom");
-    if (topVisible && !bottomVisible) {
-      ctx.fillRect(px, py + half, TILE_SIZE_PX, half);
-    } else if (bottomVisible && !topVisible) {
-      ctx.fillRect(px, py, TILE_SIZE_PX, half);
-    }
+    applyDoorHalfFog(px, py, TILE_SIZE_PX, half, topVisible, exploredSides.has("top"));
+    applyDoorHalfFog(px, py + half, TILE_SIZE_PX, half, bottomVisible, exploredSides.has("bottom"));
   }
 }
 

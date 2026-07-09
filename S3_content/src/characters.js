@@ -1,6 +1,6 @@
 const ABILITY_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 const MAX_EDITABLE_VALUE = 99;
-const MAX_COIN_VALUE = 2000;
+const MAX_COIN_VALUE = 9999999;
 const SHADOWDARK_LANGUAGES = [
   "Dwarvish",
   "Elvish",
@@ -25,7 +25,7 @@ function inferGearItemSlots(name, item = {}) {
   const normalizedName = String(name || "").toLowerCase();
   const treasureKind = String(item?.treasureKind || item?.kind || "").toLowerCase();
   if (item?.treasureItem === true || treasureKind) {
-    if (treasureKind === "herbs" || treasureKind === "clothing" || treasureKind === "jewels") {
+    if (treasureKind === "herbs" || treasureKind === "clothing" || treasureKind === "jewels" || treasureKind === "gems") {
       return 0;
     }
     if (treasureKind === "platemail") {
@@ -319,6 +319,8 @@ function normalizeCharacterSource(raw = {}, index = 0) {
   normalizedRaw.ammo = ammo;
   normalizedRaw.lightHidden = raw.lightHidden === true;
   normalizedRaw.baseArmorClass = baseArmorClass;
+  normalizedRaw.stealthed = raw.stealthed === true;
+  normalizedRaw.stealthRoll = raw.stealthRoll || null;
   normalizedRaw.baseAttacks = Array.isArray(raw.baseAttacks)
     ? clonePlain(raw.baseAttacks)
     : Array.isArray(raw.rawBaseAttacks)
@@ -343,6 +345,8 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     active: raw.active === true,
     colorId: raw.colorId || "",
     guarding: raw.guarding === true,
+    stealthed: raw.stealthed === true,
+    stealthRoll: raw.stealthRoll || null,
     x: raw.x === null || raw.x === undefined ? null : Number.isFinite(Number(raw.x)) ? Number(raw.x) : null,
     y: raw.y === null || raw.y === undefined ? null : Number.isFinite(Number(raw.y)) ? Number(raw.y) : null,
     roomId: raw.roomId || null,
@@ -360,6 +364,8 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     className: raw.class || raw.className || "",
     level: clampInt(raw.level ?? 1, 1, MAX_EDITABLE_VALUE, 1),
     XP: clampInt(raw.XP ?? raw.xp ?? 0, 0, MAX_EDITABLE_VALUE, 0),
+    hiddenXp: Math.max(0, Number(raw.hiddenXp ?? raw.xpRemainder ?? 0) || 0),
+    partyAssetShareCopper: Math.max(0, Math.floor(Number(raw.partyAssetShareCopper ?? 0) || 0)),
     title: raw.title || "",
     alignment: raw.alignment || "",
     background: raw.background || "",
@@ -589,10 +595,14 @@ export function normalizeCharacterState(state) {
     : [];
   for (const character of characters) {
     const gearCapacity = getGearSlotCapacity(character?.stats || {}, character?.className || "", character);
+    const computedSlots = getSlotsFromGear(character.gear || [], true);
     if (character.gearSlotsTotal !== gearCapacity) {
       character.gearSlotsTotal = gearCapacity;
     }
-    character.gearSlotsUsed = clampInt(character.gearSlotsUsed || 0, 0, character.gearSlotsTotal, 0);
+    character.gearSlotsUsed = clampInt(computedSlots.usedSlots + getCoinBagSlots(character), 0, character.gearSlotsTotal, 0);
+    character.raw = character.raw || {};
+    character.raw.hiddenXp = Math.max(0, Number(character.hiddenXp || 0) || 0);
+    character.raw.partyAssetShareCopper = Math.max(0, Math.floor(Number(character.partyAssetShareCopper || 0) || 0));
   }
   state.characters = characters;
   if (!state.activeCharacterId || !characters.some((character) => character.id === state.activeCharacterId)) {

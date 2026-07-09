@@ -16,12 +16,30 @@ export function ensureTimers(state) {
   return state.timers;
 }
 
+function hasLiveTimedLight(state) {
+  if (state.player?.torchLit === true) {
+    return true;
+  }
+  if ((state.characters || []).some((character) => (
+    (character?.lightSource === "torch" || character?.lightSource === "lantern") &&
+    Number(character?.lightRadius) > 0
+  ))) {
+    return true;
+  }
+  return (state.entities || []).some((entity) => (
+    entity?.subtype === "dropped-equipment" &&
+    entity.collected !== true &&
+    (entity.lightSource === "torch" || entity.lightSource === "lantern") &&
+    Number(entity.lightRadius) > 0
+  ));
+}
+
 export function syncElapsedTime(state, now = Date.now()) {
   const timers = ensureTimers(state);
   const elapsed = Math.max(0, now - timers.lastTickAt);
   timers.lastTickAt = now;
   timers.actualElapsedMs += elapsed;
-  if (!state.player.torchLit) {
+  if (!hasLiveTimedLight(state)) {
     return { crossedWanderingChecks: 0, expired: false };
   }
   return advanceTorchTime(state, elapsed);
@@ -38,7 +56,7 @@ export function advanceTorchTime(state, milliseconds) {
     timers.nextWanderingCheckMs += WANDERING_CHECK_INTERVAL_MS;
   }
 
-  const expired = state.player.torchLit && timers.torchElapsedMs >= timers.torchDurationMs;
+  const expired = hasLiveTimedLight(state) && timers.torchElapsedMs >= timers.torchDurationMs;
   if (expired) {
     state.player.torchLit = false;
     timers.torchElapsedMs = Math.max(timers.torchElapsedMs, timers.torchDurationMs);

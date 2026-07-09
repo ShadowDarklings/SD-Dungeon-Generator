@@ -1,7 +1,13 @@
 import { DOOR_STATES, TILE_SIZE_PX, TILE_TYPES } from "./constants.js";
+import { getOrganicBlockedSides, isOrganicMovementBlockingTile } from "./organic-tiles.js";
+import { getInnerWallConnectedSides, getInnerWallTileData } from "./inner-walls.js";
+import { isAngledWallLightBlockingTile, isAngledWallMovementBlockingTile } from "./angled-walls.js";
 
 const ANGLE_EPSILON = 0.00008;
 const RADIUS_RAY_COUNT = 96;
+const INNER_WALL_EDGE_INSET_PX = 5;
+const PILLAR_SHADOW_SIZE_PX = TILE_SIZE_PX / 3;
+const PILLAR_SHADOW_INSET_PX = (TILE_SIZE_PX - PILLAR_SHADOW_SIZE_PX) / 2;
 const TILE_SAMPLE_POINTS = Object.freeze([
   [0.5, 0.5],
   [0.16, 0.16],
@@ -59,6 +65,12 @@ export function isLightBlockingTile(state, x, y) {
   if (!tile) {
     return true;
   }
+  if (isOrganicMovementBlockingTile(tile)) {
+    return true;
+  }
+  if (isAngledWallLightBlockingTile(tile) || isAngledWallMovementBlockingTile(tile)) {
+    return true;
+  }
   if (tile.type === TILE_TYPES.WALL || tile.type === TILE_TYPES.VOID) {
     const rotundaBlock = getRotundaLightBlock(state, x, y);
     if (rotundaBlock !== null) {
@@ -71,23 +83,29 @@ export function isLightBlockingTile(state, x, y) {
 
 function isLightFloorTile(state, x, y) {
   const tile = getTileAt(state, x, y);
-  return tile && tile.type !== TILE_TYPES.WALL && tile.type !== TILE_TYPES.VOID;
+  return tile &&
+    tile.type !== TILE_TYPES.WALL &&
+    tile.type !== TILE_TYPES.VOID &&
+    !isOrganicMovementBlockingTile(tile) &&
+    !isAngledWallLightBlockingTile(tile) &&
+    !isAngledWallMovementBlockingTile(tile);
 }
 
 export function getDoorTiles(door) {
-  if (door.wallSide === "east") {
+  const side = door.hallDirection || door.wallSide;
+  if (side === "east") {
     return {
       hall: { x: door.x, y: door.y },
       room: { x: door.x - 1, y: door.y }
     };
   }
-  if (door.wallSide === "west") {
+  if (side === "west") {
     return {
       hall: { x: door.x, y: door.y },
       room: { x: door.x + 1, y: door.y }
     };
   }
-  if (door.wallSide === "south") {
+  if (side === "south") {
     return {
       hall: { x: door.x, y: door.y },
       room: { x: door.x, y: door.y - 1 }
@@ -151,15 +169,82 @@ function tileEdgeSegment(x, y, side) {
   return [[right, top], [right, bottom]];
 }
 
-function getClosedDoorSegment(door) {
+function innerWallBlockingSegments(tile) {
+  const innerWall = getInnerWallTileData(tile);
+  if (!innerWall?.blocksMovement) {
+    return [];
+  }
+  const connectedSides = new Set(getInnerWallConnectedSides(innerWall));
+  const left = tile.x * TILE_SIZE_PX + (connectedSides.has("west") ? 0 : INNER_WALL_EDGE_INSET_PX);
+  const top = tile.y * TILE_SIZE_PX + (connectedSides.has("north") ? 0 : INNER_WALL_EDGE_INSET_PX);
+  const right = (tile.x + 1) * TILE_SIZE_PX - (connectedSides.has("east") ? 0 : INNER_WALL_EDGE_INSET_PX);
+  const bottom = (tile.y + 1) * TILE_SIZE_PX - (connectedSides.has("south") ? 0 : INNER_WALL_EDGE_INSET_PX);
+  return [
+    [[left, top], [right, top]],
+    [[right, top], [right, bottom]],
+    [[right, bottom], [left, bottom]],
+    [[left, bottom], [left, top]]
+  ];
+}
+
+function rectBlockingSegments(left, top, right, bottom) {
+  return [
+    [[left, top], [right, top]],
+    [[right, top], [right, bottom]],
+    [[right, bottom], [left, bottom]],
+    [[left, bottom], [left, top]]
+  ];
+}
+
+function columnBlockingSegments(column) {
+  if (!Number.isFinite(Number(column?.x)) || !Number.isFinite(Number(column?.y))) {
+    return [];
+  }
+  const placement = String(column.placement || "center");
+  const drawX = placement === "vertex" ? Number(column.x) - 0.5 : Number(column.x);
+  const drawY = placement === "vertex" ? Number(column.y) - 0.5 : Number(column.y);
+  const left = drawX * TILE_SIZE_PX + PILLAR_SHADOW_INSET_PX;
+  const top = drawY * TILE_SIZE_PX + PILLAR_SHADOW_INSET_PX;
+  return rectBlockingSegments(
+    left,
+    top,
+    left + PILLAR_SHADOW_SIZE_PX,
+    top + PILLAR_SHADOW_SIZE_PX
+  );
+}
+
+function isHorizontalDoor(door) {
+  if (door.orientation === "horizontal") {
+    return true;
+  }
+  if (door.orientation === "vertical") {
+    return false;
+  }
+  const side = String(door.hallDirection || door.wallSide || "").toLowerCase();
+  return side === "north" || side === "south";
+}
+
+export function isPortcullisDoor(door) {
+  const explicit = String(door?.doorKind || door?.visualKind || "").toLowerCase();
+  if (explicit === "gate" || explicit === "portcullis") {
+    return true;
+  }
+  const watabouType = Number(door?.watabouDoorType ?? door?.type);
+  return watabouType === 5 || door?.portcullis === true || door?.doorState === "portcullis";
+}
+
+export function getClosedDoorSegment(door) {
   const left = door.x * TILE_SIZE_PX;
   const top = door.y * TILE_SIZE_PX;
   const right = left + TILE_SIZE_PX;
   const bottom = top + TILE_SIZE_PX;
-  if (door.wallSide === "east") return [[left, top], [left, bottom]];
-  if (door.wallSide === "west") return [[right, bottom], [right, top]];
-  if (door.wallSide === "south") return [[left, top], [right, top]];
-  return [[right, bottom], [left, bottom]];
+  const half = TILE_SIZE_PX / 2;
+  if (!isHorizontalDoor(door)) {
+    const x = left + half;
+    return [[x, top], [x, bottom]];
+  }
+  const y = top + half;
+  return [[right, y], [left, y]];
 }
 
 function segmentNearSource(segment, sourcePoint, radiusPx) {
@@ -185,7 +270,16 @@ function collectBlockingSegments(state, source, sourcePoint, radiusPx) {
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
+      const tile = getTileAt(state, x, y);
+      const innerWallSegments = innerWallBlockingSegments(tile);
+      if (innerWallSegments.length) {
+        segments.push(...innerWallSegments);
+        continue;
+      }
       if (!isLightBlockingTile(state, x, y)) {
+        for (const side of getOrganicBlockedSides(tile)) {
+          segments.push(tileEdgeSegment(x, y, side));
+        }
         continue;
       }
       for (const [side, dx, dy] of sides) {
@@ -196,8 +290,16 @@ function collectBlockingSegments(state, source, sourcePoint, radiusPx) {
     }
   }
 
+  for (const column of state.decor?.columns || []) {
+    for (const segment of columnBlockingSegments(column)) {
+      if (segmentNearSource(segment, sourcePoint, radiusPx)) {
+        segments.push(segment);
+      }
+    }
+  }
+
   for (const entity of state.entities || []) {
-    if (entity.subtype !== "door" || entity.doorState === DOOR_STATES.OPEN) {
+    if (entity.subtype !== "door" || entity.doorState === DOOR_STATES.OPEN || isPortcullisDoor(entity)) {
       continue;
     }
     const segment = getClosedDoorSegment(entity);
@@ -310,6 +412,16 @@ export function isPointInPolygon(point, polygon) {
     }
   }
   return inside;
+}
+
+export function isTileCenterInLightPolygon(tile, polygon) {
+  if (!tile || tile.type === TILE_TYPES.WALL || tile.type === TILE_TYPES.VOID) {
+    return false;
+  }
+  return isPointInPolygon([
+    (tile.x + 0.5) * TILE_SIZE_PX,
+    (tile.y + 0.5) * TILE_SIZE_PX
+  ], polygon);
 }
 
 export function isTileTouchedByLightPolygon(tile, polygon) {

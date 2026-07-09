@@ -1,801 +1,306 @@
 [
-  {
-    "slug": "angel-domini",
-    "name": "Angel, Domini",
-    "level": 9,
-    "ac": "17 (plate mail + shield)",
-    "hp": "42",
-    "attack": "3 bastard sword +7 (1d8) or 1 horn",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+2",
-      "INT": "+3",
-      "WIS": "+4",
-      "CHA": "+4"
+    {
+        "Monster Name": "Angel, Domini",
+        "**AC**": "17 (plate mail + shield)",
+        "**HP**": "42",
+        "**ATK**": "3 bastard sword +7 (1d8) or 1 horn",
+        "**MV**": "near (fly)",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+2",
+        "**I**": "+3",
+        "**W**": "+4",
+        "**CH**": "+4",
+        "**AL**": "L",
+        "**LV**": "9",
+        "tags": [
+            "angel"
+        ],
+        "abilities": {
+            "**Horn**": "All enemies in near DC 15 CHA or paralyzed 1d4 rounds."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "L",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 bastard sword +7 (1d8) or 1 horn"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Horn",
-        "text": "All enemies in near DC 15 CHA or paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "All enemies in near DC 15 CHA or paralyzed 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Angel, Domini",
-    "**AC**": "17 (plate mail + shield)",
-    "**HP**": "42",
-    "**ATK**": "3 bastard sword +7 (1d8) or 1 horn",
-    "**MV**": "near (fly)",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+2",
-    "**I**": "+3",
-    "**W**": "+4",
-    "**CH**": "+4",
-    "**AL**": "L",
-    "**LV**": "9",
-    "abilities": {
-      "**Horn**": "All enemies in near DC 15 CHA or paralyzed 1d4 rounds."
+    {
+        "Monster Name": "Couatl",
+        "**AC**": "16",
+        "**HP**": "42",
+        "**ATK**": "3 bite +6 (2d6 + poison)",
+        "**MV**": "near (fly)",
+        "**S**": "+2",
+        "**D**": "+3",
+        "**C**": "+2",
+        "**I**": "+4",
+        "**W**": "+4",
+        "**CH**": "+5",
+        "**AL**": "L",
+        "**LV**": "9",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Change Shape**": "In place of attacks, transform into any similarly-sized creature.",
+            "**Poison**": "DC 15 CON or fall into natural, deep sleep for 1d8 hours.",
+            "**Restore**": "In place of attacks, touch one creature to remove a curse, affliction, or heal 3d8 HP."
+        },
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Demon, Marilith",
+        "**AC**": "17 (plate mail)",
+        "**HP**": "43",
+        "**ATK**": "6 longsword +7 (1d8)",
+        "**MV**": "near (climb)",
+        "**S**": "+5",
+        "**D**": "+4",
+        "**C**": "+3",
+        "**I**": "+3",
+        "**W**": "+3",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "demon",
+            "fiend",
+            "horror"
+        ],
+        "abilities": {
+            "**Parry**": "Trade 2 longsword attacks next round to deflect a melee attack that would hit."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Devil, Erinyes",
+        "**AC**": "17 (+1 plate mail)",
+        "**HP**": "43",
+        "**ATK**": "3 greatsword +8 (1d12) or 2 longbow (far) +8 (1d8 + poison)",
+        "**MV**": "double near (fly)",
+        "**S**": "+4",
+        "**D**": "+4",
+        "**C**": "+3",
+        "**I**": "+4",
+        "**W**": "+4",
+        "**CH**": "+5",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "devil",
+            "fiend",
+            "horror"
+        ],
+        "abilities": {
+            "**Poison**": "DC 15 CON or target's eyes go jet black and it turns on its allies for 1d4 rounds. DC 15 WIS on turn to end effect."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Efreeti",
+        "**AC**": "15",
+        "**HP**": "43",
+        "**ATK**": "3 scimitar +8 (2d10) or 2 fire bolt (far) +5 (2d6)",
+        "**MV**": "near (fly)",
+        "**S**": "+5",
+        "**D**": "+2",
+        "**C**": "+3",
+        "**I**": "+3",
+        "**W**": "+2",
+        "**CH**": "+3",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by magical sources. Fire immune.",
+            "**Wall of Flame**": "1/day, 20' high curtain of fire, double near length. Touching it deals 4d8 damage. Lasts 2d4 rounds.",
+            "**Wish**": "Cast wish once a week for a mortal, no spellcasting check."
+        },
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Giant, Fire",
+        "**AC**": "15 (plate mail)",
+        "**HP**": "44",
+        "**ATK**": "3 greatsword +9 (2d12)",
+        "**MV**": "double near",
+        "**S**": "+6",
+        "**D**": "+0",
+        "**C**": "+4",
+        "**I**": "+1",
+        "**W**": "+2",
+        "**CH**": "+1",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Fireblood**": "Fire immune."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Giant, Frost",
+        "**AC**": "14 (chainmail)",
+        "**HP**": "44",
+        "**ATK**": "3 greataxe +8 (2d10)",
+        "**MV**": "double near",
+        "**S**": "+5",
+        "**D**": "+1",
+        "**C**": "+4",
+        "**I**": "+2",
+        "**W**": "+3",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "giant"
+        ],
+        "abilities": {
+            "**Frostblood**": "Cold immune."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Grimlow",
+        "**AC**": "12",
+        "**HP**": "43",
+        "**ATK**": "1 grab and 3 bite +6 (2d8)",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+3",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "9",
+        "tags": [
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Grab**": "One target in near DC 15 STR or wrapped in grimlow's tongue and pulled into its mouth. Bite attacks automatically hit the target. Can only grab 1 target at a time. DC 15 STR on turn to break free."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Mammoth",
+        "**AC**": "15",
+        "**HP**": "44",
+        "**ATK**": "2 tusks +7 (1d12)",
+        "**MV**": "near",
+        "**S**": "+5",
+        "**D**": "+0",
+        "**C**": "+4",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "+0",
+        "**AL**": "N",
+        "**LV**": "9",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Thick Fur**": "Cold immune.",
+            "**Charge**": "Move up to double near in straight line and make 1 tusks attack. If hit, x3 damage."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Naga",
+        "**AC**": "16",
+        "**HP**": "43",
+        "**ATK**": "2 bite +7 (2d6 + poison) and 1 spell +7",
+        "**MV**": "near (climb)",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+3",
+        "**I**": "+2",
+        "**W**": "+2",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Poison**": "DC 15 CON or paralyzed 1d4 rounds.",
+            "**Agony (CHA Spell)**": "DC 14. One target in near takes 3d8 damage.",
+            "**Hypnotize (CHA Spell)**": "DC 13. Focus. One target in near range who can see naga is helplessly stupefied for duration.",
+            "**Whispers (CHA Spell)**": "DC 12. Hostile spells cast on one target in near are DC 9 for 1d4 rounds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Rime Walker",
+        "**AC**": "16",
+        "**HP**": "43",
+        "**ATK**": "4 claw +8 (1d12)",
+        "**MV**": "near (fly)",
+        "**S**": "+4",
+        "**D**": "+4",
+        "**C**": "+3",
+        "**I**": "+2",
+        "**W**": "+2",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "9",
+        "tags": [
+            "horror",
+            "outsider"
+        ],
+        "abilities": {
+            "**Impervious**": "Immune to cold.",
+            "**Ice Aura**": "Enemies within near of rime walker DC 12 CON at start of turn or lose action."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Sphinx",
+        "**AC**": "16",
+        "**HP**": "42",
+        "**ATK**": "3 claw +7 (1d10) or 2 spell +5",
+        "**MV**": "double near (fly)",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+2",
+        "**I**": "+4",
+        "**W**": "+4",
+        "**CH**": "+3",
+        "**AL**": "L",
+        "**LV**": "9",
+        "tags": [
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Roar**": "In place of attacks, all creatures who can hear within far DC 18 CHA or paralyzed 1d4 rounds.",
+            "**Gate (WIS Spell)**": "DC 14. Open a portal at a point within near to another location on any plane. Lasts 1d6 rounds or until dismissed.",
+            "**Omens (WIS Spell)**": "DC 12. Self. ADV on all actions for 1d4 rounds.",
+            "**Riddle (WIS Spell)**": "DC 12. One target in far DC 15 INT or stupefied 1d4 rounds.",
+            "**Time Bend (WIS Spell)**": "DC 14. One target in near frozen in time for 1d4 rounds.",
+            "**Unmake (WIS Spell)**": "DC 13. One target in far takes 3d8 damage."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Tyrannosaurus",
+        "**AC**": "13",
+        "**HP**": "44",
+        "**ATK**": "3 bite +8 (2d12)",
+        "**MV**": "double near",
+        "**S**": "+5",
+        "**D**": "+1",
+        "**C**": "+4",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "9",
+        "tags": [
+            "animal",
+            "dinosaur"
+        ],
+        "abilities": {},
+        "diplomacy": "N"
     }
-  },
-  {
-    "slug": "couatl",
-    "name": "Couatl",
-    "level": 9,
-    "ac": "16",
-    "hp": "42",
-    "attack": "3 bite +6 (2d6 + poison)",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+3",
-      "CON": "+2",
-      "INT": "+4",
-      "WIS": "+4",
-      "CHA": "+5"
-    },
-    "alignment": "L",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "3 bite +6 (2d6 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Change Shape",
-        "text": "In place of attacks, transform into any similarly-sized creature.",
-        "damage": []
-      },
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or fall into natural, deep sleep for 1d8 hours.",
-        "damage": [
-          {
-            "expression": "1d8",
-            "display": "1d8",
-            "context": "DC 15 CON or fall into natural, deep sleep for 1d8 hours."
-          }
-        ]
-      },
-      {
-        "name": "Restore",
-        "text": "In place of attacks, touch one creature to remove a curse, affliction, or heal 3d8 HP.",
-        "damage": [
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "In place of attacks, touch one creature to remove a curse, affliction, or heal 3d8 HP."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Couatl",
-    "**AC**": "16",
-    "**HP**": "42",
-    "**ATK**": "3 bite +6 (2d6 + poison)",
-    "**MV**": "near (fly)",
-    "**S**": "+2",
-    "**D**": "+3",
-    "**C**": "+2",
-    "**I**": "+4",
-    "**W**": "+4",
-    "**CH**": "+5",
-    "**AL**": "L",
-    "**LV**": "9",
-    "abilities": {
-      "**Change Shape**": "In place of attacks, transform into any similarly-sized creature.",
-      "**Poison**": "DC 15 CON or fall into natural, deep sleep for 1d8 hours.",
-      "**Restore**": "In place of attacks, touch one creature to remove a curse, affliction, or heal 3d8 HP."
-    }
-  },
-  {
-    "slug": "demon-marilith",
-    "name": "Demon, Marilith",
-    "level": 9,
-    "ac": "17 (plate mail)",
-    "hp": "43",
-    "attack": "6 longsword +7 (1d8)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+4",
-      "CON": "+3",
-      "INT": "+3",
-      "WIS": "+3",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "6 longsword +7 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Parry",
-        "text": "Trade 2 longsword attacks next round to deflect a melee attack that would hit.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Demon, Marilith",
-    "**AC**": "17 (plate mail)",
-    "**HP**": "43",
-    "**ATK**": "6 longsword +7 (1d8)",
-    "**MV**": "near (climb)",
-    "**S**": "+5",
-    "**D**": "+4",
-    "**C**": "+3",
-    "**I**": "+3",
-    "**W**": "+3",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Parry**": "Trade 2 longsword attacks next round to deflect a melee attack that would hit."
-    }
-  },
-  {
-    "slug": "devil-erinyes",
-    "name": "Devil, Erinyes",
-    "level": 9,
-    "ac": "17 (+1 plate mail)",
-    "hp": "43",
-    "attack": "3 greatsword +8 (1d12) or 2 longbow (far) +8 (1d8 + poison)",
-    "movement": "double near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+4",
-      "CON": "+3",
-      "INT": "+4",
-      "WIS": "+4",
-      "CHA": "+5"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d12",
-        "display": "1d12",
-        "context": "3 greatsword +8 (1d12) or 2 longbow (far) +8 (1d8 + poison)"
-      },
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 greatsword +8 (1d12) or 2 longbow (far) +8 (1d8 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or target's eyes go jet black and it turns on its allies for 1d4 rounds. DC 15 WIS on turn to end effect.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or target's eyes go jet black and it turns on its allies for 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Devil, Erinyes",
-    "**AC**": "17 (+1 plate mail)",
-    "**HP**": "43",
-    "**ATK**": "3 greatsword +8 (1d12) or 2 longbow (far) +8 (1d8 + poison)",
-    "**MV**": "double near (fly)",
-    "**S**": "+4",
-    "**D**": "+4",
-    "**C**": "+3",
-    "**I**": "+4",
-    "**W**": "+4",
-    "**CH**": "+5",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Poison**": "DC 15 CON or target's eyes go jet black and it turns on its allies for 1d4 rounds. DC 15 WIS on turn to end effect."
-    }
-  },
-  {
-    "slug": "efreeti",
-    "name": "Efreeti",
-    "level": 9,
-    "ac": "15",
-    "hp": "43",
-    "attack": "3 scimitar +8 (2d10) or 2 fire bolt (far) +5 (2d6)",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+2",
-      "CON": "+3",
-      "INT": "+3",
-      "WIS": "+2",
-      "CHA": "+3"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d10",
-        "display": "2d10",
-        "context": "3 scimitar +8 (2d10) or 2 fire bolt (far) +5 (2d6)"
-      },
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "3 scimitar +8 (2d10) or 2 fire bolt (far) +5 (2d6)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by magical sources. Fire immune.",
-        "damage": []
-      },
-      {
-        "name": "Wall of Flame",
-        "text": "1/day, 20' high curtain of fire, double near length. Touching it deals 4d8 damage. Lasts 2d4 rounds.",
-        "damage": [
-          {
-            "expression": "4d8",
-            "display": "4d8",
-            "context": "Touching it deals 4d8 damage."
-          },
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "Lasts 2d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Wish",
-        "text": "Cast wish once a week for a mortal, no spellcasting check.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Efreeti",
-    "**AC**": "15",
-    "**HP**": "43",
-    "**ATK**": "3 scimitar +8 (2d10) or 2 fire bolt (far) +5 (2d6)",
-    "**MV**": "near (fly)",
-    "**S**": "+5",
-    "**D**": "+2",
-    "**C**": "+3",
-    "**I**": "+3",
-    "**W**": "+2",
-    "**CH**": "+3",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Impervious**": "Only damaged by magical sources. Fire immune.",
-      "**Wall of Flame**": "1/day, 20' high curtain of fire, double near length. Touching it deals 4d8 damage. Lasts 2d4 rounds.",
-      "**Wish**": "Cast wish once a week for a mortal, no spellcasting check."
-    }
-  },
-  {
-    "slug": "giant-fire",
-    "name": "Giant, Fire",
-    "level": 9,
-    "ac": "15 (plate mail)",
-    "hp": "44",
-    "attack": "3 greatsword +9 (2d12)",
-    "movement": "double near",
-    "stats": {
-      "STR": "+6",
-      "DEX": "+0",
-      "CON": "+4",
-      "INT": "+1",
-      "WIS": "+2",
-      "CHA": "+1"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d12",
-        "display": "2d12",
-        "context": "3 greatsword +9 (2d12)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Fireblood",
-        "text": "Fire immune.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Giant, Fire",
-    "**AC**": "15 (plate mail)",
-    "**HP**": "44",
-    "**ATK**": "3 greatsword +9 (2d12)",
-    "**MV**": "double near",
-    "**S**": "+6",
-    "**D**": "+0",
-    "**C**": "+4",
-    "**I**": "+1",
-    "**W**": "+2",
-    "**CH**": "+1",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Fireblood**": "Fire immune."
-    }
-  },
-  {
-    "slug": "giant-frost",
-    "name": "Giant, Frost",
-    "level": 9,
-    "ac": "14 (chainmail)",
-    "hp": "44",
-    "attack": "3 greataxe +8 (2d10)",
-    "movement": "double near",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+1",
-      "CON": "+4",
-      "INT": "+2",
-      "WIS": "+3",
-      "CHA": "+2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d10",
-        "display": "2d10",
-        "context": "3 greataxe +8 (2d10)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Frostblood",
-        "text": "Cold immune.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Giant, Frost",
-    "**AC**": "14 (chainmail)",
-    "**HP**": "44",
-    "**ATK**": "3 greataxe +8 (2d10)",
-    "**MV**": "double near",
-    "**S**": "+5",
-    "**D**": "+1",
-    "**C**": "+4",
-    "**I**": "+2",
-    "**W**": "+3",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Frostblood**": "Cold immune."
-    }
-  },
-  {
-    "slug": "grimlow",
-    "name": "Grimlow",
-    "level": 9,
-    "ac": "12",
-    "hp": "43",
-    "attack": "1 grab and 3 bite +6 (2d8)",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+3",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "1 grab and 3 bite +6 (2d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Grab",
-        "text": "One target in near DC 15 STR or wrapped in grimlow's tongue and pulled into its mouth. Bite attacks automatically hit the target. Can only grab 1 target at a time. DC 15 STR on turn to break free.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Grimlow",
-    "**AC**": "12",
-    "**HP**": "43",
-    "**ATK**": "1 grab and 3 bite +6 (2d8)",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+3",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "9",
-    "abilities": {
-      "**Grab**": "One target in near DC 15 STR or wrapped in grimlow's tongue and pulled into its mouth. Bite attacks automatically hit the target. Can only grab 1 target at a time. DC 15 STR on turn to break free."
-    }
-  },
-  {
-    "slug": "mammoth",
-    "name": "Mammoth",
-    "level": 9,
-    "ac": "15",
-    "hp": "44",
-    "attack": "2 tusks +7 (1d12)",
-    "movement": "near",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+0",
-      "CON": "+4",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "+0"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d12",
-        "display": "1d12",
-        "context": "2 tusks +7 (1d12)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Thick Fur",
-        "text": "Cold immune.",
-        "damage": []
-      },
-      {
-        "name": "Charge",
-        "text": "Move up to double near in straight line and make 1 tusks attack. If hit, x3 damage.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Mammoth",
-    "**AC**": "15",
-    "**HP**": "44",
-    "**ATK**": "2 tusks +7 (1d12)",
-    "**MV**": "near",
-    "**S**": "+5",
-    "**D**": "+0",
-    "**C**": "+4",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "+0",
-    "**AL**": "N",
-    "**LV**": "9",
-    "abilities": {
-      "**Thick Fur**": "Cold immune.",
-      "**Charge**": "Move up to double near in straight line and make 1 tusks attack. If hit, x3 damage."
-    }
-  },
-  {
-    "slug": "naga",
-    "name": "Naga",
-    "level": 9,
-    "ac": "16",
-    "hp": "43",
-    "attack": "2 bite +7 (2d6 + poison) and 1 spell +7",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+3",
-      "INT": "+2",
-      "WIS": "+2",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "2 bite +7 (2d6 + poison) and 1 spell +7"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or paralyzed 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Agony (CHA Spell)",
-        "text": "DC 14. One target in near takes 3d8 damage.",
-        "damage": [
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "One target in near takes 3d8 damage."
-          }
-        ]
-      },
-      {
-        "name": "Hypnotize (CHA Spell)",
-        "text": "DC 13. Focus. One target in near range who can see naga is helplessly stupefied for duration.",
-        "damage": []
-      },
-      {
-        "name": "Whispers (CHA Spell)",
-        "text": "DC 12. Hostile spells cast on one target in near are DC 9 for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "Hostile spells cast on one target in near are DC 9 for 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Naga",
-    "**AC**": "16",
-    "**HP**": "43",
-    "**ATK**": "2 bite +7 (2d6 + poison) and 1 spell +7",
-    "**MV**": "near (climb)",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+3",
-    "**I**": "+2",
-    "**W**": "+2",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Poison**": "DC 15 CON or paralyzed 1d4 rounds.",
-      "**Agony (CHA Spell)**": "DC 14. One target in near takes 3d8 damage.",
-      "**Hypnotize (CHA Spell)**": "DC 13. Focus. One target in near range who can see naga is helplessly stupefied for duration.",
-      "**Whispers (CHA Spell)**": "DC 12. Hostile spells cast on one target in near are DC 9 for 1d4 rounds."
-    }
-  },
-  {
-    "slug": "rime-walker",
-    "name": "Rime Walker",
-    "level": 9,
-    "ac": "16",
-    "hp": "43",
-    "attack": "4 claw +8 (1d12)",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+4",
-      "CON": "+3",
-      "INT": "+2",
-      "WIS": "+2",
-      "CHA": "+2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d12",
-        "display": "1d12",
-        "context": "4 claw +8 (1d12)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Immune to cold.",
-        "damage": []
-      },
-      {
-        "name": "Ice Aura",
-        "text": "Enemies within near of rime walker DC 12 CON at start of turn or lose action.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Rime Walker",
-    "**AC**": "16",
-    "**HP**": "43",
-    "**ATK**": "4 claw +8 (1d12)",
-    "**MV**": "near (fly)",
-    "**S**": "+4",
-    "**D**": "+4",
-    "**C**": "+3",
-    "**I**": "+2",
-    "**W**": "+2",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "9",
-    "abilities": {
-      "**Impervious**": "Immune to cold.",
-      "**Ice Aura**": "Enemies within near of rime walker DC 12 CON at start of turn or lose action."
-    }
-  },
-  {
-    "slug": "sphinx",
-    "name": "Sphinx",
-    "level": 9,
-    "ac": "16",
-    "hp": "42",
-    "attack": "3 claw +7 (1d10) or 2 spell +5",
-    "movement": "double near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+2",
-      "INT": "+4",
-      "WIS": "+4",
-      "CHA": "+3"
-    },
-    "alignment": "L",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "3 claw +7 (1d10) or 2 spell +5"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Roar",
-        "text": "In place of attacks, all creatures who can hear within far DC 18 CHA or paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "In place of attacks, all creatures who can hear within far DC 18 CHA or paralyzed 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Gate (WIS Spell)",
-        "text": "DC 14. Open a portal at a point within near to another location on any plane. Lasts 1d6 rounds or until dismissed.",
-        "damage": [
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "Lasts 1d6 rounds or until dismissed."
-          }
-        ]
-      },
-      {
-        "name": "Omens (WIS Spell)",
-        "text": "DC 12. Self. ADV on all actions for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "ADV on all actions for 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Riddle (WIS Spell)",
-        "text": "DC 12. One target in far DC 15 INT or stupefied 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "One target in far DC 15 INT or stupefied 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Time Bend (WIS Spell)",
-        "text": "DC 14. One target in near frozen in time for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "One target in near frozen in time for 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Unmake (WIS Spell)",
-        "text": "DC 13. One target in far takes 3d8 damage.",
-        "damage": [
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "One target in far takes 3d8 damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Sphinx",
-    "**AC**": "16",
-    "**HP**": "42",
-    "**ATK**": "3 claw +7 (1d10) or 2 spell +5",
-    "**MV**": "double near (fly)",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+2",
-    "**I**": "+4",
-    "**W**": "+4",
-    "**CH**": "+3",
-    "**AL**": "L",
-    "**LV**": "9",
-    "abilities": {
-      "**Roar**": "In place of attacks, all creatures who can hear within far DC 18 CHA or paralyzed 1d4 rounds.",
-      "**Gate (WIS Spell)**": "DC 14. Open a portal at a point within near to another location on any plane. Lasts 1d6 rounds or until dismissed.",
-      "**Omens (WIS Spell)**": "DC 12. Self. ADV on all actions for 1d4 rounds.",
-      "**Riddle (WIS Spell)**": "DC 12. One target in far DC 15 INT or stupefied 1d4 rounds.",
-      "**Time Bend (WIS Spell)**": "DC 14. One target in near frozen in time for 1d4 rounds.",
-      "**Unmake (WIS Spell)**": "DC 13. One target in far takes 3d8 damage."
-    }
-  },
-  {
-    "slug": "tyrannosaurus",
-    "name": "Tyrannosaurus",
-    "level": 9,
-    "ac": "13",
-    "hp": "44",
-    "attack": "3 bite +8 (2d12)",
-    "movement": "double near",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+1",
-      "CON": "+4",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-3"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d12",
-        "display": "2d12",
-        "context": "3 bite +8 (2d12)"
-      }
-    ],
-    "abilityDetails": [],
-    "Monster Name": "Tyrannosaurus",
-    "**AC**": "13",
-    "**HP**": "44",
-    "**ATK**": "3 bite +8 (2d12)",
-    "**MV**": "double near",
-    "**S**": "+5",
-    "**D**": "+1",
-    "**C**": "+4",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "9",
-    "abilities": {}
-  }
 ]

@@ -1,1668 +1,611 @@
 [
-  {
-    "slug": "black-pudding",
-    "name": "Black Pudding",
-    "level": 6,
-    "ac": "9",
-    "hp": "30",
-    "attack": "3 tentacle +4 (2d6)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "-1",
-      "CON": "+3",
-      "INT": "-4",
-      "WIS": "-3",
-      "CHA": "-4"
+    {
+        "Monster Name": "Black Pudding",
+        "**AC**": "9",
+        "**HP**": "30",
+        "**ATK**": "3 tentacle +4 (2d6)",
+        "**MV**": "near (climb)",
+        "**S**": "+2",
+        "**D**": "-1",
+        "**C**": "+3",
+        "**I**": "-4",
+        "**W**": "-3",
+        "**CH**": "-4",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "ooze"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by fire.",
+            "**Corrosive**": "Wood or metal that touches the ooze dissolves on a d6 roll of 1-3."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "3 tentacle +4 (2d6)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by fire.",
-        "damage": []
-      },
-      {
-        "name": "Corrosive",
-        "text": "Wood or metal that touches the ooze dissolves on a d6 roll of 1-3.",
-        "damage": [
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "Wood or metal that touches the ooze dissolves on a d6 roll of 1-3."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Black Pudding",
-    "**AC**": "9",
-    "**HP**": "30",
-    "**ATK**": "3 tentacle +4 (2d6)",
-    "**MV**": "near (climb)",
-    "**S**": "+2",
-    "**D**": "-1",
-    "**C**": "+3",
-    "**I**": "-4",
-    "**W**": "-3",
-    "**CH**": "-4",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Only damaged by fire.",
-      "**Corrosive**": "Wood or metal that touches the ooze dissolves on a d6 roll of 1-3."
+    {
+        "Monster Name": "Cave Brute",
+        "**AC**": "14",
+        "**HP**": "28",
+        "**ATK**": "2 claw +5 (1d8) and 1 mandible +5 (1d10)",
+        "**MV**": "near (burrow)",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+1",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "humanoid",
+            "tough",
+            "underdark"
+        ],
+        "abilities": {
+            "**Bewilder**": "Creatures within near that see the cave brute's eyes, DC 12 CHA at start of their turn or dazed and no action."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Cloaker",
+        "**AC**": "13",
+        "**HP**": "28",
+        "**ATK**": "3 lash +4 (1d8) or 1 screech",
+        "**MV**": "near (fly)",
+        "**S**": "+2",
+        "**D**": "+3",
+        "**C**": "+1",
+        "**I**": "+1",
+        "**W**": "+1",
+        "**CH**": "+0",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "aberration",
+            "underdark"
+        ],
+        "abilities": {
+            "**Phantoms**": "1/day, in place of attacks. Create 3 illusory duplicates that disappear when hit. Determine randomly if an attack hits cloaker or illusions.",
+            "**Screech**": "Enemies within double near DC 15 WIS or DISADV on attacks and checks 1d4 rounds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Devil, Cubi",
+        "**AC**": "14",
+        "**HP**": "29",
+        "**ATK**": "1 kiss +4 (1d6 + drain) or 1 charm",
+        "**MV**": "near (fly)",
+        "**S**": "+2",
+        "**D**": "+4",
+        "**C**": "+2",
+        "**I**": "+3",
+        "**W**": "+2",
+        "**CH**": "+5",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "devil",
+            "horror"
+        ],
+        "abilities": {
+            "**Change Shape**": "In place of attacks, transform into any similarly-sized humanoid.",
+            "**Charm**": "One humanoid in near DC 15 CHA or bewitched by cubi for 1d6 hours.",
+            "**Drain**": "The target takes 1d6 WIS damage. A target reduced to 0 WIS this way swears its soul to an archdevil."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Drow, Drider",
+        "**AC**": "16 (mithral chainmail)",
+        "**HP**": "29",
+        "**ATK**": "3 longsword +3 (1d8) or 2 longbow (far) +3 (1d8 + poison)",
+        "**MV**": "near (climb)",
+        "**S**": "+3",
+        "**D**": "+3",
+        "**C**": "+2",
+        "**I**": "+2",
+        "**W**": "+2",
+        "**CH**": "+0",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "elf",
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Poison**": "DC 15 CON or paralyzed 1d4 rounds.",
+            "**Sunblind**": "Blinded in bright light."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Drow, Priestess",
+        "**AC**": "16 (mithral chainmail)",
+        "**HP**": "28",
+        "**ATK**": "3 snake whip (near) +4 (1d8 + poison) or 1 spell +4",
+        "**MV**": "near",
+        "**S**": "+2",
+        "**D**": "+3",
+        "**C**": "+1",
+        "**I**": "+3",
+        "**W**": "+4",
+        "**CH**": "+3",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "elf",
+            "humanoid"
+        ],
+        "abilities": {
+            "**Poison**": "DC 15 CON or paralyzed 1d4 rounds.",
+            "**Sunblind**": "Blinded in bright light.",
+            "**Snuff (WIS Spell)**": "DC 12. Extinguish all light sources (even magical) within near. Summon Spiders (WIS Spell). DC 14. Summon 2d4 loyal giant spiders that appear within near. They stay for 5 rounds.",
+            "**Web (WIS Spell)**": "DC 13. A near- sized cube of webs within far immobilizes all inside it for 5 rounds. DC 15 STR on turn to break free."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Elemental, Air",
+        "**AC**": "16",
+        "**HP**": "29/42",
+        "**ATK**": "3 slam +7 (2d6/3d6) or 1 whirlwind",
+        "**MV**": "double near (fly)",
+        "**S**": "+3",
+        "**D**": "+5",
+        "**C**": "+2",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by magical sources.",
+            "**Whirlwind**": "All within close DC 15 DEX or flung 2d20 feet in random direction."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Elemental, Earth",
+        "**AC**": "17",
+        "**HP**": "31/44",
+        "**ATK**": "3 slam +7 (2d8/3d8) or 1 avalanche",
+        "**MV**": "near (burrow)",
+        "**S**": "+5",
+        "**D**": "+0",
+        "**C**": "+4",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by magical sources.",
+            "**Avalanche**": "All within close DC 15 STR or entombed for 1d4 rounds under mounds of earth."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Elemental, Fire",
+        "**AC**": "15",
+        "**HP**": "30/43",
+        "**ATK**": "3 slam +6 (2d10/3d10) or 1 inferno",
+        "**MV**": "near (fly)",
+        "**S**": "+4",
+        "**D**": "+3",
+        "**C**": "+3",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by magical sources. Fire immune.",
+            "**Inferno**": "All within near DC 15 DEX or 3d8 damage."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Elemental, Water",
+        "**AC**": "15",
+        "**HP**": "29/42",
+        "**ATK**": "3 slam +6 (2d6/3d6) or 1 whirlpool",
+        "**MV**": "double near (swim)",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+2",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Impervious**": "Only damaged by magical sources.",
+            "**Whirlpool**": "All within close DC 15 STR or immobilized inside water elemental (treat as underwater). DC 15 STR on turn to escape. Elementals are semi-humanoid beings of pure energy that speak rudimentary Primordial. Earth and air are anathema to each other, as are fire and water. Lesser elementals are LV 6 and their slam deals 2 dice of damage. Greater elementals are LV 9 and their slam deals 3 dice of damage."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Ghost",
+        "**AC**": "13",
+        "**HP**": "27",
+        "**ATK**": "2 death touch +5 (1d8 + life drain) or 1 possess",
+        "**MV**": "near (fly)",
+        "**S**": "-2",
+        "**D**": "+3",
+        "**C**": "+0",
+        "**I**": "+0",
+        "**W**": "+0",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "horror",
+            "undead"
+        ],
+        "abilities": {
+            "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
+            "**Incorporeal**": "In place of attacks, become corporeal or incorporeal.",
+            "**Life Drain**": "1d4 CON damage. Death if reduced to 0 CON.",
+            "**Possess**": "Must be corporeal. One target, close range. Contested",
+            "**CHA check**": "If ghost wins, it inhabits target's body and controls it for 2d4 rounds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Hag, Sea",
+        "**AC**": "15",
+        "**HP**": "28",
+        "**ATK**": "2 claw +4 (1d8)",
+        "**MV**": "near (swim)",
+        "**S**": "+2",
+        "**D**": "+3",
+        "**C**": "+1",
+        "**I**": "+1",
+        "**W**": "+2",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "hag",
+            "horror"
+        ],
+        "abilities": {
+            "**Shapechange**": "Instantly change to look like any other humanoid.",
+            "**Terrify**": "A creature who first sees her true form DC 15 CHA or DISADV on attacks 1d4 rounds."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Hag, Weald",
+        "**AC**": "14",
+        "**HP**": "28",
+        "**ATK**": "2 claw +4 (1d8) or 1 drink pain",
+        "**MV**": "near",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+1",
+        "**I**": "+1",
+        "**W**": "+2",
+        "**CH**": "+3",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "hag",
+            "horror"
+        ],
+        "abilities": {
+            "**Drink Pain**": "Near range. DC 12 CHA to deal 2d4 damage to a creature; regain that many HP.",
+            "**Shapechange**": "Instantly change to look like any other humanoid."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Invisible Stalker",
+        "**AC**": "13",
+        "**HP**": "29",
+        "**ATK**": "3 pummel +4 (1d6)",
+        "**MV**": "near (fly)",
+        "**S**": "+2",
+        "**D**": "+3",
+        "**C**": "+2",
+        "**I**": "+2",
+        "**W**": "+1",
+        "**CH**": "+0",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "elemental",
+            "horror"
+        ],
+        "abilities": {
+            "**Bound**": "A secret, mundane contingency (such as the touch of a feather) ends the invisible stalker's magical servitude.",
+            "**Invisible**": "Naturally invisible.",
+            "**Tracking**": "Can always sense the direction of its chosen quarry."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Mage",
+        "**AC**": "11",
+        "**HP**": "27",
+        "**ATK**": "1 spell +5",
+        "**MV**": "near",
+        "**S**": "-1",
+        "**D**": "+1",
+        "**C**": "+0",
+        "**I**": "+3",
+        "**W**": "+1",
+        "**CH**": "+0",
+        "**AL**": "L",
+        "**LV**": "6",
+        "tags": [
+            "humanoid"
+        ],
+        "abilities": {
+            "**Arcane Armor (INT Spell)**": "Self. DC 12. AC 16 for 2d4 rounds.",
+            "**Blast (INT Spell)**": "DC 12. Far, one target. 2d6 damage.",
+            "**Cancel (INT Spell)**": "DC 13. End one spell affecting a target within near.",
+            "**Levitate (INT Spell)**": "DC 12. Close. Focus. Hover near for duration, vertical movement only.",
+            "**Snare (INT Spell)**": "DC 13. Focus. One humanoid target within near paralyzed for duration."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Manticore",
+        "**AC**": "14",
+        "**HP**": "29",
+        "**ATK**": "2 rend +6 (2d6) or 2 tail spike (far) +4 (1d8)",
+        "**MV**": "double near (fly)",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+2",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Spikes**": "Manticores have 4d6 tail spikes. They regrow each day."
+        },
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Naga, Bone",
+        "**AC**": "13",
+        "**HP**": "31",
+        "**ATK**": "2 bite +5 (2d6)",
+        "**MV**": "near (burrow climb)",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+4",
+        "**I**": "-3",
+        "**W**": "+0",
+        "**CH**": "+4",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "monstrosity",
+            "undead"
+        ],
+        "abilities": {
+            "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Nightmare",
+        "**AC**": "13",
+        "**HP**": "29",
+        "**ATK**": "2 hooves +5 (1d8)",
+        "**MV**": "double near (fly)",
+        "**S**": "+3",
+        "**D**": "+3",
+        "**C**": "+2",
+        "**I**": "-1",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "fiend",
+            "horror"
+        ],
+        "abilities": {
+            "**Impervious**": "Nightmare and its rider immune to fire. A pale, angular woman in translucent plate mail fashioned from giant scorpion chitin. Obe-Ixx, daughter of Azarumme, rose up from the prehistoric barbarian tribes of Tal-Yool to conquer all in her path. One day, she stood at the steps of an obsidian ziggurat deep within the trackless jungle. Forty nights later, Obe-Ixx emerged as the ur-vampire, bloodlust made flesh. Her dynasty would rise and fall again and again over the coming millennia. AC 18 (+3 plate mail), HP 76, ATK 4 greatsword (near) +11 (1d12 + 2 + Moonbite properties) and 1 bite +9 (1d8 + blood drain) and 1 charm, MV near (climb, fly), S +5, D +3, C +4, I +3, W +4, Ch +5, AL C, LV 16",
+            "**Legendary Undead**": "Immune to morale checks. Only damaged by magical sources. Hostile spells targeting Obe-Ixx are DC 18 to cast.",
+            "**Blood Drain**": "Obe-Ixx heals 2d8 HP, target permanently loses 1d6",
+            "**CON**": "At 0 CON, target dies and rises as a loyal vampire or vampire spawn (Obe-Ixx chooses).",
+            "**Charm**": "One humanoid target who can see Obe-Ixx within near, DC 15 CHA or under Obe-Ixx's control for 1d4 days.",
+            "**Dire Shapechange**": "In place of attacks, turn into a giant bat, dire wolf, or back into regular form.",
+            "**Moonbite Properties**": "+2 greatsword, thrown weapon, returns after being thrown. Spells to heal damage it inflicts are DC 15 to cast.",
+            "**Ur-Vampire**": "Must sleep in sarcophagus at least once per moon cycle or loses 2d8 HP per day that cannot heal until sleeping in sarcophagus. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart while at 0 HP with a wooden stake carved from a tree from the Tal-Yool jungle."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Ogre",
+        "**AC**": "9",
+        "**HP**": "30",
+        "**ATK**": "2 greatclub +6 (2d6)",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "-1",
+        "**C**": "+3",
+        "**I**": "-2",
+        "**W**": "-2",
+        "**CH**": "-2",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "giant",
+            "horror"
+        ],
+        "abilities": {},
+        "diplomacy": "Y"
+    },
+    {
+        "Monster Name": "Owlbear",
+        "**AC**": "13",
+        "**HP**": "30",
+        "**ATK**": "2 claw +5 (1d10)",
+        "**MV**": "near (climb)",
+        "**S**": "+4",
+        "**D**": "+1",
+        "**C**": "+3",
+        "**I**": "-2",
+        "**W**": "+2",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "animal",
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Crush**": "Deals an extra die of damage if it hits the same target with both claws."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Primordial Slime",
+        "**AC**": "9",
+        "**HP**": "30",
+        "**ATK**": "2 tentacle +4 (1d10 + dissolve)",
+        "**MV**": "near (climb)",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+3",
+        "**I**": "-4",
+        "**W**": "-3",
+        "**CH**": "-4",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "outsider"
+        ],
+        "abilities": {
+            "**Impervious**": "Only harmed by fire.",
+            "**Dissolve**": "One random piece of non-magical gear the target carries is destroyed."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Rat, Swarm",
+        "**AC**": "10",
+        "**HP**": "28",
+        "**ATK**": "4 bite +0 (1 + disease)",
+        "**MV**": "near",
+        "**S**": "-3",
+        "**D**": "+0",
+        "**C**": "+1",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "animal",
+            "horror",
+            "swarm"
+        ],
+        "abilities": {
+            "**Disease**": "DC 9 CON or 1d4 CON damage (can't heal while ill). Repeat check once per day; ends on success. Die at 0 CON. A pearl-white lion with feathered wings that stands twenty feet tall. Rathgamnon is Madeera the Covenant's mightiest servant; his blank eyes see far into the depths of time and space. He spends all eternity watching the whirl of the stars from the highest mountain in the realm of mortals, waiting for the celestial alignments that prophesy epochs of weal and woe, titanic changes to the balance of power in the cosmos, or threats to the laws of reality itself. AC 17, HP 89, ATK 2 rend (near) +9 (2d10) and 2 spell +8, MV double near (fly), S +5, D +3, C +4, I +5, W +6, Ch +5, AL L, LV 19",
+            "**Legendary**": "Only damaged by magical sources. Hostile spells targeting Rathgamnon are DC 18 to cast.",
+            "**Roar**": "In place of attacks, all creatures who can hear within far DC 18 CHA or be rendered blind and speechless for 1d4 days.",
+            "**Abjure (WIS Spell)**": "DC 13. Self. End any hostile magical effects affecting Rathgamnon.",
+            "**Abolish (WIS Spell)**": "DC 13. One target in far takes 5d8 damage.",
+            "**Anchor (WIS Spell)**": "DC 14. One target in far DC 18 STR or bound and anchored by chains of golden runes for 1d4 rounds.",
+            "**Gate (WIS Spell)**": "DC 14. Open a portal at a point within near to another location on any plane. Lasts 1d6 rounds or until dismissed.",
+            "**Portent (WIS Spell)**": "DC 14. Lasts 2d4 rounds. One target in near has advantage or disadvantage on all attack rolls and checks.",
+            "**Time Stop (WIS Spell)**": "DC 15. Self. Time freezes for everyone except",
+            "**Rathgamnon for 1d4 rounds**": "Everything that occurs during the time freeze happens simultaneously when the spell ends."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Reaver",
+        "**AC**": "17 (plate mail + shield)",
+        "**HP**": "28",
+        "**ATK**": "3 bastard sword +4 (1d8 + 2)",
+        "**MV**": "near",
+        "**S**": "+3",
+        "**D**": "+0",
+        "**C**": "+1",
+        "**I**": "+0",
+        "**W**": "+0",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "horror"
+        ],
+        "abilities": {
+            "**Bloodlust**": "+2 damage with melee weapons (included)."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Roper",
+        "**AC**": "14",
+        "**HP**": "31",
+        "**ATK**": "4 tendril (double near) +4 (1d6 + grab) and 1 bite +4 (2d8)",
+        "**MV**": "close (climb)",
+        "**S**": "+3",
+        "**D**": "-2",
+        "**C**": "+4",
+        "**I**": "-1",
+        "**W**": "+2",
+        "**CH**": "+1",
+        "**AL**": "N",
+        "**LV**": "6",
+        "tags": [
+            "monstrosity",
+            "underdark"
+        ],
+        "abilities": {
+            "**Impervious**": "Can only be damaged by magical sources.",
+            "**Grab**": "DC 15 STR or target trapped in tendril. Tendril auto- hits target next round. DC 15 STR on turn to break free.",
+            "**Pull**": "In place of a tendril attack, pull a grabbed target a near distance.",
+            "**Tendrils**": "Four total. AC 18 each. 4+ damage to one severs it."
+        },
+        "diplomacy": "N"
+    },
+    {
+        "Monster Name": "Viperian, Ophid",
+        "**AC**": "14",
+        "**HP**": "28",
+        "**ATK**": "3 falchion +5 (1d10) or 2 longbow (far) +3 (1d8)",
+        "**MV**": "near (climb)",
+        "**S**": "+4",
+        "**D**": "+2",
+        "**C**": "+1",
+        "**I**": "+1",
+        "**W**": "+1",
+        "**CH**": "+1",
+        "**AL**": "C",
+        "**LV**": "6",
+        "tags": [
+            "horror"
+        ],
+        "abilities": {
+            "**Impervious**": "Can only be harmed by magical sources."
+        },
+        "diplomacy": "N"
     }
-  },
-  {
-    "slug": "cave-brute",
-    "name": "Cave Brute",
-    "level": 6,
-    "ac": "14",
-    "hp": "28",
-    "attack": "2 claw +5 (1d8) and 1 mandible +5 (1d10)",
-    "movement": "near (burrow)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+1",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-3"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 claw +5 (1d8) and 1 mandible +5 (1d10)"
-      },
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "2 claw +5 (1d8) and 1 mandible +5 (1d10)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Bewilder",
-        "text": "Creatures within near that see the cave brute's eyes, DC 12 CHA at start of their turn or dazed and no action.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Cave Brute",
-    "**AC**": "14",
-    "**HP**": "28",
-    "**ATK**": "2 claw +5 (1d8) and 1 mandible +5 (1d10)",
-    "**MV**": "near (burrow)",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+1",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Bewilder**": "Creatures within near that see the cave brute's eyes, DC 12 CHA at start of their turn or dazed and no action."
-    }
-  },
-  {
-    "slug": "cloaker",
-    "name": "Cloaker",
-    "level": 6,
-    "ac": "13",
-    "hp": "28",
-    "attack": "3 lash +4 (1d8) or 1 screech",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+3",
-      "CON": "+1",
-      "INT": "+1",
-      "WIS": "+1",
-      "CHA": "+0"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 lash +4 (1d8) or 1 screech"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Phantoms",
-        "text": "1/day, in place of attacks. Create 3 illusory duplicates that disappear when hit. Determine randomly if an attack hits cloaker or illusions.",
-        "damage": []
-      },
-      {
-        "name": "Screech",
-        "text": "Enemies within double near DC 15 WIS or DISADV on attacks and checks 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "Enemies within double near DC 15 WIS or DISADV on attacks and checks 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Cloaker",
-    "**AC**": "13",
-    "**HP**": "28",
-    "**ATK**": "3 lash +4 (1d8) or 1 screech",
-    "**MV**": "near (fly)",
-    "**S**": "+2",
-    "**D**": "+3",
-    "**C**": "+1",
-    "**I**": "+1",
-    "**W**": "+1",
-    "**CH**": "+0",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Phantoms**": "1/day, in place of attacks. Create 3 illusory duplicates that disappear when hit. Determine randomly if an attack hits cloaker or illusions.",
-      "**Screech**": "Enemies within double near DC 15 WIS or DISADV on attacks and checks 1d4 rounds."
-    }
-  },
-  {
-    "slug": "devil-cubi",
-    "name": "Devil, Cubi",
-    "level": 6,
-    "ac": "14",
-    "hp": "29",
-    "attack": "1 kiss +4 (1d6 + drain) or 1 charm",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+4",
-      "CON": "+2",
-      "INT": "+3",
-      "WIS": "+2",
-      "CHA": "+5"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "1 kiss +4 (1d6 + drain) or 1 charm"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Change Shape",
-        "text": "In place of attacks, transform into any similarly-sized humanoid.",
-        "damage": []
-      },
-      {
-        "name": "Charm",
-        "text": "One humanoid in near DC 15 CHA or bewitched by cubi for 1d6 hours.",
-        "damage": [
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "One humanoid in near DC 15 CHA or bewitched by cubi for 1d6 hours."
-          }
-        ]
-      },
-      {
-        "name": "Drain",
-        "text": "The target takes 1d6 WIS damage. A target reduced to 0 WIS this way swears its soul to an archdevil.",
-        "damage": [
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "The target takes 1d6 WIS damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Devil, Cubi",
-    "**AC**": "14",
-    "**HP**": "29",
-    "**ATK**": "1 kiss +4 (1d6 + drain) or 1 charm",
-    "**MV**": "near (fly)",
-    "**S**": "+2",
-    "**D**": "+4",
-    "**C**": "+2",
-    "**I**": "+3",
-    "**W**": "+2",
-    "**CH**": "+5",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Change Shape**": "In place of attacks, transform into any similarly-sized humanoid.",
-      "**Charm**": "One humanoid in near DC 15 CHA or bewitched by cubi for 1d6 hours.",
-      "**Drain**": "The target takes 1d6 WIS damage. A target reduced to 0 WIS this way swears its soul to an archdevil."
-    }
-  },
-  {
-    "slug": "drow-drider",
-    "name": "Drow, Drider",
-    "level": 6,
-    "ac": "16 (mithral chainmail)",
-    "hp": "29",
-    "attack": "3 longsword +3 (1d8) or 2 longbow (far) +3 (1d8 + poison)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+3",
-      "CON": "+2",
-      "INT": "+2",
-      "WIS": "+2",
-      "CHA": "+0"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 longsword +3 (1d8) or 2 longbow (far) +3 (1d8 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or paralyzed 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Sunblind",
-        "text": "Blinded in bright light.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Drow, Drider",
-    "**AC**": "16 (mithral chainmail)",
-    "**HP**": "29",
-    "**ATK**": "3 longsword +3 (1d8) or 2 longbow (far) +3 (1d8 + poison)",
-    "**MV**": "near (climb)",
-    "**S**": "+3",
-    "**D**": "+3",
-    "**C**": "+2",
-    "**I**": "+2",
-    "**W**": "+2",
-    "**CH**": "+0",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Poison**": "DC 15 CON or paralyzed 1d4 rounds.",
-      "**Sunblind**": "Blinded in bright light."
-    }
-  },
-  {
-    "slug": "drow-priestess",
-    "name": "Drow, Priestess",
-    "level": 6,
-    "ac": "16 (mithral chainmail)",
-    "hp": "28",
-    "attack": "3 snake whip (near) +4 (1d8 + poison) or 1 spell +4",
-    "movement": "near",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+3",
-      "CON": "+1",
-      "INT": "+3",
-      "WIS": "+4",
-      "CHA": "+3"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 snake whip (near) +4 (1d8 + poison) or 1 spell +4"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Poison",
-        "text": "DC 15 CON or paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or paralyzed 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Sunblind",
-        "text": "Blinded in bright light.",
-        "damage": []
-      },
-      {
-        "name": "Snuff (WIS Spell)",
-        "text": "DC 12. Extinguish all light sources (even magical) within near. Summon Spiders (WIS Spell). DC 14. Summon 2d4 loyal giant spiders that appear within near. They stay for 5 rounds.",
-        "damage": [
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "Summon 2d4 loyal giant spiders that appear within near."
-          }
-        ]
-      },
-      {
-        "name": "Web (WIS Spell)",
-        "text": "DC 13. A near- sized cube of webs within far immobilizes all inside it for 5 rounds. DC 15 STR on turn to break free.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Drow, Priestess",
-    "**AC**": "16 (mithral chainmail)",
-    "**HP**": "28",
-    "**ATK**": "3 snake whip (near) +4 (1d8 + poison) or 1 spell +4",
-    "**MV**": "near",
-    "**S**": "+2",
-    "**D**": "+3",
-    "**C**": "+1",
-    "**I**": "+3",
-    "**W**": "+4",
-    "**CH**": "+3",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Poison**": "DC 15 CON or paralyzed 1d4 rounds.",
-      "**Sunblind**": "Blinded in bright light.",
-      "**Snuff (WIS Spell)**": "DC 12. Extinguish all light sources (even magical) within near. Summon Spiders (WIS Spell). DC 14. Summon 2d4 loyal giant spiders that appear within near. They stay for 5 rounds.",
-      "**Web (WIS Spell)**": "DC 13. A near- sized cube of webs within far immobilizes all inside it for 5 rounds. DC 15 STR on turn to break free."
-    }
-  },
-  {
-    "slug": "elemental-air",
-    "name": "Elemental, Air",
-    "level": 6,
-    "ac": "16",
-    "hp": "29/42",
-    "attack": "3 slam +7 (2d6/3d6) or 1 whirlwind",
-    "movement": "double near (fly)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+5",
-      "CON": "+2",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "3 slam +7 (2d6/3d6) or 1 whirlwind"
-      },
-      {
-        "expression": "3d6",
-        "display": "3d6",
-        "context": "3 slam +7 (2d6/3d6) or 1 whirlwind"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Whirlwind",
-        "text": "All within close DC 15 DEX or flung 2d20 feet in random direction.",
-        "damage": [
-          {
-            "expression": "2d20",
-            "display": "2d20",
-            "context": "All within close DC 15 DEX or flung 2d20 feet in random direction."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Elemental, Air",
-    "**AC**": "16",
-    "**HP**": "29/42",
-    "**ATK**": "3 slam +7 (2d6/3d6) or 1 whirlwind",
-    "**MV**": "double near (fly)",
-    "**S**": "+3",
-    "**D**": "+5",
-    "**C**": "+2",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Only damaged by magical sources.",
-      "**Whirlwind**": "All within close DC 15 DEX or flung 2d20 feet in random direction."
-    }
-  },
-  {
-    "slug": "elemental-earth",
-    "name": "Elemental, Earth",
-    "level": 6,
-    "ac": "17",
-    "hp": "31/44",
-    "attack": "3 slam +7 (2d8/3d8) or 1 avalanche",
-    "movement": "near (burrow)",
-    "stats": {
-      "STR": "+5",
-      "DEX": "+0",
-      "CON": "+4",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "3 slam +7 (2d8/3d8) or 1 avalanche"
-      },
-      {
-        "expression": "3d8",
-        "display": "3d8",
-        "context": "3 slam +7 (2d8/3d8) or 1 avalanche"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Avalanche",
-        "text": "All within close DC 15 STR or entombed for 1d4 rounds under mounds of earth.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "All within close DC 15 STR or entombed for 1d4 rounds under mounds of earth."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Elemental, Earth",
-    "**AC**": "17",
-    "**HP**": "31/44",
-    "**ATK**": "3 slam +7 (2d8/3d8) or 1 avalanche",
-    "**MV**": "near (burrow)",
-    "**S**": "+5",
-    "**D**": "+0",
-    "**C**": "+4",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Only damaged by magical sources.",
-      "**Avalanche**": "All within close DC 15 STR or entombed for 1d4 rounds under mounds of earth."
-    }
-  },
-  {
-    "slug": "elemental-fire",
-    "name": "Elemental, Fire",
-    "level": 6,
-    "ac": "15",
-    "hp": "30/43",
-    "attack": "3 slam +6 (2d10/3d10) or 1 inferno",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+3",
-      "CON": "+3",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d10",
-        "display": "2d10",
-        "context": "3 slam +6 (2d10/3d10) or 1 inferno"
-      },
-      {
-        "expression": "3d10",
-        "display": "3d10",
-        "context": "3 slam +6 (2d10/3d10) or 1 inferno"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by magical sources. Fire immune.",
-        "damage": []
-      },
-      {
-        "name": "Inferno",
-        "text": "All within near DC 15 DEX or 3d8 damage.",
-        "damage": [
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "All within near DC 15 DEX or 3d8 damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Elemental, Fire",
-    "**AC**": "15",
-    "**HP**": "30/43",
-    "**ATK**": "3 slam +6 (2d10/3d10) or 1 inferno",
-    "**MV**": "near (fly)",
-    "**S**": "+4",
-    "**D**": "+3",
-    "**C**": "+3",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Only damaged by magical sources. Fire immune.",
-      "**Inferno**": "All within near DC 15 DEX or 3d8 damage."
-    }
-  },
-  {
-    "slug": "elemental-water",
-    "name": "Elemental, Water",
-    "level": 6,
-    "ac": "15",
-    "hp": "29/42",
-    "attack": "3 slam +6 (2d6/3d6) or 1 whirlpool",
-    "movement": "double near (swim)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+2",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "3 slam +6 (2d6/3d6) or 1 whirlpool"
-      },
-      {
-        "expression": "3d6",
-        "display": "3d6",
-        "context": "3 slam +6 (2d6/3d6) or 1 whirlpool"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only damaged by magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Whirlpool",
-        "text": "All within close DC 15 STR or immobilized inside water elemental (treat as underwater). DC 15 STR on turn to escape. Elementals are semi-humanoid beings of pure energy that speak rudimentary Primordial. Earth and air are anathema to each other, as are fire and water. Lesser elementals are LV 6 and their slam deals 2 dice of damage. Greater elementals are LV 9 and their slam deals 3 dice of damage.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Elemental, Water",
-    "**AC**": "15",
-    "**HP**": "29/42",
-    "**ATK**": "3 slam +6 (2d6/3d6) or 1 whirlpool",
-    "**MV**": "double near (swim)",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+2",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Only damaged by magical sources.",
-      "**Whirlpool**": "All within close DC 15 STR or immobilized inside water elemental (treat as underwater). DC 15 STR on turn to escape. Elementals are semi-humanoid beings of pure energy that speak rudimentary Primordial. Earth and air are anathema to each other, as are fire and water. Lesser elementals are LV 6 and their slam deals 2 dice of damage. Greater elementals are LV 9 and their slam deals 3 dice of damage."
-    }
-  },
-  {
-    "slug": "ghost",
-    "name": "Ghost",
-    "level": 6,
-    "ac": "13",
-    "hp": "27",
-    "attack": "2 death touch +5 (1d8 + life drain) or 1 possess",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "-2",
-      "DEX": "+3",
-      "CON": "+0",
-      "INT": "+0",
-      "WIS": "+0",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 death touch +5 (1d8 + life drain) or 1 possess"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Greater Undead",
-        "text": "Immune to morale checks. Only damaged by silver or magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Incorporeal",
-        "text": "In place of attacks, become corporeal or incorporeal.",
-        "damage": []
-      },
-      {
-        "name": "Life Drain",
-        "text": "1d4 CON damage. Death if reduced to 0 CON.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "1d4 CON damage."
-          }
-        ]
-      },
-      {
-        "name": "Possess",
-        "text": "Must be corporeal. One target, close range. Contested",
-        "damage": []
-      },
-      {
-        "name": "CHA check",
-        "text": "If ghost wins, it inhabits target's body and controls it for 2d4 rounds.",
-        "damage": [
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "If ghost wins, it inhabits target's body and controls it for 2d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Ghost",
-    "**AC**": "13",
-    "**HP**": "27",
-    "**ATK**": "2 death touch +5 (1d8 + life drain) or 1 possess",
-    "**MV**": "near (fly)",
-    "**S**": "-2",
-    "**D**": "+3",
-    "**C**": "+0",
-    "**I**": "+0",
-    "**W**": "+0",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
-      "**Incorporeal**": "In place of attacks, become corporeal or incorporeal.",
-      "**Life Drain**": "1d4 CON damage. Death if reduced to 0 CON.",
-      "**Possess**": "Must be corporeal. One target, close range. Contested",
-      "**CHA check**": "If ghost wins, it inhabits target's body and controls it for 2d4 rounds."
-    }
-  },
-  {
-    "slug": "hag-sea",
-    "name": "Hag, Sea",
-    "level": 6,
-    "ac": "15",
-    "hp": "28",
-    "attack": "2 claw +4 (1d8)",
-    "movement": "near (swim)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+3",
-      "CON": "+1",
-      "INT": "+1",
-      "WIS": "+2",
-      "CHA": "+2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 claw +4 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Shapechange",
-        "text": "Instantly change to look like any other humanoid.",
-        "damage": []
-      },
-      {
-        "name": "Terrify",
-        "text": "A creature who first sees her true form DC 15 CHA or DISADV on attacks 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "A creature who first sees her true form DC 15 CHA or DISADV on attacks 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Hag, Sea",
-    "**AC**": "15",
-    "**HP**": "28",
-    "**ATK**": "2 claw +4 (1d8)",
-    "**MV**": "near (swim)",
-    "**S**": "+2",
-    "**D**": "+3",
-    "**C**": "+1",
-    "**I**": "+1",
-    "**W**": "+2",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Shapechange**": "Instantly change to look like any other humanoid.",
-      "**Terrify**": "A creature who first sees her true form DC 15 CHA or DISADV on attacks 1d4 rounds."
-    }
-  },
-  {
-    "slug": "hag-weald",
-    "name": "Hag, Weald",
-    "level": 6,
-    "ac": "14",
-    "hp": "28",
-    "attack": "2 claw +4 (1d8) or 1 drink pain",
-    "movement": "near",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+1",
-      "INT": "+1",
-      "WIS": "+2",
-      "CHA": "+3"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 claw +4 (1d8) or 1 drink pain"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Drink Pain",
-        "text": "Near range. DC 12 CHA to deal 2d4 damage to a creature; regain that many HP.",
-        "damage": [
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "DC 12 CHA to deal 2d4 damage to a creature; regain that many HP."
-          }
-        ]
-      },
-      {
-        "name": "Shapechange",
-        "text": "Instantly change to look like any other humanoid.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Hag, Weald",
-    "**AC**": "14",
-    "**HP**": "28",
-    "**ATK**": "2 claw +4 (1d8) or 1 drink pain",
-    "**MV**": "near",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+1",
-    "**I**": "+1",
-    "**W**": "+2",
-    "**CH**": "+3",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Drink Pain**": "Near range. DC 12 CHA to deal 2d4 damage to a creature; regain that many HP.",
-      "**Shapechange**": "Instantly change to look like any other humanoid."
-    }
-  },
-  {
-    "slug": "invisible-stalker",
-    "name": "Invisible Stalker",
-    "level": 6,
-    "ac": "13",
-    "hp": "29",
-    "attack": "3 pummel +4 (1d6)",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+3",
-      "CON": "+2",
-      "INT": "+2",
-      "WIS": "+1",
-      "CHA": "+0"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "3 pummel +4 (1d6)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Bound",
-        "text": "A secret, mundane contingency (such as the touch of a feather) ends the invisible stalker's magical servitude.",
-        "damage": []
-      },
-      {
-        "name": "Invisible",
-        "text": "Naturally invisible.",
-        "damage": []
-      },
-      {
-        "name": "Tracking",
-        "text": "Can always sense the direction of its chosen quarry.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Invisible Stalker",
-    "**AC**": "13",
-    "**HP**": "29",
-    "**ATK**": "3 pummel +4 (1d6)",
-    "**MV**": "near (fly)",
-    "**S**": "+2",
-    "**D**": "+3",
-    "**C**": "+2",
-    "**I**": "+2",
-    "**W**": "+1",
-    "**CH**": "+0",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Bound**": "A secret, mundane contingency (such as the touch of a feather) ends the invisible stalker's magical servitude.",
-      "**Invisible**": "Naturally invisible.",
-      "**Tracking**": "Can always sense the direction of its chosen quarry."
-    }
-  },
-  {
-    "slug": "mage",
-    "name": "Mage",
-    "level": 6,
-    "ac": "11",
-    "hp": "27",
-    "attack": "1 spell +5",
-    "movement": "near",
-    "stats": {
-      "STR": "-1",
-      "DEX": "+1",
-      "CON": "+0",
-      "INT": "+3",
-      "WIS": "+1",
-      "CHA": "+0"
-    },
-    "alignment": "L",
-    "damage": [],
-    "abilityDetails": [
-      {
-        "name": "Arcane Armor (INT Spell)",
-        "text": "Self. DC 12. AC 16 for 2d4 rounds.",
-        "damage": [
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "AC 16 for 2d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Blast (INT Spell)",
-        "text": "DC 12. Far, one target. 2d6 damage.",
-        "damage": [
-          {
-            "expression": "2d6",
-            "display": "2d6",
-            "context": "2d6 damage."
-          }
-        ]
-      },
-      {
-        "name": "Cancel (INT Spell)",
-        "text": "DC 13. End one spell affecting a target within near.",
-        "damage": []
-      },
-      {
-        "name": "Levitate (INT Spell)",
-        "text": "DC 12. Close. Focus. Hover near for duration, vertical movement only.",
-        "damage": []
-      },
-      {
-        "name": "Snare (INT Spell)",
-        "text": "DC 13. Focus. One humanoid target within near paralyzed for duration.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Mage",
-    "**AC**": "11",
-    "**HP**": "27",
-    "**ATK**": "1 spell +5",
-    "**MV**": "near",
-    "**S**": "-1",
-    "**D**": "+1",
-    "**C**": "+0",
-    "**I**": "+3",
-    "**W**": "+1",
-    "**CH**": "+0",
-    "**AL**": "L",
-    "**LV**": "6",
-    "abilities": {
-      "**Arcane Armor (INT Spell)**": "Self. DC 12. AC 16 for 2d4 rounds.",
-      "**Blast (INT Spell)**": "DC 12. Far, one target. 2d6 damage.",
-      "**Cancel (INT Spell)**": "DC 13. End one spell affecting a target within near.",
-      "**Levitate (INT Spell)**": "DC 12. Close. Focus. Hover near for duration, vertical movement only.",
-      "**Snare (INT Spell)**": "DC 13. Focus. One humanoid target within near paralyzed for duration."
-    }
-  },
-  {
-    "slug": "manticore",
-    "name": "Manticore",
-    "level": 6,
-    "ac": "14",
-    "hp": "29",
-    "attack": "2 rend +6 (2d6) or 2 tail spike (far) +4 (1d8)",
-    "movement": "double near (fly)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+2",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "2 rend +6 (2d6) or 2 tail spike (far) +4 (1d8)"
-      },
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 rend +6 (2d6) or 2 tail spike (far) +4 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Spikes",
-        "text": "Manticores have 4d6 tail spikes. They regrow each day.",
-        "damage": [
-          {
-            "expression": "4d6",
-            "display": "4d6",
-            "context": "Manticores have 4d6 tail spikes."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Manticore",
-    "**AC**": "14",
-    "**HP**": "29",
-    "**ATK**": "2 rend +6 (2d6) or 2 tail spike (far) +4 (1d8)",
-    "**MV**": "double near (fly)",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+2",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Spikes**": "Manticores have 4d6 tail spikes. They regrow each day."
-    }
-  },
-  {
-    "slug": "naga-bone",
-    "name": "Naga, Bone",
-    "level": 6,
-    "ac": "13",
-    "hp": "31",
-    "attack": "2 bite +5 (2d6)",
-    "movement": "near (burrow climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+4",
-      "INT": "-3",
-      "WIS": "+0",
-      "CHA": "+4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "2 bite +5 (2d6)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Greater Undead",
-        "text": "Immune to morale checks. Only damaged by silver or magical sources.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Naga, Bone",
-    "**AC**": "13",
-    "**HP**": "31",
-    "**ATK**": "2 bite +5 (2d6)",
-    "**MV**": "near (burrow climb)",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+4",
-    "**I**": "-3",
-    "**W**": "+0",
-    "**CH**": "+4",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources."
-    }
-  },
-  {
-    "slug": "nightmare",
-    "name": "Nightmare",
-    "level": 6,
-    "ac": "13",
-    "hp": "29",
-    "attack": "2 hooves +5 (1d8)",
-    "movement": "double near (fly)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+3",
-      "CON": "+2",
-      "INT": "-1",
-      "WIS": "+1",
-      "CHA": "-2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 hooves +5 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Nightmare and its rider immune to fire. A pale, angular woman in translucent plate mail fashioned from giant scorpion chitin. Obe-Ixx, daughter of Azarumme, rose up from the prehistoric barbarian tribes of Tal-Yool to conquer all in her path. One day, she stood at the steps of an obsidian ziggurat deep within the trackless jungle. Forty nights later, Obe-Ixx emerged as the ur-vampire, bloodlust made flesh. Her dynasty would rise and fall again and again over the coming millennia. AC 18 (+3 plate mail), HP 76, ATK 4 greatsword (near) +11 (1d12 + 2 + Moonbite properties) and 1 bite +9 (1d8 + blood drain) and 1 charm, MV near (climb, fly), S +5, D +3, C +4, I +3, W +4, Ch +5, AL C, LV 16",
-        "damage": [
-          {
-            "expression": "1d12+2",
-            "display": "1d12+2",
-            "context": "AC 18 (+3 plate mail), HP 76, ATK 4 greatsword (near) +11 (1d12 + 2 + Moonbite properties) and 1 bite +9 (1d8 + blood drain) and 1 charm, MV near (climb, fly), S +5, D +3, C +4, I +3, W +4, Ch +5, AL C, LV 16"
-          },
-          {
-            "expression": "1d8",
-            "display": "1d8",
-            "context": "AC 18 (+3 plate mail), HP 76, ATK 4 greatsword (near) +11 (1d12 + 2 + Moonbite properties) and 1 bite +9 (1d8 + blood drain) and 1 charm, MV near (climb, fly), S +5, D +3, C +4, I +3, W +4, Ch +5, AL C, LV 16"
-          }
-        ]
-      },
-      {
-        "name": "Legendary Undead",
-        "text": "Immune to morale checks. Only damaged by magical sources. Hostile spells targeting Obe-Ixx are DC 18 to cast.",
-        "damage": []
-      },
-      {
-        "name": "Blood Drain",
-        "text": "Obe-Ixx heals 2d8 HP, target permanently loses 1d6",
-        "damage": [
-          {
-            "expression": "2d8",
-            "display": "2d8",
-            "context": "Obe-Ixx heals 2d8 HP, target permanently loses 1d6"
-          },
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "Obe-Ixx heals 2d8 HP, target permanently loses 1d6"
-          }
-        ]
-      },
-      {
-        "name": "CON",
-        "text": "At 0 CON, target dies and rises as a loyal vampire or vampire spawn (Obe-Ixx chooses).",
-        "damage": []
-      },
-      {
-        "name": "Charm",
-        "text": "One humanoid target who can see Obe-Ixx within near, DC 15 CHA or under Obe-Ixx's control for 1d4 days.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "One humanoid target who can see Obe-Ixx within near, DC 15 CHA or under Obe-Ixx's control for 1d4 days."
-          }
-        ]
-      },
-      {
-        "name": "Dire Shapechange",
-        "text": "In place of attacks, turn into a giant bat, dire wolf, or back into regular form.",
-        "damage": []
-      },
-      {
-        "name": "Moonbite Properties",
-        "text": "+2 greatsword, thrown weapon, returns after being thrown. Spells to heal damage it inflicts are DC 15 to cast.",
-        "damage": []
-      },
-      {
-        "name": "Ur-Vampire",
-        "text": "Must sleep in sarcophagus at least once per moon cycle or loses 2d8 HP per day that cannot heal until sleeping in sarcophagus. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart while at 0 HP with a wooden stake carved from a tree from the Tal-Yool jungle.",
-        "damage": [
-          {
-            "expression": "2d8",
-            "display": "2d8",
-            "context": "Must sleep in sarcophagus at least once per moon cycle or loses 2d8 HP per day that cannot heal until sleeping in sarcophagus."
-          },
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "Takes 3d8 damage each round while in direct sunlight."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Nightmare",
-    "**AC**": "13",
-    "**HP**": "29",
-    "**ATK**": "2 hooves +5 (1d8)",
-    "**MV**": "double near (fly)",
-    "**S**": "+3",
-    "**D**": "+3",
-    "**C**": "+2",
-    "**I**": "-1",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Nightmare and its rider immune to fire. A pale, angular woman in translucent plate mail fashioned from giant scorpion chitin. Obe-Ixx, daughter of Azarumme, rose up from the prehistoric barbarian tribes of Tal-Yool to conquer all in her path. One day, she stood at the steps of an obsidian ziggurat deep within the trackless jungle. Forty nights later, Obe-Ixx emerged as the ur-vampire, bloodlust made flesh. Her dynasty would rise and fall again and again over the coming millennia. AC 18 (+3 plate mail), HP 76, ATK 4 greatsword (near) +11 (1d12 + 2 + Moonbite properties) and 1 bite +9 (1d8 + blood drain) and 1 charm, MV near (climb, fly), S +5, D +3, C +4, I +3, W +4, Ch +5, AL C, LV 16",
-      "**Legendary Undead**": "Immune to morale checks. Only damaged by magical sources. Hostile spells targeting Obe-Ixx are DC 18 to cast.",
-      "**Blood Drain**": "Obe-Ixx heals 2d8 HP, target permanently loses 1d6",
-      "**CON**": "At 0 CON, target dies and rises as a loyal vampire or vampire spawn (Obe-Ixx chooses).",
-      "**Charm**": "One humanoid target who can see Obe-Ixx within near, DC 15 CHA or under Obe-Ixx's control for 1d4 days.",
-      "**Dire Shapechange**": "In place of attacks, turn into a giant bat, dire wolf, or back into regular form.",
-      "**Moonbite Properties**": "+2 greatsword, thrown weapon, returns after being thrown. Spells to heal damage it inflicts are DC 15 to cast.",
-      "**Ur-Vampire**": "Must sleep in sarcophagus at least once per moon cycle or loses 2d8 HP per day that cannot heal until sleeping in sarcophagus. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart while at 0 HP with a wooden stake carved from a tree from the Tal-Yool jungle."
-    }
-  },
-  {
-    "slug": "ogre",
-    "name": "Ogre",
-    "level": 6,
-    "ac": "9",
-    "hp": "30",
-    "attack": "2 greatclub +6 (2d6)",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "-1",
-      "CON": "+3",
-      "INT": "-2",
-      "WIS": "-2",
-      "CHA": "-2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "2 greatclub +6 (2d6)"
-      }
-    ],
-    "abilityDetails": [],
-    "Monster Name": "Ogre",
-    "**AC**": "9",
-    "**HP**": "30",
-    "**ATK**": "2 greatclub +6 (2d6)",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "-1",
-    "**C**": "+3",
-    "**I**": "-2",
-    "**W**": "-2",
-    "**CH**": "-2",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {}
-  },
-  {
-    "slug": "owlbear",
-    "name": "Owlbear",
-    "level": 6,
-    "ac": "13",
-    "hp": "30",
-    "attack": "2 claw +5 (1d10)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+1",
-      "CON": "+3",
-      "INT": "-2",
-      "WIS": "+2",
-      "CHA": "-3"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "2 claw +5 (1d10)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Crush",
-        "text": "Deals an extra die of damage if it hits the same target with both claws.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Owlbear",
-    "**AC**": "13",
-    "**HP**": "30",
-    "**ATK**": "2 claw +5 (1d10)",
-    "**MV**": "near (climb)",
-    "**S**": "+4",
-    "**D**": "+1",
-    "**C**": "+3",
-    "**I**": "-2",
-    "**W**": "+2",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Crush**": "Deals an extra die of damage if it hits the same target with both claws."
-    }
-  },
-  {
-    "slug": "primordial-slime",
-    "name": "Primordial Slime",
-    "level": 6,
-    "ac": "9",
-    "hp": "30",
-    "attack": "2 tentacle +4 (1d10 + dissolve)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+3",
-      "INT": "-4",
-      "WIS": "-3",
-      "CHA": "-4"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "2 tentacle +4 (1d10 + dissolve)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Only harmed by fire.",
-        "damage": []
-      },
-      {
-        "name": "Dissolve",
-        "text": "One random piece of non-magical gear the target carries is destroyed.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Primordial Slime",
-    "**AC**": "9",
-    "**HP**": "30",
-    "**ATK**": "2 tentacle +4 (1d10 + dissolve)",
-    "**MV**": "near (climb)",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+3",
-    "**I**": "-4",
-    "**W**": "-3",
-    "**CH**": "-4",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Only harmed by fire.",
-      "**Dissolve**": "One random piece of non-magical gear the target carries is destroyed."
-    }
-  },
-  {
-    "slug": "rat-swarm",
-    "name": "Rat, Swarm",
-    "level": 6,
-    "ac": "10",
-    "hp": "28",
-    "attack": "4 bite +0 (1 + disease)",
-    "movement": "near",
-    "stats": {
-      "STR": "-3",
-      "DEX": "+0",
-      "CON": "+1",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-3"
-    },
-    "alignment": "N",
-    "damage": [],
-    "abilityDetails": [
-      {
-        "name": "Disease",
-        "text": "DC 9 CON or 1d4 CON damage (can't heal while ill). Repeat check once per day; ends on success. Die at 0 CON. A pearl-white lion with feathered wings that stands twenty feet tall. Rathgamnon is Madeera the Covenant's mightiest servant; his blank eyes see far into the depths of time and space. He spends all eternity watching the whirl of the stars from the highest mountain in the realm of mortals, waiting for the celestial alignments that prophesy epochs of weal and woe, titanic changes to the balance of power in the cosmos, or threats to the laws of reality itself. AC 17, HP 89, ATK 2 rend (near) +9 (2d10) and 2 spell +8, MV double near (fly), S +5, D +3, C +4, I +5, W +6, Ch +5, AL L, LV 19",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 9 CON or 1d4 CON damage (can't heal while ill)."
-          },
-          {
-            "expression": "2d10",
-            "display": "2d10",
-            "context": "AC 17, HP 89, ATK 2 rend (near) +9 (2d10) and 2 spell +8, MV double near (fly), S +5, D +3, C +4, I +5, W +6, Ch +5, AL L, LV 19"
-          }
-        ]
-      },
-      {
-        "name": "Legendary",
-        "text": "Only damaged by magical sources. Hostile spells targeting Rathgamnon are DC 18 to cast.",
-        "damage": []
-      },
-      {
-        "name": "Roar",
-        "text": "In place of attacks, all creatures who can hear within far DC 18 CHA or be rendered blind and speechless for 1d4 days.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "In place of attacks, all creatures who can hear within far DC 18 CHA or be rendered blind and speechless for 1d4 days."
-          }
-        ]
-      },
-      {
-        "name": "Abjure (WIS Spell)",
-        "text": "DC 13. Self. End any hostile magical effects affecting Rathgamnon.",
-        "damage": []
-      },
-      {
-        "name": "Abolish (WIS Spell)",
-        "text": "DC 13. One target in far takes 5d8 damage.",
-        "damage": [
-          {
-            "expression": "5d8",
-            "display": "5d8",
-            "context": "One target in far takes 5d8 damage."
-          }
-        ]
-      },
-      {
-        "name": "Anchor (WIS Spell)",
-        "text": "DC 14. One target in far DC 18 STR or bound and anchored by chains of golden runes for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "One target in far DC 18 STR or bound and anchored by chains of golden runes for 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Gate (WIS Spell)",
-        "text": "DC 14. Open a portal at a point within near to another location on any plane. Lasts 1d6 rounds or until dismissed.",
-        "damage": [
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "Lasts 1d6 rounds or until dismissed."
-          }
-        ]
-      },
-      {
-        "name": "Portent (WIS Spell)",
-        "text": "DC 14. Lasts 2d4 rounds. One target in near has advantage or disadvantage on all attack rolls and checks.",
-        "damage": [
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "Lasts 2d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Time Stop (WIS Spell)",
-        "text": "DC 15. Self. Time freezes for everyone except",
-        "damage": []
-      },
-      {
-        "name": "Rathgamnon for 1d4 rounds",
-        "text": "Everything that occurs during the time freeze happens simultaneously when the spell ends.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Rat, Swarm",
-    "**AC**": "10",
-    "**HP**": "28",
-    "**ATK**": "4 bite +0 (1 + disease)",
-    "**MV**": "near",
-    "**S**": "-3",
-    "**D**": "+0",
-    "**C**": "+1",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Disease**": "DC 9 CON or 1d4 CON damage (can't heal while ill). Repeat check once per day; ends on success. Die at 0 CON. A pearl-white lion with feathered wings that stands twenty feet tall. Rathgamnon is Madeera the Covenant's mightiest servant; his blank eyes see far into the depths of time and space. He spends all eternity watching the whirl of the stars from the highest mountain in the realm of mortals, waiting for the celestial alignments that prophesy epochs of weal and woe, titanic changes to the balance of power in the cosmos, or threats to the laws of reality itself. AC 17, HP 89, ATK 2 rend (near) +9 (2d10) and 2 spell +8, MV double near (fly), S +5, D +3, C +4, I +5, W +6, Ch +5, AL L, LV 19",
-      "**Legendary**": "Only damaged by magical sources. Hostile spells targeting Rathgamnon are DC 18 to cast.",
-      "**Roar**": "In place of attacks, all creatures who can hear within far DC 18 CHA or be rendered blind and speechless for 1d4 days.",
-      "**Abjure (WIS Spell)**": "DC 13. Self. End any hostile magical effects affecting Rathgamnon.",
-      "**Abolish (WIS Spell)**": "DC 13. One target in far takes 5d8 damage.",
-      "**Anchor (WIS Spell)**": "DC 14. One target in far DC 18 STR or bound and anchored by chains of golden runes for 1d4 rounds.",
-      "**Gate (WIS Spell)**": "DC 14. Open a portal at a point within near to another location on any plane. Lasts 1d6 rounds or until dismissed.",
-      "**Portent (WIS Spell)**": "DC 14. Lasts 2d4 rounds. One target in near has advantage or disadvantage on all attack rolls and checks.",
-      "**Time Stop (WIS Spell)**": "DC 15. Self. Time freezes for everyone except",
-      "**Rathgamnon for 1d4 rounds**": "Everything that occurs during the time freeze happens simultaneously when the spell ends."
-    }
-  },
-  {
-    "slug": "reaver",
-    "name": "Reaver",
-    "level": 6,
-    "ac": "17 (plate mail + shield)",
-    "hp": "28",
-    "attack": "3 bastard sword +4 (1d8 + 2)",
-    "movement": "near",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+0",
-      "CON": "+1",
-      "INT": "+0",
-      "WIS": "+0",
-      "CHA": "+2"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8+2",
-        "display": "1d8+2",
-        "context": "3 bastard sword +4 (1d8 + 2)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Bloodlust",
-        "text": "+2 damage with melee weapons (included).",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Reaver",
-    "**AC**": "17 (plate mail + shield)",
-    "**HP**": "28",
-    "**ATK**": "3 bastard sword +4 (1d8 + 2)",
-    "**MV**": "near",
-    "**S**": "+3",
-    "**D**": "+0",
-    "**C**": "+1",
-    "**I**": "+0",
-    "**W**": "+0",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Bloodlust**": "+2 damage with melee weapons (included)."
-    }
-  },
-  {
-    "slug": "roper",
-    "name": "Roper",
-    "level": 6,
-    "ac": "14",
-    "hp": "31",
-    "attack": "4 tendril (double near) +4 (1d6 + grab) and 1 bite +4 (2d8)",
-    "movement": "close (climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "-2",
-      "CON": "+4",
-      "INT": "-1",
-      "WIS": "+2",
-      "CHA": "+1"
-    },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "4 tendril (double near) +4 (1d6 + grab) and 1 bite +4 (2d8)"
-      },
-      {
-        "expression": "2d8",
-        "display": "2d8",
-        "context": "4 tendril (double near) +4 (1d6 + grab) and 1 bite +4 (2d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Can only be damaged by magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Grab",
-        "text": "DC 15 STR or target trapped in tendril. Tendril auto- hits target next round. DC 15 STR on turn to break free.",
-        "damage": []
-      },
-      {
-        "name": "Pull",
-        "text": "In place of a tendril attack, pull a grabbed target a near distance.",
-        "damage": []
-      },
-      {
-        "name": "Tendrils",
-        "text": "Four total. AC 18 each. 4+ damage to one severs it.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Roper",
-    "**AC**": "14",
-    "**HP**": "31",
-    "**ATK**": "4 tendril (double near) +4 (1d6 + grab) and 1 bite +4 (2d8)",
-    "**MV**": "close (climb)",
-    "**S**": "+3",
-    "**D**": "-2",
-    "**C**": "+4",
-    "**I**": "-1",
-    "**W**": "+2",
-    "**CH**": "+1",
-    "**AL**": "N",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Can only be damaged by magical sources.",
-      "**Grab**": "DC 15 STR or target trapped in tendril. Tendril auto- hits target next round. DC 15 STR on turn to break free.",
-      "**Pull**": "In place of a tendril attack, pull a grabbed target a near distance.",
-      "**Tendrils**": "Four total. AC 18 each. 4+ damage to one severs it."
-    }
-  },
-  {
-    "slug": "viperian-ophid",
-    "name": "Viperian, Ophid",
-    "level": 6,
-    "ac": "14",
-    "hp": "28",
-    "attack": "3 falchion +5 (1d10) or 2 longbow (far) +3 (1d8)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+2",
-      "CON": "+1",
-      "INT": "+1",
-      "WIS": "+1",
-      "CHA": "+1"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "3 falchion +5 (1d10) or 2 longbow (far) +3 (1d8)"
-      },
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "3 falchion +5 (1d10) or 2 longbow (far) +3 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Can only be harmed by magical sources.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Viperian, Ophid",
-    "**AC**": "14",
-    "**HP**": "28",
-    "**ATK**": "3 falchion +5 (1d10) or 2 longbow (far) +3 (1d8)",
-    "**MV**": "near (climb)",
-    "**S**": "+4",
-    "**D**": "+2",
-    "**C**": "+1",
-    "**I**": "+1",
-    "**W**": "+1",
-    "**CH**": "+1",
-    "**AL**": "C",
-    "**LV**": "6",
-    "abilities": {
-      "**Impervious**": "Can only be harmed by magical sources."
-    }
-  }
 ]

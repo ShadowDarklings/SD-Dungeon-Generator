@@ -1,0 +1,16 @@
+﻿Organic Artist-Time Minimum New Asset Signatures
+Regenerated from current S3_content/assets org-free/org-blocks files.
+Goal: minimize fresh drawings. A current drawing may satisfy another placement if its 5x5 corner class and 44px side-strip class can be matched through flips/rotations.
+Corner zones are NW/NE/SE/SW 5x5 px. Side zones are N/E/S/W 44x5 or 5x44 px, excluding corners.
+Coverage counts filename signatures plus every current bitmap transformed by rotate/flip and sampled with an organic-contact threshold.
+Generator rule: every filled N/E/S/W side blocks movement and lighting across that edge. org-free means the tile may be occupied, not that all four edges are passable.
+When moving or tracing light between adjacent organic tiles, the shared edge is open only when both tiles have an "x" on their side of that edge.
+For org-free, side class NoEoSoWo is invalid/passability-blocked and is excluded from needed free drawings. Characters should not pass through tiny corner-only gaps.
+Movement-specific sections do not cross-satisfy: org-free art and org-blocks art remain separate unless using the combined reference section.
+Implicitly satisfied: NWoNEoSEoSWoNoEoSoWo = 1-black.png; NWxNExSExSWxNxExSxWx = blank/no asset.
+
+org-free minimum new drawings (0):
+
+org-blocks minimum new drawings (0):
+
+combined movement-agnostic minimum new drawings (0):

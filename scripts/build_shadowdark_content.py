@@ -10,6 +10,7 @@ from typing import Any
 
 BASE_URL = "https://shadowdark.dnddeutsch.de/api"
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "S3_content" / "data" / "shadowdark-content.json"
+MONSTER_TABLES_DIR = Path(__file__).resolve().parents[1] / "S3_content"
 CATEGORY_ENDPOINTS = {
     "monsters": "monster",
     "gear": "gear",
@@ -59,6 +60,42 @@ def extract_number(value: Any, default: int = 0) -> int:
     return int(match.group(0)) if match else default
 
 
+def normalize_monster_name(name: str) -> str:
+    lowered = re.sub(r"[^a-z0-9 ]", " ", name.lower())
+    lowered = re.sub(r"\bthe\b", " ", lowered)
+    tokens = sorted(part for part in lowered.split() if part)
+    return " ".join(tokens)
+
+
+def load_monster_stat_lookup() -> dict[str, dict[str, str]]:
+    lookup: dict[str, dict[str, str]] = {}
+    for path in sorted(MONSTER_TABLES_DIR.glob("monsters-*.json")):
+        entries = json.loads(path.read_text(encoding="utf-8"))
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            name = str(entry.get("Monster Name") or "").strip()
+            if not name:
+                continue
+            stats = {
+                "S": str(entry.get("**S**") or ""),
+                "D": str(entry.get("**D**") or ""),
+                "C": str(entry.get("**C**") or ""),
+                "I": str(entry.get("**I**") or ""),
+                "W": str(entry.get("**W**") or ""),
+                "Ch": str(entry.get("**CH**") or ""),
+                "AL": str(entry.get("**AL**") or ""),
+            }
+            candidate_names = {name}
+            if "," in name:
+                suffix = name.split(",", 1)[1].strip()
+                if suffix:
+                    candidate_names.add(suffix)
+            for candidate in candidate_names:
+                lookup.setdefault(normalize_monster_name(candidate), stats)
+    return lookup
+
+
 def fetch_detail_map(category: str) -> list[dict[str, Any]]:
     listing = fetch_json(f"{BASE_URL}/{category}/")
     if not isinstance(listing, dict):
@@ -91,15 +128,15 @@ def fetch_all_details(category: str) -> list[dict[str, Any]]:
     return results
 
 
-def normalize_monster(item: dict[str, Any]) -> dict[str, Any]:
+def normalize_monster(item: dict[str, Any], stat_lookup: dict[str, dict[str, str]]) -> dict[str, Any]:
     data = item["data"]
     name = extract_text(data.get("name")) or item["slug"].replace("-", " ").title()
-    description = extract_text(data.get("description"))
     ac = data.get("ac")
     if isinstance(ac, dict):
         ac_value = ac.get("numeric") or ac.get("string") or ac.get("type")
     else:
         ac_value = ac
+    stats = stat_lookup.get(normalize_monster_name(name), {})
     return {
         "slug": item["slug"],
         "name": name,
@@ -108,7 +145,13 @@ def normalize_monster(item: dict[str, Any]) -> dict[str, Any]:
         "hp": extract_number(data.get("hp"), 0) or None,
         "attack": extract_text(data.get("atk")),
         "movement": extract_text(data.get("mv")),
-        "description": description,
+        "S": stats.get("S", ""),
+        "D": stats.get("D", ""),
+        "C": stats.get("C", ""),
+        "I": stats.get("I", ""),
+        "W": stats.get("W", ""),
+        "Ch": stats.get("Ch", ""),
+        "AL": stats.get("AL", ""),
         "talents": [extract_text(talent) for talent in data.get("talents", []) if extract_text(talent)],
         "tags": [str(tag) for tag in data.get("tags", []) if tag is not None],
         "source": coerce_sources(data.get("source")),
@@ -151,7 +194,8 @@ def normalize_gear(item: dict[str, Any], kind: str) -> dict[str, Any]:
 
 
 def build_snapshot() -> dict[str, Any]:
-    monsters = [normalize_monster(item) for item in fetch_all_details("monster")]
+    stat_lookup = load_monster_stat_lookup()
+    monsters = [normalize_monster(item, stat_lookup) for item in fetch_all_details("monster")]
     loot = {
         "gear": [normalize_gear(item, "gear") for item in fetch_all_details("gear")],
         "armor": [normalize_gear(item, "armor") for item in fetch_all_details("armor")],

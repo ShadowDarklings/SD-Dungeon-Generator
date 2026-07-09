@@ -2,13 +2,16 @@ import { DOOR_STATES, ENTITY_TYPES, FEATURE_NAMES, TILE_TYPES } from "./constant
 import { getTile } from "./state-schema.js";
 import { SeededRng } from "./rng.js";
 import { isTileVisible, recomputeVisibility, revealTrapAtPlayer } from "./visibility.js";
-import { getCharacterCoinBagSlots, getCharacterGearFreeSlots } from "./characters.js";
+import { getCharacterCoinBagSlots, getCharacterGearFreeSlots, normalizeCharacterState } from "./characters.js";
 import { createTreasureDetails, formatTreasureValue } from "./treasure.js";
+import { canCrossOrganicEdge, isOrganicMovementBlockingTile } from "./organic-tiles.js";
+import { isInnerWallBlockingTile } from "./inner-walls.js";
+import { isAngledWallMovementBlockingTile } from "./angled-walls.js";
 
 const LOCK_DC_VALUES = Object.freeze([8, 10, 12, 15]);
 const DEFAULT_INVENTORY_SLOTS = 10;
 const MONSTER_LOOT_DROP_CHANCE = 0.75;
-const MAX_COIN_VALUE = 2000;
+const MAX_COIN_VALUE = 9999999;
 const WORTHLESS_FEATURE_NAMES = new Set(FEATURE_NAMES.map((name) => String(name || "").toLowerCase()));
 
 function isWorthlessFeature(entity) {
@@ -55,6 +58,38 @@ function getLootValueLabel(item) {
   return item?.priceless === true ? "priceless" : formatTreasureValue(item?.value ?? 0);
 }
 
+function getCoinValueInCopper(coinBreakdown = {}) {
+  return Math.max(0, Number(coinBreakdown.gold || 0)) * 100
+    + Math.max(0, Number(coinBreakdown.silver || 0)) * 10
+    + Math.max(0, Number(coinBreakdown.copper || 0));
+}
+
+function normalizeCoinBreakdownFromEntity(entity) {
+  if (entity?.coinBreakdown) {
+    return {
+      gold: Math.max(0, Math.floor(Number(entity.coinBreakdown.gold || 0) || 0)),
+      silver: Math.max(0, Math.floor(Number(entity.coinBreakdown.silver || 0) || 0)),
+      copper: Math.max(0, Math.floor(Number(entity.coinBreakdown.copper || 0) || 0))
+    };
+  }
+  if (String(entity?.kind || entity?.subtype || "").toLowerCase() !== "coin-cache") {
+    return null;
+  }
+  const valueCp = Math.max(0, Math.round((Number(entity?.value) || 0) * 100));
+  const name = String(entity?.name || "").toLowerCase();
+  if (/\bc\.?p\.?\b|copper/.test(name)) {
+    return { gold: 0, silver: 0, copper: valueCp };
+  }
+  if (/\bs\.?p\.?\b|silver/.test(name)) {
+    return { gold: 0, silver: Math.floor(valueCp / 10), copper: valueCp % 10 };
+  }
+  return {
+    gold: Math.floor(valueCp / 100),
+    silver: Math.floor((valueCp % 100) / 10),
+    copper: valueCp % 10
+  };
+}
+
 function getTreasureSlotCost(entity) {
   if (isWorthlessFeature(entity)) {
     return 1;
@@ -63,6 +98,9 @@ function getTreasureSlotCost(entity) {
     return Math.max(1, Number(entity.gearItem.slots ?? entity.slots ?? 1) || 1);
   }
   const kind = String(entity?.kind || entity?.treasureKind || "").toLowerCase();
+  if (kind === "gems") {
+    return 0;
+  }
   if (kind === "chainmail") {
     return 2;
   }
@@ -303,6 +341,16 @@ function setLockedDoorAction(state, door) {
   return state.lockedDoorAction;
 }
 
+function revealSecretDoor(door) {
+  if (!door || door.secret !== true) {
+    return false;
+  }
+  door.secretFound = true;
+  door.revealed = true;
+  door.visible = true;
+  return true;
+}
+
 export function getPendingLockedDoorAction(state) {
   const action = state?.lockedDoorAction;
   if (!action?.doorId) {
@@ -323,6 +371,9 @@ export function getPendingLockedDoorAction(state) {
 
 function lockedDoorResult(state, door) {
   state.darkness.pendingDoorKey = null;
+  if (revealSecretDoor(door)) {
+    recomputeVisibility(state);
+  }
   return {
     moved: false,
     message: "Locked.",
@@ -385,12 +436,49 @@ function isBlockingPillarAt(state, x, y) {
   ));
 }
 
+function decorBlocksTile(placement, x, y) {
+  if (!placement?.blocksMovement) {
+    return false;
+  }
+  if (Array.isArray(placement.blocks)) {
+    return placement.blocks.some((block) => (
+      Number(block?.x) === x &&
+      Number(block?.y) === y
+    ));
+  }
+  const left = Number(placement.x);
+  const top = Number(placement.y);
+  const width = Math.max(1, Math.round(Number(placement.widthTiles) || 1));
+  const height = Math.max(1, Math.round(Number(placement.heightTiles) || 1));
+  return x >= left && y >= top && x < left + width && y < top + height;
+}
+
+function isBlockingPlacedDecorAt(state, x, y) {
+  const blockers = [
+    ...(Array.isArray(state.decor?.canals) ? state.decor.canals : []),
+    ...(Array.isArray(state.decor?.wells) ? state.decor.wells : [])
+  ];
+  return blockers.some((placement) => decorBlocksTile(placement, x, y));
+}
+
 function isWalkable(state, tile) {
   if (!tile) {
     return { ok: false, message: "Blocked by stone wall." };
   }
+  if (isOrganicMovementBlockingTile(tile)) {
+    return { ok: false, message: "Blocked by a cave wall." };
+  }
+  if (isInnerWallBlockingTile(tile)) {
+    return { ok: false, message: "Blocked by an inner wall." };
+  }
+  if (isAngledWallMovementBlockingTile(tile)) {
+    return { ok: false, message: "Blocked by an angled wall." };
+  }
   if (isBlockingPillarAt(state, tile.x, tile.y)) {
     return { ok: false, message: "Blocked by a pillar." };
+  }
+  if (isBlockingPlacedDecorAt(state, tile.x, tile.y)) {
+    return { ok: false, message: "Blocked." };
   }
   if (tile.type === TILE_TYPES.FLOOR) {
     return { ok: true, message: "Moved." };
@@ -398,9 +486,40 @@ function isWalkable(state, tile) {
   return { ok: false, message: "Blocked by stone wall." };
 }
 
-function addMonsterLootDrop(state, monster) {
+function checkOrganicStep(state, fromX, fromY, toX, toY) {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const fromTile = getTile(state, fromX, fromY);
+  const toTile = getTile(state, toX, toY);
+  if (!canCrossOrganicEdge(fromTile, toTile, dx, dy)) {
+    return { ok: false, message: "Blocked by a cave wall." };
+  }
+  return { ok: true, message: "Moved." };
+}
+
+export function canMoveBetweenTiles(state, fromX, fromY, toX, toY, options = {}) {
+  const tile = getTile(state, toX, toY);
+  const door = getDoorBetween(state, fromX, fromY, toX, toY);
+  if (door && !isDoorPassable(door)) {
+    return { ok: false, message: "Blocked by a door." };
+  }
+
+  const blockingDoor = options.ignoreDoorTile === true ? null : findBlockingDoorAtTile(state, toX, toY);
+  if (blockingDoor) {
+    return { ok: false, message: "Blocked by a door." };
+  }
+
+  const walkable = isWalkable(state, tile);
+  if (!walkable.ok) {
+    return walkable;
+  }
+
+  return checkOrganicStep(state, fromX, fromY, toX, toY);
+}
+
+export function addMonsterLootDrop(state, monster, options = {}) {
   const dropChance = monster?.wandering === true ? 0.5 : MONSTER_LOOT_DROP_CHANCE;
-  if (Math.random() >= dropChance) {
+  if (options.force !== true && Math.random() >= dropChance) {
     return null;
   }
   const level = Math.max(1, Number(monster.level ?? state.level ?? 1) || 1);
@@ -428,8 +547,11 @@ function addMonsterLootDrop(state, monster) {
     slots: treasure.slots ?? 1,
     bonusSlots: treasure.bonusSlots ?? 0,
     priceless: treasure.priceless === true,
-    description: treasure.description || "Coins, oddments, or useful salvage dropped by a defeated monster."
+    description: options.description || treasure.description || "Coins, oddments, or useful salvage dropped by a defeated monster."
   };
+  if (treasure.coinBreakdown) {
+    loot.coinBreakdown = JSON.parse(JSON.stringify(treasure.coinBreakdown));
+  }
   state.entities.push(loot);
   return loot;
 }
@@ -477,6 +599,7 @@ function openClosedDoorFromMovement(state, door) {
     return null;
   }
 
+  revealSecretDoor(door);
   const trap = findActiveTrapForTarget(state, "door", door.id);
   setDoorState(door, DOOR_STATES.OPEN);
   clearLockedDoorAction(state);
@@ -545,11 +668,21 @@ function movePlayerInDarkness(state, dx, dy) {
 
   if (door) {
     if (isDoorPassable(door)) {
+      const walkable = isWalkable(state, tile);
+      if (!walkable.ok) {
+        const message = walkable.message === "Blocked by a pillar." ? "You've run into a pillar!" : "You've run into a wall!";
+        return { moved: false, message, darknessMessage: message };
+      }
+      const organicStep = checkOrganicStep(state, state.player.x, state.player.y, nextX, nextY);
+      if (!organicStep.ok) {
+        return { moved: false, message: organicStep.message, darknessMessage: organicStep.message };
+      }
       return moveToTileInDarkness(state, tile);
     }
 
     const trap = findActiveTrapForTarget(state, "door", door.id);
     if (trap) {
+      revealSecretDoor(door);
       const result = revealAndTriggerTrap(trap);
       setDoorState(door, DOOR_STATES.OPEN);
       state.darkness.pendingDoorKey = null;
@@ -563,6 +696,7 @@ function movePlayerInDarkness(state, dx, dy) {
 
     if (state.darkness.pendingDoorKey !== door.id) {
       state.darkness.pendingDoorKey = door.id;
+      revealSecretDoor(door);
       return { moved: false, message: "you've run into a door.", darknessMessage: "you've run into a door." };
     }
 
@@ -570,6 +704,7 @@ function movePlayerInDarkness(state, dx, dy) {
       return lockedDoorResult(state, door);
     }
 
+    revealSecretDoor(door);
     setDoorState(door, DOOR_STATES.OPEN);
     clearLockedDoorAction(state);
     state.darkness.pendingDoorKey = null;
@@ -580,6 +715,7 @@ function movePlayerInDarkness(state, dx, dy) {
   if (blockingDoor) {
     const trap = findActiveTrapForTarget(state, "door", blockingDoor.id);
     if (trap) {
+      revealSecretDoor(blockingDoor);
       const result = revealAndTriggerTrap(trap);
       setDoorState(blockingDoor, DOOR_STATES.OPEN);
       state.darkness.pendingDoorKey = null;
@@ -594,19 +730,28 @@ function movePlayerInDarkness(state, dx, dy) {
       return lockedDoorResult(state, blockingDoor);
     }
     if (state.darkness.pendingDoorKey === blockingDoor.id && blockingDoor.doorState === DOOR_STATES.CLOSED) {
+      revealSecretDoor(blockingDoor);
       setDoorState(blockingDoor, DOOR_STATES.OPEN);
       clearLockedDoorAction(state);
       state.darkness.pendingDoorKey = null;
       return { moved: false, message: "door open", darknessMessage: "door open" };
     }
     state.darkness.pendingDoorKey = blockingDoor.id;
+    revealSecretDoor(blockingDoor);
     return { moved: false, message: "you've run into a door.", darknessMessage: "you've run into a door." };
   }
 
-  if (!tile || tile.type !== TILE_TYPES.FLOOR || isBlockingPillarAt(state, nextX, nextY)) {
+  const walkable = isWalkable(state, tile);
+  if (!walkable.ok) {
     state.darkness.pendingDoorKey = null;
-    const message = isBlockingPillarAt(state, nextX, nextY) ? "You've run into a pillar!" : "You've run into a wall!";
+    const message = walkable.message === "Blocked by a pillar." ? "You've run into a pillar!" : "You've run into a wall!";
     return { moved: false, message, darknessMessage: message };
+  }
+
+  const organicStep = checkOrganicStep(state, state.player.x, state.player.y, nextX, nextY);
+  if (!organicStep.ok) {
+    state.darkness.pendingDoorKey = null;
+    return { moved: false, message: organicStep.message, darknessMessage: organicStep.message };
   }
 
   return moveToTileInDarkness(state, tile);
@@ -623,6 +768,7 @@ export function movePlayer(state, dx, dy) {
   const door = getDoorBetween(state, state.player.x, state.player.y, nextX, nextY);
 
   if (door && !isDoorPassable(door)) {
+    revealSecretDoor(door);
     if (door.doorState === DOOR_STATES.LOCKED) {
       return lockedDoorResult(state, door);
     }
@@ -634,6 +780,7 @@ export function movePlayer(state, dx, dy) {
 
   const blockingDoor = findBlockingDoorAtTile(state, nextX, nextY);
   if (blockingDoor) {
+    revealSecretDoor(blockingDoor);
     if (blockingDoor.doorState === DOOR_STATES.LOCKED) {
       return lockedDoorResult(state, blockingDoor);
     }
@@ -646,6 +793,11 @@ export function movePlayer(state, dx, dy) {
   const walkable = isWalkable(state, tile);
   if (!walkable.ok) {
     return { moved: false, message: walkable.message };
+  }
+
+  const organicStep = checkOrganicStep(state, state.player.x, state.player.y, nextX, nextY);
+  if (!organicStep.ok) {
+    return { moved: false, message: organicStep.message };
   }
 
   state.player.x = nextX;
@@ -685,6 +837,7 @@ export function clickEntity(state, x, y) {
   }
 
   if (entity.subtype === "door") {
+    revealSecretDoor(entity);
     const trap = findActiveTrapForTarget(state, "door", entity.id);
     if (trap && entity.doorState !== DOOR_STATES.OPEN) {
       const result = revealAndTriggerTrap(trap);
@@ -729,10 +882,20 @@ export function clickEntity(state, x, y) {
 }
 
 export function getRoomLoot(state) {
-  if (!state.player.roomId) {
+  const playerX = Number(state.player?.x);
+  const playerY = Number(state.player?.y);
+  const hasPlayerTile = Number.isFinite(playerX) && Number.isFinite(playerY);
+  const playerTile = hasPlayerTile ? getTile(state, playerX, playerY) : null;
+  const currentRoomId = state.player?.roomId || playerTile?.roomId || null;
+  const currentHallId = playerTile?.hallId || null;
+  if (!currentRoomId && !currentHallId && !hasPlayerTile) {
     return [];
   }
   return state.entities.filter((entity) => {
+    const sameTile = Number(entity.x) === playerX && Number(entity.y) === playerY;
+    const inCurrentRoom = currentRoomId && entity.roomId === currentRoomId;
+    const inCurrentHallTile = !currentRoomId && sameTile;
+    const illuminated = isTileVisible(state, Number(entity.x), Number(entity.y));
     return (
       (
         entity.type === ENTITY_TYPES.TREASURE ||
@@ -740,7 +903,7 @@ export function getRoomLoot(state) {
       ) &&
       !entity.collected &&
       entity.visible !== false &&
-      entity.roomId === state.player.roomId
+      (inCurrentRoom || inCurrentHallTile || illuminated)
     );
   });
 }
@@ -774,9 +937,13 @@ export function collectLoot(state, lootId) {
     return { collected: 0, message: "Select a character to carry treasure." };
   }
 
+  const coinBreakdown = normalizeCoinBreakdownFromEntity(collectable);
+  if (coinBreakdown) {
+    collectable.coinBreakdown = coinBreakdown;
+  }
   const itemSlots = getTreasureSlotCost(collectable);
-  const requiredSlots = collectable.coinBreakdown
-    ? getCoinPickupSlotCost(character, collectable.coinBreakdown)
+  const requiredSlots = coinBreakdown
+    ? getCoinPickupSlotCost(character, coinBreakdown)
     : itemSlots;
   if (getCharacterGearFreeSlots(character) < requiredSlots) {
     return {
@@ -790,18 +957,18 @@ export function collectLoot(state, lootId) {
   const treasureName = collectable.corpseLoot && collectable.monsterName
     ? `pieces of ${collectable.monsterName}`
     : collectable.name || "treasure";
-  const xpAward = awardTreasureExperience(state, collectable);
-  if (collectable.coinBreakdown) {
-    character.gold = clampCoinValue(Number(character.gold || 0) + Number(collectable.coinBreakdown.gold || 0));
-    character.silver = clampCoinValue(Number(character.silver || 0) + Number(collectable.coinBreakdown.silver || 0));
-    character.copper = clampCoinValue(Number(character.copper || 0) + Number(collectable.coinBreakdown.copper || 0));
+  if (coinBreakdown) {
+    character.gold = clampCoinValue(Number(character.gold || 0) + Number(coinBreakdown.gold || 0));
+    character.silver = clampCoinValue(Number(character.silver || 0) + Number(coinBreakdown.silver || 0));
+    character.copper = clampCoinValue(Number(character.copper || 0) + Number(coinBreakdown.copper || 0));
     character.raw = character.raw || {};
     character.raw.gold = character.gold;
     character.raw.silver = character.silver;
     character.raw.copper = character.copper;
+    normalizeCharacterState(state);
     return {
       collected: 1,
-      message: `Got: ${treasureName}${getCoinCountFromBreakdown(collectable.coinBreakdown) > 100 ? ` (${requiredSlots} slot${requiredSlots === 1 ? "" : "s"})` : ""}.${xpAward ? ` ${xpAward} XP to each living party member.` : ""}`
+      message: `Got: ${treasureName} (${getCoinValueInCopper(coinBreakdown)} cp).`
     };
   }
 
@@ -840,9 +1007,10 @@ export function collectLoot(state, lootId) {
     corpseLoot: collectable.corpseLoot === true || gearItem.corpseLoot === true,
     monsterName: collectable.monsterName || gearItem.monsterName || ""
   });
+  normalizeCharacterState(state);
   return {
     collected: 1,
-    message: `Got: ${treasureName} (${getLootValueLabel(collectable)}).${xpAward ? ` ${xpAward} XP to each living party member.` : ""}`
+    message: `Got: ${treasureName} (${getLootValueLabel(collectable)}).`
   };
 }
 
@@ -863,7 +1031,7 @@ export function collectRoomLoot(state) {
   }
 
   if (!collected) {
-    return { collected: 0, message: "No revealed treasure in this room." };
+    return { collected: 0, message: "No revealed treasure in view." };
   }
   return {
     collected,
@@ -892,6 +1060,7 @@ export function dropLootAtPlayer(state, lootId) {
       x: state.player.x,
       y: state.player.y,
       roomId: state.player.roomId,
+      hallId: getTile(state, state.player.x, state.player.y)?.hallId || null,
       visible: true,
       value: entry.value,
       slots: getItemSlots(entry),
@@ -958,6 +1127,9 @@ function isSearchCandidate(entity, roomId) {
   if (entity.roomId !== roomId) {
     return false;
   }
+  if (entity.subtype === "door" && entity.secret === true) {
+    return entity.secretFound !== true;
+  }
   if (entity.type === ENTITY_TYPES.TRAP) {
     return !entity.revealed && !entity.triggered && !entity.disarmed;
   }
@@ -983,9 +1155,18 @@ export function searchForTraps(state, modifier, options = {}) {
   const candidates = state.entities.filter((entity) => isSearchCandidate(entity, state.player.roomId));
 
   const found = candidates.filter((entity) => check.total >= (entity.searchDc ?? entity.dc));
+  let foundSecretDoor = false;
   for (const entity of found) {
-    entity.revealed = true;
-    entity.visible = true;
+    if (entity.subtype === "door" && entity.secret === true) {
+      revealSecretDoor(entity);
+      foundSecretDoor = true;
+    } else {
+      entity.revealed = true;
+      entity.visible = true;
+    }
+  }
+  if (foundSecretDoor) {
+    recomputeVisibility(state);
   }
 
   return {
@@ -995,6 +1176,9 @@ export function searchForTraps(state, modifier, options = {}) {
       ? `Search ${check.total} revealed: ${found.map((entity) => {
           if (entity.type === ENTITY_TYPES.TRAP) {
             return `${entity.name} (trigger: ${entity.trigger}; effect: ${entity.effect})`;
+          }
+          if (entity.subtype === "door" && entity.secret === true) {
+            return "secret door";
           }
           return `${entity.name} (${formatTreasureValue(entity.value)})`;
         }).join("; ")}` 

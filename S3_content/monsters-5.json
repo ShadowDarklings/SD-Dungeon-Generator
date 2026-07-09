@@ -1,999 +1,401 @@
 [
-  {
-    "slug": "basilisk",
-    "name": "Basilisk",
-    "level": 5,
-    "ac": "14",
-    "hp": "25",
-    "attack": "2 bite +4 (2d6 + petrify)",
-    "movement": "near",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+1",
-      "CON": "+3",
-      "INT": "-3",
-      "WIS": "+1",
-      "CHA": "-3"
+    {
+        "Monster Name": "Basilisk",
+        "**AC**": "14",
+        "**HP**": "25",
+        "**ATK**": "2 bite +4 (2d6 + petrify)",
+        "**MV**": "near",
+        "**S**": "+3",
+        "**D**": "+1",
+        "**C**": "+3",
+        "**I**": "-3",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "monstrosity"
+        ],
+        "abilities": {
+            "**Petrify**": "Any creature that touches the basilisk or meets its gaze, DC 15 CON or petrified."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "2d6",
-        "display": "2d6",
-        "context": "2 bite +4 (2d6 + petrify)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Petrify",
-        "text": "Any creature that touches the basilisk or meets its gaze, DC 15 CON or petrified.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Basilisk",
-    "**AC**": "14",
-    "**HP**": "25",
-    "**ATK**": "2 bite +4 (2d6 + petrify)",
-    "**MV**": "near",
-    "**S**": "+3",
-    "**D**": "+1",
-    "**C**": "+3",
-    "**I**": "-3",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Petrify**": "Any creature that touches the basilisk or meets its gaze, DC 15 CON or petrified."
-    }
-  },
-  {
-    "slug": "bear-brown",
-    "name": "Bear, Brown",
-    "level": 5,
-    "ac": "13",
-    "hp": "25",
-    "attack": "2 claw +4 (1d8)",
-    "movement": "near (climb) S +4",
-    "stats": {
-      "STR": "",
-      "DEX": "+1",
-      "CON": "+3",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-2"
+    {
+        "Monster Name": "Bear, Brown",
+        "**AC**": "13",
+        "**HP**": "25",
+        "**ATK**": "2 claw +4 (1d8)",
+        "**MV**": "near (climb) S +4",
+        "**S**": "",
+        "**D**": "+1",
+        "**C**": "+3",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Crush**": "Deals an extra die of damage if it hits the same target with both claws."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 claw +4 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Crush",
-        "text": "Deals an extra die of damage if it hits the same target with both claws.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Bear, Brown",
-    "**AC**": "13",
-    "**HP**": "25",
-    "**ATK**": "2 claw +4 (1d8)",
-    "**MV**": "near (climb) S +4",
-    "**S**": "",
-    "**D**": "+1",
-    "**C**": "+3",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Crush**": "Deals an extra die of damage if it hits the same target with both claws."
-    }
-  },
-  {
-    "slug": "chuul",
-    "name": "Chuul",
-    "level": 5,
-    "ac": "15",
-    "hp": "25",
-    "attack": "2 pincer +4 (1d8 + grab)",
-    "movement": "near (swim)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "-1",
-      "CON": "+3",
-      "INT": "-1",
-      "WIS": "+1",
-      "CHA": "-2"
+    {
+        "Monster Name": "Chuul",
+        "**AC**": "15",
+        "**HP**": "25",
+        "**ATK**": "2 pincer +4 (1d8 + grab)",
+        "**MV**": "near (swim)",
+        "**S**": "+3",
+        "**D**": "-1",
+        "**C**": "+3",
+        "**I**": "-1",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "aberration",
+            "underdark"
+        ],
+        "abilities": {
+            "**Grab**": "DC 15 STR or held in pincer. DC 15 STR on turn to break free."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 pincer +4 (1d8 + grab)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Grab",
-        "text": "DC 15 STR or held in pincer. DC 15 STR on turn to break free.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Chuul",
-    "**AC**": "15",
-    "**HP**": "25",
-    "**ATK**": "2 pincer +4 (1d8 + grab)",
-    "**MV**": "near (swim)",
-    "**S**": "+3",
-    "**D**": "-1",
-    "**C**": "+3",
-    "**I**": "-1",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Grab**": "DC 15 STR or held in pincer. DC 15 STR on turn to break free."
-    }
-  },
-  {
-    "slug": "crab-giant",
-    "name": "Crab, Giant",
-    "level": 5,
-    "ac": "15",
-    "hp": "24",
-    "attack": "2 pincer +4 (1d8 + crush)",
-    "movement": "near (swim)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+0",
-      "CON": "+2",
-      "INT": "-3",
-      "WIS": "+0",
-      "CHA": "-3"
+    {
+        "Monster Name": "Crab, Giant",
+        "**AC**": "15",
+        "**HP**": "24",
+        "**ATK**": "2 pincer +4 (1d8 + crush)",
+        "**MV**": "near (swim)",
+        "**S**": "+3",
+        "**D**": "+0",
+        "**C**": "+2",
+        "**I**": "-3",
+        "**W**": "+0",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Crush**": "DC 15 STR or target takes 1d8 damage."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 pincer +4 (1d8 + crush)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Crush",
-        "text": "DC 15 STR or target takes 1d8 damage.",
-        "damage": [
-          {
-            "expression": "1d8",
-            "display": "1d8",
-            "context": "DC 15 STR or target takes 1d8 damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Crab, Giant",
-    "**AC**": "15",
-    "**HP**": "24",
-    "**ATK**": "2 pincer +4 (1d8 + crush)",
-    "**MV**": "near (swim)",
-    "**S**": "+3",
-    "**D**": "+0",
-    "**C**": "+2",
-    "**I**": "-3",
-    "**W**": "+0",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Crush**": "DC 15 STR or target takes 1d8 damage."
-    }
-  },
-  {
-    "slug": "demon-vrock",
-    "name": "Demon, Vrock",
-    "level": 5,
-    "ac": "14",
-    "hp": "24",
-    "attack": "2 talons +4 (1d8) or 1 screech",
-    "movement": "near (fly)",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+2",
-      "CON": "+2",
-      "INT": "-1",
-      "WIS": "+1",
-      "CHA": "+0"
+    {
+        "Monster Name": "Demon, Vrock",
+        "**AC**": "14",
+        "**HP**": "24",
+        "**ATK**": "2 talons +4 (1d8) or 1 screech",
+        "**MV**": "near (fly)",
+        "**S**": "+2",
+        "**D**": "+2",
+        "**C**": "+2",
+        "**I**": "-1",
+        "**W**": "+1",
+        "**CH**": "+0",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "demon",
+            "fiend",
+            "horror"
+        ],
+        "abilities": {
+            "**Carrion Mist**": "Each time vrock is hit, 3:6 chance of carrion mist in near-sized cube centered on vrock. All enemies DC 15 CON or violent vomiting 1d4 rounds.",
+            "**Screech**": "All enemies in double near DC 12 WIS or DISADV on checks and attacks for 1d4 rounds."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 talons +4 (1d8) or 1 screech"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Carrion Mist",
-        "text": "Each time vrock is hit, 3:6 chance of carrion mist in near-sized cube centered on vrock. All enemies DC 15 CON or violent vomiting 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "All enemies DC 15 CON or violent vomiting 1d4 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Screech",
-        "text": "All enemies in double near DC 12 WIS or DISADV on checks and attacks for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "All enemies in double near DC 12 WIS or DISADV on checks and attacks for 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Demon, Vrock",
-    "**AC**": "14",
-    "**HP**": "24",
-    "**ATK**": "2 talons +4 (1d8) or 1 screech",
-    "**MV**": "near (fly)",
-    "**S**": "+2",
-    "**D**": "+2",
-    "**C**": "+2",
-    "**I**": "-1",
-    "**W**": "+1",
-    "**CH**": "+0",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Carrion Mist**": "Each time vrock is hit, 3:6 chance of carrion mist in near-sized cube centered on vrock. All enemies DC 15 CON or violent vomiting 1d4 rounds.",
-      "**Screech**": "All enemies in double near DC 12 WIS or DISADV on checks and attacks for 1d4 rounds."
-    }
-  },
-  {
-    "slug": "gelatinous-cube",
-    "name": "Gelatinous Cube",
-    "level": 5,
-    "ac": "11",
-    "hp": "24",
-    "attack": "1 touch +4 (1d8 + toxin + engulf)",
-    "movement": "near",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+1",
-      "CON": "+2",
-      "INT": "-4",
-      "WIS": "+1",
-      "CHA": "-4"
+    {
+        "Monster Name": "Gelatinous Cube",
+        "**AC**": "11",
+        "**HP**": "24",
+        "**ATK**": "1 touch +4 (1d8 + toxin + engulf)",
+        "**MV**": "near",
+        "**S**": "+3",
+        "**D**": "+1",
+        "**C**": "+2",
+        "**I**": "-4",
+        "**W**": "+1",
+        "**CH**": "-4",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "ooze"
+        ],
+        "abilities": {
+            "**Engulf**": "DC 12 STR or trapped inside cube. Touch attack auto- hits engulfed targets each round. DC 12 STR on turn to escape. Fail checks if paralyzed.",
+            "**Rubbery**": "Half damage from stabbing weapons.",
+            "**Toxin**": "DC 15 CON or paralyzed 1d4 rounds."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "1 touch +4 (1d8 + toxin + engulf)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Engulf",
-        "text": "DC 12 STR or trapped inside cube. Touch attack auto- hits engulfed targets each round. DC 12 STR on turn to escape. Fail checks if paralyzed.",
-        "damage": []
-      },
-      {
-        "name": "Rubbery",
-        "text": "Half damage from stabbing weapons.",
-        "damage": []
-      },
-      {
-        "name": "Toxin",
-        "text": "DC 15 CON or paralyzed 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 15 CON or paralyzed 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Gelatinous Cube",
-    "**AC**": "11",
-    "**HP**": "24",
-    "**ATK**": "1 touch +4 (1d8 + toxin + engulf)",
-    "**MV**": "near",
-    "**S**": "+3",
-    "**D**": "+1",
-    "**C**": "+2",
-    "**I**": "-4",
-    "**W**": "+1",
-    "**CH**": "-4",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Engulf**": "DC 12 STR or trapped inside cube. Touch attack auto- hits engulfed targets each round. DC 12 STR on turn to escape. Fail checks if paralyzed.",
-      "**Rubbery**": "Half damage from stabbing weapons.",
-      "**Toxin**": "DC 15 CON or paralyzed 1d4 rounds."
-    }
-  },
-  {
-    "slug": "hippopotamus",
-    "name": "Hippopotamus",
-    "level": 5,
-    "ac": "12",
-    "hp": "24",
-    "attack": "2 bite +4 (1d10)",
-    "movement": "near (swim)",
-    "stats": {
-      "STR": "+4",
-      "DEX": "+0",
-      "CON": "+2",
-      "INT": "-3",
-      "WIS": "+0",
-      "CHA": "-3"
+    {
+        "Monster Name": "Hippopotamus",
+        "**AC**": "12",
+        "**HP**": "24",
+        "**ATK**": "2 bite +4 (1d10)",
+        "**MV**": "near (swim)",
+        "**S**": "+4",
+        "**D**": "+0",
+        "**C**": "+2",
+        "**I**": "-3",
+        "**W**": "+0",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Stumpy**": "ADV on STR checks to grab or drag other creatures."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "2 bite +4 (1d10)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Stumpy",
-        "text": "ADV on STR checks to grab or drag other creatures.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Hippopotamus",
-    "**AC**": "12",
-    "**HP**": "24",
-    "**ATK**": "2 bite +4 (1d10)",
-    "**MV**": "near (swim)",
-    "**S**": "+4",
-    "**D**": "+0",
-    "**C**": "+2",
-    "**I**": "-3",
-    "**W**": "+0",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Stumpy**": "ADV on STR checks to grab or drag other creatures."
-    }
-  },
-  {
-    "slug": "mimic",
-    "name": "Mimic",
-    "level": 5,
-    "ac": "12",
-    "hp": "23",
-    "attack": "2 bite +5 (1d8 + stick)",
-    "movement": "near",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+0",
-      "CON": "+1",
-      "INT": "-2",
-      "WIS": "+0",
-      "CHA": "-3"
+    {
+        "Monster Name": "Mimic",
+        "**AC**": "12",
+        "**HP**": "23",
+        "**ATK**": "2 bite +5 (1d8 + stick)",
+        "**MV**": "near",
+        "**S**": "+2",
+        "**D**": "+0",
+        "**C**": "+1",
+        "**I**": "-2",
+        "**W**": "+0",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "monstrosity",
+            "shapechanger"
+        ],
+        "abilities": {
+            "**Stick**": "DC 15 STR or adhere to target; auto-hit with bite. DC 15 STR on turn to remove."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 bite +5 (1d8 + stick)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Stick",
-        "text": "DC 15 STR or adhere to target; auto-hit with bite. DC 15 STR on turn to remove.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Mimic",
-    "**AC**": "12",
-    "**HP**": "23",
-    "**ATK**": "2 bite +5 (1d8 + stick)",
-    "**MV**": "near",
-    "**S**": "+2",
-    "**D**": "+0",
-    "**C**": "+1",
-    "**I**": "-2",
-    "**W**": "+0",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Stick**": "DC 15 STR or adhere to target; auto-hit with bite. DC 15 STR on turn to remove."
-    }
-  },
-  {
-    "slug": "octopus-giant",
-    "name": "Octopus, Giant",
-    "level": 5,
-    "ac": "13",
-    "hp": "23",
-    "attack": "2 tentacle (near) +4 (1d8 + grab)",
-    "movement": "near (swim)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+3",
-      "CON": "+1",
-      "INT": "-2",
-      "WIS": "+1",
-      "CHA": "-3"
+    {
+        "Monster Name": "Octopus, Giant",
+        "**AC**": "13",
+        "**HP**": "23",
+        "**ATK**": "2 tentacle (near) +4 (1d8 + grab)",
+        "**MV**": "near (swim)",
+        "**S**": "+3",
+        "**D**": "+3",
+        "**C**": "+1",
+        "**I**": "-2",
+        "**W**": "+1",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "animal",
+            "horror"
+        ],
+        "abilities": {
+            "**Grab**": "DC 15 STR or immobilized. Tentacle auto-hits each round. DC 15 STR on turn to break free.",
+            "**Ink**": "In place of attacks, ink cloud blinds all in near for 1d4 rounds."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 tentacle (near) +4 (1d8 + grab)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Grab",
-        "text": "DC 15 STR or immobilized. Tentacle auto-hits each round. DC 15 STR on turn to break free.",
-        "damage": []
-      },
-      {
-        "name": "Ink",
-        "text": "In place of attacks, ink cloud blinds all in near for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "In place of attacks, ink cloud blinds all in near for 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Octopus, Giant",
-    "**AC**": "13",
-    "**HP**": "23",
-    "**ATK**": "2 tentacle (near) +4 (1d8 + grab)",
-    "**MV**": "near (swim)",
-    "**S**": "+3",
-    "**D**": "+3",
-    "**C**": "+1",
-    "**I**": "-2",
-    "**W**": "+1",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Grab**": "DC 15 STR or immobilized. Tentacle auto-hits each round. DC 15 STR on turn to break free.",
-      "**Ink**": "In place of attacks, ink cloud blinds all in near for 1d4 rounds."
-    }
-  },
-  {
-    "slug": "priest",
-    "name": "Priest",
-    "level": 5,
-    "ac": "15 (chainmail + shield)",
-    "hp": "23",
-    "attack": "2 mace +3 (1d6) or 1 spell +3",
-    "movement": "near",
-    "stats": {
-      "STR": "+1",
-      "DEX": "+0",
-      "CON": "+1",
-      "INT": "+0",
-      "WIS": "+2",
-      "CHA": "+1"
+    {
+        "Monster Name": "Priest",
+        "**AC**": "15 (chainmail + shield)",
+        "**HP**": "23",
+        "**ATK**": "2 mace +3 (1d6) or 1 spell +3",
+        "**MV**": "near",
+        "**S**": "+1",
+        "**D**": "+0",
+        "**C**": "+1",
+        "**I**": "+0",
+        "**W**": "+2",
+        "**CH**": "+1",
+        "**AL**": "L",
+        "**LV**": "5",
+        "tags": [
+            "humanoid"
+        ],
+        "abilities": {
+            "**Anoint (WIS Spell)**": "DC 12. Close. One weapon or armor becomes a magic +2 version for 10 rounds.",
+            "**Healing Touch (WIS Spell)**": "DC 11. Heal one creature within close for 2d4 HP.",
+            "**Holy Flame (WIS Spell)**": "DC 13. Self. Weapons ignite in magic flames and deal an additional 1d6 damage for 5 rounds.",
+            "**Rebuke (WIS Spell)**": "DC 13. Focus. Chaotic creatures cannot attack priest or come within near range for duration."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "L",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "2 mace +3 (1d6) or 1 spell +3"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Anoint (WIS Spell)",
-        "text": "DC 12. Close. One weapon or armor becomes a magic +2 version for 10 rounds.",
-        "damage": []
-      },
-      {
-        "name": "Healing Touch (WIS Spell)",
-        "text": "DC 11. Heal one creature within close for 2d4 HP.",
-        "damage": [
-          {
-            "expression": "2d4",
-            "display": "2d4",
-            "context": "Heal one creature within close for 2d4 HP."
-          }
-        ]
-      },
-      {
-        "name": "Holy Flame (WIS Spell)",
-        "text": "DC 13. Self. Weapons ignite in magic flames and deal an additional 1d6 damage for 5 rounds.",
-        "damage": [
-          {
-            "expression": "1d6",
-            "display": "1d6",
-            "context": "Weapons ignite in magic flames and deal an additional 1d6 damage for 5 rounds."
-          }
-        ]
-      },
-      {
-        "name": "Rebuke (WIS Spell)",
-        "text": "DC 13. Focus. Chaotic creatures cannot attack priest or come within near range for duration.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Priest",
-    "**AC**": "15 (chainmail + shield)",
-    "**HP**": "23",
-    "**ATK**": "2 mace +3 (1d6) or 1 spell +3",
-    "**MV**": "near",
-    "**S**": "+1",
-    "**D**": "+0",
-    "**C**": "+1",
-    "**I**": "+0",
-    "**W**": "+2",
-    "**CH**": "+1",
-    "**AL**": "L",
-    "**LV**": "5",
-    "abilities": {
-      "**Anoint (WIS Spell)**": "DC 12. Close. One weapon or armor becomes a magic +2 version for 10 rounds.",
-      "**Healing Touch (WIS Spell)**": "DC 11. Heal one creature within close for 2d4 HP.",
-      "**Holy Flame (WIS Spell)**": "DC 13. Self. Weapons ignite in magic flames and deal an additional 1d6 damage for 5 rounds.",
-      "**Rebuke (WIS Spell)**": "DC 13. Focus. Chaotic creatures cannot attack priest or come within near range for duration."
-    }
-  },
-  {
-    "slug": "rhinoceros",
-    "name": "Rhinoceros",
-    "level": 5,
-    "ac": "14",
-    "hp": "25",
-    "attack": "2 horn +4 (1d8)",
-    "movement": "near",
-    "stats": {
-      "STR": "+4",
-      "DEX": "-1",
-      "CON": "+3",
-      "INT": "-3",
-      "WIS": "+0",
-      "CHA": "-3"
+    {
+        "Monster Name": "Rhinoceros",
+        "**AC**": "14",
+        "**HP**": "25",
+        "**ATK**": "2 horn +4 (1d8)",
+        "**MV**": "near",
+        "**S**": "+4",
+        "**D**": "-1",
+        "**C**": "+3",
+        "**I**": "-3",
+        "**W**": "+0",
+        "**CH**": "-3",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "animal"
+        ],
+        "abilities": {
+            "**Charge**": "Move up to double near in straight line and make 1 horn attack. If hit, x3 damage."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 horn +4 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Charge",
-        "text": "Move up to double near in straight line and make 1 horn attack. If hit, x3 damage.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Rhinoceros",
-    "**AC**": "14",
-    "**HP**": "25",
-    "**ATK**": "2 horn +4 (1d8)",
-    "**MV**": "near",
-    "**S**": "+4",
-    "**D**": "-1",
-    "**C**": "+3",
-    "**I**": "-3",
-    "**W**": "+0",
-    "**CH**": "-3",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Charge**": "Move up to double near in straight line and make 1 horn attack. If hit, x3 damage."
-    }
-  },
-  {
-    "slug": "salamander",
-    "name": "Salamander",
-    "level": 5,
-    "ac": "13",
-    "hp": "24",
-    "attack": "2 flaming spear (close/near) +4 (1d6 ignites flammables) or 1 iron longbow (far) +2 (1d8)",
-    "movement": "near",
-    "stats": {
-      "STR": "+2",
-      "DEX": "+0",
-      "CON": "+2",
-      "INT": "-1",
-      "WIS": "+1",
-      "CHA": "-1"
+    {
+        "Monster Name": "Salamander",
+        "**AC**": "13",
+        "**HP**": "24",
+        "**ATK**": "2 flaming spear (close/near) +4 (1d6 ignites flammables) or 1 iron longbow (far) +2 (1d8)",
+        "**MV**": "near",
+        "**S**": "+2",
+        "**D**": "+0",
+        "**C**": "+2",
+        "**I**": "-1",
+        "**W**": "+1",
+        "**CH**": "-1",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "elemental"
+        ],
+        "abilities": {
+            "**Impervious**": "Fire immune.",
+            "**Heat Aura**": "Creatures in close DC 12 CON on turn or 1d8 damage."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "2 flaming spear (close/near) +4 (1d6 ignites flammables) or 1 iron longbow (far) +2 (1d8)"
-      },
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 flaming spear (close/near) +4 (1d6 ignites flammables) or 1 iron longbow (far) +2 (1d8)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Fire immune.",
-        "damage": []
-      },
-      {
-        "name": "Heat Aura",
-        "text": "Creatures in close DC 12 CON on turn or 1d8 damage.",
-        "damage": [
-          {
-            "expression": "1d8",
-            "display": "1d8",
-            "context": "Creatures in close DC 12 CON on turn or 1d8 damage."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Salamander",
-    "**AC**": "13",
-    "**HP**": "24",
-    "**ATK**": "2 flaming spear (close/near) +4 (1d6 ignites flammables) or 1 iron longbow (far) +2 (1d8)",
-    "**MV**": "near",
-    "**S**": "+2",
-    "**D**": "+0",
-    "**C**": "+2",
-    "**I**": "-1",
-    "**W**": "+1",
-    "**CH**": "-1",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Impervious**": "Fire immune.",
-      "**Heat Aura**": "Creatures in close DC 12 CON on turn or 1d8 damage."
-    }
-  },
-  {
-    "slug": "snake-giant",
-    "name": "Snake, Giant",
-    "level": 5,
-    "ac": "12",
-    "hp": "23",
-    "attack": "2 bite +4 (1d6) and 1 constrict (near)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+1",
-      "INT": "-2",
-      "WIS": "+0",
-      "CHA": "-2"
+    {
+        "Monster Name": "Snake, Giant",
+        "**AC**": "12",
+        "**HP**": "23",
+        "**ATK**": "2 bite +4 (1d6) and 1 constrict (near)",
+        "**MV**": "near (climb)",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+1",
+        "**I**": "-2",
+        "**W**": "+0",
+        "**CH**": "-2",
+        "**AL**": "N",
+        "**LV**": "5",
+        "tags": [
+            "animal",
+            "snake"
+        ],
+        "abilities": {
+            "**Constrict**": "Contested STR to hold target immobile for one round."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "N",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "2 bite +4 (1d6) and 1 constrict (near)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Constrict",
-        "text": "Contested STR to hold target immobile for one round.",
-        "damage": []
-      }
-    ],
-    "Monster Name": "Snake, Giant",
-    "**AC**": "12",
-    "**HP**": "23",
-    "**ATK**": "2 bite +4 (1d6) and 1 constrict (near)",
-    "**MV**": "near (climb)",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+1",
-    "**I**": "-2",
-    "**W**": "+0",
-    "**CH**": "-2",
-    "**AL**": "N",
-    "**LV**": "5",
-    "abilities": {
-      "**Constrict**": "Contested STR to hold target immobile for one round."
-    }
-  },
-  {
-    "slug": "troll",
-    "name": "Troll",
-    "level": 5,
-    "ac": "12",
-    "hp": "24",
-    "attack": "2 claw +4 (1d6) and 1 bite +4 (1d10)",
-    "movement": "near",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+2",
-      "INT": "-1",
-      "WIS": "+0",
-      "CHA": "-1"
+    {
+        "Monster Name": "Troll",
+        "**AC**": "12",
+        "**HP**": "24",
+        "**ATK**": "2 claw +4 (1d6) and 1 bite +4 (1d10)",
+        "**MV**": "near",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+2",
+        "**I**": "-1",
+        "**W**": "+0",
+        "**CH**": "-1",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "animal",
+            "dinosaur"
+        ],
+        "abilities": {
+            "**Regenerate**": "Regains 2d6 HP on its turn unless its wounds are cauterized with fire or acid."
+        },
+        "diplomacy": "Y"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "2 claw +4 (1d6) and 1 bite +4 (1d10)"
-      },
-      {
-        "expression": "1d10",
-        "display": "1d10",
-        "context": "2 claw +4 (1d6) and 1 bite +4 (1d10)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Regenerate",
-        "text": "Regains 2d6 HP on its turn unless its wounds are cauterized with fire or acid.",
-        "damage": [
-          {
-            "expression": "2d6",
-            "display": "2d6",
-            "context": "Regains 2d6 HP on its turn unless its wounds are cauterized with fire or acid."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Troll",
-    "**AC**": "12",
-    "**HP**": "24",
-    "**ATK**": "2 claw +4 (1d6) and 1 bite +4 (1d10)",
-    "**MV**": "near",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+2",
-    "**I**": "-1",
-    "**W**": "+0",
-    "**CH**": "-1",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Regenerate**": "Regains 2d6 HP on its turn unless its wounds are cauterized with fire or acid."
-    }
-  },
-  {
-    "slug": "vampire-spawn",
-    "name": "Vampire Spawn",
-    "level": 5,
-    "ac": "13 (leather)",
-    "hp": "25",
-    "attack": "2 bite +4 (1d8 + blood drain)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+3",
-      "INT": "-1",
-      "WIS": "+1",
-      "CHA": "+2"
+    {
+        "Monster Name": "Vampire Spawn",
+        "**AC**": "13 (leather)",
+        "**HP**": "25",
+        "**ATK**": "2 bite +4 (1d8 + blood drain)",
+        "**MV**": "near (climb)",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+3",
+        "**I**": "-1",
+        "**W**": "+1",
+        "**CH**": "+2",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "horror",
+            "undead"
+        ],
+        "abilities": {
+            "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
+            "**Blood Drain**": "Vampire heals 2d6 HP and target permanently loses 1d4 CON. At 0 CON, target dies and rises as a vampire spawn.",
+            "**Vampire**": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart with a wooden stake while at 0 HP."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 bite +4 (1d8 + blood drain)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Greater Undead",
-        "text": "Immune to morale checks. Only damaged by silver or magical sources.",
-        "damage": []
-      },
-      {
-        "name": "Blood Drain",
-        "text": "Vampire heals 2d6 HP and target permanently loses 1d4 CON. At 0 CON, target dies and rises as a vampire spawn.",
-        "damage": [
-          {
-            "expression": "2d6",
-            "display": "2d6",
-            "context": "Vampire heals 2d6 HP and target permanently loses 1d4 CON."
-          },
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "Vampire heals 2d6 HP and target permanently loses 1d4 CON."
-          }
-        ]
-      },
-      {
-        "name": "Vampire",
-        "text": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart with a wooden stake while at 0 HP.",
-        "damage": [
-          {
-            "expression": "2d6",
-            "display": "2d6",
-            "context": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin."
-          },
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "Takes 3d8 damage each round while in direct sunlight."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Vampire Spawn",
-    "**AC**": "13 (leather)",
-    "**HP**": "25",
-    "**ATK**": "2 bite +4 (1d8 + blood drain)",
-    "**MV**": "near (climb)",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+3",
-    "**I**": "-1",
-    "**W**": "+1",
-    "**CH**": "+2",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Greater Undead**": "Immune to morale checks. Only damaged by silver or magical sources.",
-      "**Blood Drain**": "Vampire heals 2d6 HP and target permanently loses 1d4 CON. At 0 CON, target dies and rises as a vampire spawn.",
-      "**Vampire**": "Must sleep in a coffin daily or loses 2d6 HP each day that can't be healed until resting in coffin. Takes 3d8 damage each round while in direct sunlight. Cannot be killed unless pierced through heart with a wooden stake while at 0 HP."
-    }
-  },
-  {
-    "slug": "void-spider",
-    "name": "Void Spider",
-    "level": 5,
-    "ac": "13",
-    "hp": "23",
-    "attack": "2 bite +4 (1d8 + poison)",
-    "movement": "near (climb)",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+3",
-      "CON": "+1",
-      "INT": "-1",
-      "WIS": "+1",
-      "CHA": "-2"
+    {
+        "Monster Name": "Void Spider",
+        "**AC**": "13",
+        "**HP**": "23",
+        "**ATK**": "2 bite +4 (1d8 + poison)",
+        "**MV**": "near (climb)",
+        "**S**": "+3",
+        "**D**": "+3",
+        "**C**": "+1",
+        "**I**": "-1",
+        "**W**": "+1",
+        "**CH**": "-2",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "horror",
+            "outsider",
+            "underdark"
+        ],
+        "abilities": {
+            "**Impervious**": "Immune to cold.",
+            "**Phase**": "Once per round, become corporeal or incorporeal.",
+            "**Poison**": "DC 12 CON or drop to 0 HP in 1d4 rounds."
+        },
+        "diplomacy": "N"
     },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d8",
-        "display": "1d8",
-        "context": "2 bite +4 (1d8 + poison)"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Immune to cold.",
-        "damage": []
-      },
-      {
-        "name": "Phase",
-        "text": "Once per round, become corporeal or incorporeal.",
-        "damage": []
-      },
-      {
-        "name": "Poison",
-        "text": "DC 12 CON or drop to 0 HP in 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "DC 12 CON or drop to 0 HP in 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Void Spider",
-    "**AC**": "13",
-    "**HP**": "23",
-    "**ATK**": "2 bite +4 (1d8 + poison)",
-    "**MV**": "near (climb)",
-    "**S**": "+3",
-    "**D**": "+3",
-    "**C**": "+1",
-    "**I**": "-1",
-    "**W**": "+1",
-    "**CH**": "-2",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Impervious**": "Immune to cold.",
-      "**Phase**": "Once per round, become corporeal or incorporeal.",
-      "**Poison**": "DC 12 CON or drop to 0 HP in 1d4 rounds."
+    {
+        "Monster Name": "Wolf, Winter",
+        "**AC**": "12",
+        "**HP**": "23",
+        "**ATK**": "2 bite +4 (1d6) or 1 frost breath",
+        "**MV**": "double near",
+        "**S**": "+3",
+        "**D**": "+2",
+        "**C**": "+1",
+        "**I**": "+0",
+        "**W**": "+1",
+        "**CH**": "+0",
+        "**AL**": "C",
+        "**LV**": "5",
+        "tags": [
+            "animal",
+            "horror",
+            "wolf"
+        ],
+        "abilities": {
+            "**Impervious**": "Cold immune.",
+            "**Frost Breath**": "Fills a near-sized cube extending from winter wolf. DC 15 DEX or 3d8 damage. Cannot use again for 1d4 rounds."
+        },
+        "diplomacy": "N"
     }
-  },
-  {
-    "slug": "wolf-winter",
-    "name": "Wolf, Winter",
-    "level": 5,
-    "ac": "12",
-    "hp": "23",
-    "attack": "2 bite +4 (1d6) or 1 frost breath",
-    "movement": "double near",
-    "stats": {
-      "STR": "+3",
-      "DEX": "+2",
-      "CON": "+1",
-      "INT": "+0",
-      "WIS": "+1",
-      "CHA": "+0"
-    },
-    "alignment": "C",
-    "damage": [
-      {
-        "expression": "1d6",
-        "display": "1d6",
-        "context": "2 bite +4 (1d6) or 1 frost breath"
-      }
-    ],
-    "abilityDetails": [
-      {
-        "name": "Impervious",
-        "text": "Cold immune.",
-        "damage": []
-      },
-      {
-        "name": "Frost Breath",
-        "text": "Fills a near-sized cube extending from winter wolf. DC 15 DEX or 3d8 damage. Cannot use again for 1d4 rounds.",
-        "damage": [
-          {
-            "expression": "3d8",
-            "display": "3d8",
-            "context": "DC 15 DEX or 3d8 damage."
-          },
-          {
-            "expression": "1d4",
-            "display": "1d4",
-            "context": "Cannot use again for 1d4 rounds."
-          }
-        ]
-      }
-    ],
-    "Monster Name": "Wolf, Winter",
-    "**AC**": "12",
-    "**HP**": "23",
-    "**ATK**": "2 bite +4 (1d6) or 1 frost breath",
-    "**MV**": "double near",
-    "**S**": "+3",
-    "**D**": "+2",
-    "**C**": "+1",
-    "**I**": "+0",
-    "**W**": "+1",
-    "**CH**": "+0",
-    "**AL**": "C",
-    "**LV**": "5",
-    "abilities": {
-      "**Impervious**": "Cold immune.",
-      "**Frost Breath**": "Fills a near-sized cube extending from winter wolf. DC 15 DEX or 3d8 damage. Cannot use again for 1d4 rounds."
-    }
-  }
 ]
