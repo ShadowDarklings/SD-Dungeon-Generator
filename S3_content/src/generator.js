@@ -1430,6 +1430,13 @@ function organicCornersFromSignature(signatureData) {
   };
 }
 
+function organicCornersMatch(candidate = {}, target = null) {
+  if (!target) {
+    return true;
+  }
+  return ["nw", "ne", "se", "sw"].every((corner) => !target[corner] || (candidate[corner] || "x") === target[corner]);
+}
+
 function isAllOrganicSides(sides, value) {
   return sides.north === value && sides.east === value && sides.south === value && sides.west === value;
 }
@@ -1537,6 +1544,12 @@ function pickOrganicPlacement(catalog, kind, sides, rng, options = {}) {
   if (!candidates.length) {
     return null;
   }
+  if (options.corners) {
+    const cornerMatches = candidates.filter((candidate) => organicCornersMatch(candidate.corners, options.corners));
+    if (cornerMatches.length) {
+      return rng.pick(cornerMatches);
+    }
+  }
   if (!options.state || !options.tile) {
     return rng.pick(candidates);
   }
@@ -1571,6 +1584,10 @@ function getOrganicRoomTileSides(state, tile) {
     sides[side] = neighbor?.type === TILE_TYPES.FLOOR && !isOrganicMovementBlockingTile(neighbor) ? "x" : "o";
   }
   return sides;
+}
+
+function getOrganicCaveFreeTileSides(state, tile) {
+  return getOrganicRoomTileSides(state, tile);
 }
 
 function organicTileTouchesDiagonalBoundary(state, tile) {
@@ -4580,6 +4597,70 @@ function carveOrganicHall(state, edge, hallIndex, roomsByNode, rng) {
   return hall;
 }
 
+function isOrganicCavePassableTile(tile) {
+  return tile?.type === TILE_TYPES.FLOOR &&
+    !isOrganicMovementBlockingTile(tile) &&
+    !isInnerWallBlockingTile(tile) &&
+    !isAngledWallMovementBlockingTile(tile);
+}
+
+function countOrganicCavePassableNeighbors(state, x, y) {
+  return RECT_GRAPH_SIDES.reduce((count, side) => {
+    const { dx, dy } = getOrganicNeighborDelta(side);
+    return count + (isOrganicCavePassableTile(getTile(state, x + dx, y + dy)) ? 1 : 0);
+  }, 0);
+}
+
+function roughenOrganicCaveFootprint(state, rng) {
+  for (let sweep = 0; sweep < 2; sweep += 1) {
+    const additions = [];
+    for (const tile of state.tiles || []) {
+      if (!isOrganicCavePassableTile(tile)) {
+        continue;
+      }
+      const passableNeighbors = countOrganicCavePassableNeighbors(state, tile.x, tile.y);
+      if (passableNeighbors >= 4) {
+        continue;
+      }
+      const openSides = RECT_GRAPH_SIDES.filter((side) => {
+        const { dx, dy } = getOrganicNeighborDelta(side);
+        const neighbor = getTile(state, tile.x + dx, tile.y + dy);
+        return neighbor?.type === TILE_TYPES.WALL && isPointInOrganicBounds(state, neighbor.x, neighbor.y, 1);
+      });
+      if (!openSides.length) {
+        continue;
+      }
+      const chance = sweep === 0 ? 0.34 : 0.18;
+      if (rng.nextFloat() > chance) {
+        continue;
+      }
+      const side = rng.pick(openSides);
+      const { dx, dy } = getOrganicNeighborDelta(side);
+      const target = getTile(state, tile.x + dx, tile.y + dy);
+      if (!target || countOrganicCavePassableNeighbors(state, target.x, target.y) > 2) {
+        continue;
+      }
+      additions.push({
+        x: target.x,
+        y: target.y,
+        roomId: tile.roomId || null,
+        hallId: tile.hallId || null
+      });
+    }
+    for (const addition of additions) {
+      const tile = getTile(state, addition.x, addition.y);
+      if (!tile || tile.type !== TILE_TYPES.WALL) {
+        continue;
+      }
+      setTileType(state, addition.x, addition.y, TILE_TYPES.FLOOR, {
+        roomId: addition.roomId,
+        hallId: addition.hallId
+      });
+      clearTileDecorMeta(tile);
+    }
+  }
+}
+
 function sideFromDelta(dx, dy) {
   if (dx === 0 && dy === -1) return "north";
   if (dx === 1 && dy === 0) return "east";
@@ -4771,7 +4852,7 @@ function countOrganicCaveFreeArtCandidates(state, catalog, protectedKeys) {
     if (tile?.type !== TILE_TYPES.FLOOR || isOrganicMovementBlockingTile(tile)) {
       continue;
     }
-    const sides = getOrganicRoomTileSides(state, tile);
+    const sides = getOrganicCaveFreeTileSides(state, tile);
     if (!organicTileNeedsEdgeArt(state, tile, sides) || isAllOrganicSides(sides, "o")) {
       continue;
     }
@@ -4865,7 +4946,7 @@ function applyOrganicCaveFreeArt(state, rng, catalog, protectedKeys) {
     if (tile?.type !== TILE_TYPES.FLOOR || isOrganicMovementBlockingTile(tile)) {
       continue;
     }
-    const sides = getOrganicRoomTileSides(state, tile);
+    const sides = getOrganicCaveFreeTileSides(state, tile);
     if (!organicTileNeedsEdgeArt(state, tile, sides) || isAllOrganicSides(sides, "o")) {
       continue;
     }
@@ -4883,6 +4964,74 @@ function applyOrganicCaveFreeArt(state, rng, catalog, protectedKeys) {
   return placed;
 }
 
+function getOrganicBasePassableKeys(state) {
+  const keys = new Set();
+  for (const tile of state.tiles || []) {
+    if (isGeneratedPassableTile(tile)) {
+      keys.add(coordKey(tile.x, tile.y));
+    }
+  }
+  return keys;
+}
+
+function getOrganicShellBlockSides(tile, passableKeys) {
+  const sides = {};
+  for (const side of RECT_GRAPH_SIDES) {
+    const { dx, dy } = getOrganicNeighborDelta(side);
+    sides[side] = passableKeys.has(coordKey(tile.x + dx, tile.y + dy)) ? "x" : "o";
+  }
+  return sides;
+}
+
+function getOrganicShellBlockCorners(tile, passableKeys) {
+  const corners = {};
+  for (const corner of ["nw", "ne", "se", "sw"]) {
+    const touchesPassable = getOrganicCornerNeighborDeltas(corner).some(({ dx, dy }) => (
+      passableKeys.has(coordKey(tile.x + dx, tile.y + dy))
+    ));
+    corners[corner] = touchesPassable ? "x" : "o";
+  }
+  return corners;
+}
+
+function collectOrganicShellBlockTiles(state, passableKeys) {
+  const candidates = new Map();
+  for (const key of passableKeys) {
+    const point = parseCoordKey(key);
+    for (const side of RECT_GRAPH_SIDES) {
+      const { dx, dy } = getOrganicNeighborDelta(side);
+      const tile = getTile(state, point.x + dx, point.y + dy);
+      if (!tile || tile.type !== TILE_TYPES.WALL) {
+        continue;
+      }
+      candidates.set(coordKey(tile.x, tile.y), tile);
+    }
+  }
+  return [...candidates.values()].sort((a, b) => (a.y - b.y) || (a.x - b.x));
+}
+
+function placeOrganicShellBlocks(state, rng, catalog, passableKeys) {
+  let placed = 0;
+  const shellTiles = collectOrganicShellBlockTiles(state, passableKeys);
+  for (const tile of shellTiles) {
+    const sides = getOrganicShellBlockSides(tile, passableKeys);
+    const corners = getOrganicShellBlockCorners(tile, passableKeys);
+    const placement = pickOrganicPlacement(catalog, "blocks", sides, rng, { corners });
+    if (!placement) {
+      continue;
+    }
+    setTileType(state, tile.x, tile.y, TILE_TYPES.FLOOR, {
+      roomId: null,
+      hallId: null
+    });
+    clearTileDecorMeta(tile);
+    setOrganicTileMeta(tile, placement.asset, placement);
+    tile.meta.organicShell = true;
+    placed += 1;
+  }
+  return placed;
+}
+
 function applyOrganicCaveTileArt(state, rng, organicAssets = []) {
   const catalog = buildOrganicAssetCatalog(organicAssets);
   if (!catalog.available) {
@@ -4892,25 +5041,9 @@ function applyOrganicCaveTileArt(state, rng, organicAssets = []) {
   for (const tile of state.tiles || []) {
     clearOrganicTileMeta(tile);
   }
-  const expectedFreeTiles = countOrganicCaveFreeArtCandidates(state, catalog, protectedKeys);
-  const targetBlocks = Math.max(1, Math.ceil(expectedFreeTiles / 3));
-  placeOrganicCaveBlocks(state, rng, catalog, protectedKeys, targetBlocks);
-  clearOrganicNonBlockMeta(state);
+  const passableKeys = getOrganicBasePassableKeys(state);
+  placeOrganicShellBlocks(state, rng, catalog, passableKeys);
   applyOrganicCaveFreeArt(state, rng, catalog, protectedKeys);
-
-  let counts = countOrganicTileKinds(state);
-  let guard = 0;
-  while (counts.total > 0 && counts.blocks / counts.total < 0.25 && guard < 8) {
-    guard += 1;
-    const before = counts.blocks;
-    placeOrganicCaveBlocks(state, rng, catalog, protectedKeys, before + 1);
-    clearOrganicNonBlockMeta(state);
-    applyOrganicCaveFreeArt(state, rng, catalog, protectedKeys);
-    counts = countOrganicTileKinds(state);
-    if (counts.blocks <= before) {
-      break;
-    }
-  }
 }
 
 function createOrganicEntranceMarker(state, room, rng) {
@@ -5997,6 +6130,7 @@ function createOrganicDungeon(seed, level, options = {}) {
   edges.forEach((edge, index) => {
     carveOrganicHall(state, edge, index, roomsByNode, rng);
   });
+  roughenOrganicCaveFootprint(state, rng);
 
   const entranceRoom = roomsByNode.get(nodes[0]) || state.rooms[0] || null;
   if (entranceRoom) {

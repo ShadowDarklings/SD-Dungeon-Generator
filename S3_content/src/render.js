@@ -16,6 +16,10 @@ const INK_WALL_COLOR = "#111111";
 const HATCH_COLOR = "rgba(17, 17, 17, 0.72)";
 const HATCH_SPACING_PX = 11;
 const HATCH_LENGTH_PX = 15;
+const ORGANIC_FLOOR_COLOR = "#b9aa72";
+const ORGANIC_FLOOR_RGB = Object.freeze([185, 170, 114]);
+const ORGANIC_ALPHA_THRESHOLD = 16;
+const ORGANIC_CORNER_ZONE_PX = 6;
 const ASSET_PATHS = Object.freeze({
   stone: "./assets/map_background_dark.jpg",
   floor: "./assets/room_grid_backgroung.jpg",
@@ -225,6 +229,7 @@ const rendererAssets = {
     stealth: null
   }
 };
+const organicShellUnderlayCache = new Map();
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -407,6 +412,11 @@ function getTileAt(state, x, y) {
 
 function isWalkableTile(tile) {
   return tile?.type === TILE_TYPES.FLOOR;
+}
+
+function isOrganicDungeon(state) {
+  const architecture = state?.generation?.architecture || {};
+  return architecture.renderer === "organic" || architecture.pattern === "organic";
 }
 
 function isDoorOnRoomSide(state, room, side, offset) {
@@ -1415,6 +1425,142 @@ function drawOrganicTileDecor(state, ctx) {
   }
 }
 
+function organicOpenMaskCacheKey(organic) {
+  const sides = organic?.sides || {};
+  const corners = organic?.corners || {};
+  return [
+    organic?.asset || "",
+    Number(organic?.rotationTurns || 0) || 0,
+    organic?.flipX === true ? "fx" : "nx",
+    organic?.flipY === true ? "fy" : "ny",
+    sides.north || "x",
+    sides.east || "x",
+    sides.south || "x",
+    sides.west || "x",
+    corners.nw || "x",
+    corners.ne || "x",
+    corners.se || "x",
+    corners.sw || "x"
+  ].join("|");
+}
+
+function createCanvas(width, height) {
+  if (typeof OffscreenCanvas !== "undefined") {
+    return new OffscreenCanvas(width, height);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
+
+function createOrganicShellUnderlay(image, organic) {
+  const key = organicOpenMaskCacheKey(organic);
+  if (organicShellUnderlayCache.has(key)) {
+    return organicShellUnderlayCache.get(key);
+  }
+  const source = createCanvas(TILE_SIZE_PX, TILE_SIZE_PX);
+  const sourceCtx = source.getContext("2d", { willReadFrequently: true });
+  drawTileImage(
+    sourceCtx,
+    image,
+    0,
+    0,
+    organic.rotationTurns,
+    1,
+    1,
+    0,
+    0,
+    organic.flipX,
+    organic.flipY
+  );
+  const sourceData = sourceCtx.getImageData(0, 0, TILE_SIZE_PX, TILE_SIZE_PX);
+  const output = createCanvas(TILE_SIZE_PX, TILE_SIZE_PX);
+  const outputCtx = output.getContext("2d");
+  const outputData = outputCtx.createImageData(TILE_SIZE_PX, TILE_SIZE_PX);
+  const totalPixels = TILE_SIZE_PX * TILE_SIZE_PX;
+  const seen = new Uint8Array(totalPixels);
+  const queue = new Int32Array(totalPixels);
+  let head = 0;
+  let tail = 0;
+  const add = (x, y) => {
+    if (x < 0 || y < 0 || x >= TILE_SIZE_PX || y >= TILE_SIZE_PX) {
+      return;
+    }
+    const index = y * TILE_SIZE_PX + x;
+    if (seen[index] || sourceData.data[index * 4 + 3] >= ORGANIC_ALPHA_THRESHOLD) {
+      return;
+    }
+    seen[index] = 1;
+    queue[tail] = index;
+    tail += 1;
+  };
+  const sides = organic?.sides || {};
+  const corners = organic?.corners || {};
+  for (let x = 0; x < TILE_SIZE_PX; x += 1) {
+    if (sides.north === "x") add(x, 0);
+    if (sides.south === "x") add(x, TILE_SIZE_PX - 1);
+  }
+  for (let y = 0; y < TILE_SIZE_PX; y += 1) {
+    if (sides.west === "x") add(0, y);
+    if (sides.east === "x") add(TILE_SIZE_PX - 1, y);
+  }
+  const cornerLimit = Math.min(ORGANIC_CORNER_ZONE_PX, TILE_SIZE_PX);
+  const cornerRanges = {
+    nw: [0, cornerLimit, 0, cornerLimit],
+    ne: [TILE_SIZE_PX - cornerLimit, TILE_SIZE_PX, 0, cornerLimit],
+    se: [TILE_SIZE_PX - cornerLimit, TILE_SIZE_PX, TILE_SIZE_PX - cornerLimit, TILE_SIZE_PX],
+    sw: [0, cornerLimit, TILE_SIZE_PX - cornerLimit, TILE_SIZE_PX]
+  };
+  for (const [corner, [startX, endX, startY, endY]] of Object.entries(cornerRanges)) {
+    if (corners[corner] !== "x") {
+      continue;
+    }
+    for (let y = startY; y < endY; y += 1) {
+      for (let x = startX; x < endX; x += 1) {
+        add(x, y);
+      }
+    }
+  }
+  while (head < tail) {
+    const index = queue[head];
+    head += 1;
+    const x = index % TILE_SIZE_PX;
+    const y = Math.floor(index / TILE_SIZE_PX);
+    add(x + 1, y);
+    add(x - 1, y);
+    add(x, y + 1);
+    add(x, y - 1);
+  }
+  for (let index = 0; index < totalPixels; index += 1) {
+    if (!seen[index]) {
+      continue;
+    }
+    const outputIndex = index * 4;
+    outputData.data[outputIndex] = ORGANIC_FLOOR_RGB[0];
+    outputData.data[outputIndex + 1] = ORGANIC_FLOOR_RGB[1];
+    outputData.data[outputIndex + 2] = ORGANIC_FLOOR_RGB[2];
+    outputData.data[outputIndex + 3] = 255;
+  }
+  outputCtx.putImageData(outputData, 0, 0);
+  organicShellUnderlayCache.set(key, output);
+  return output;
+}
+
+function drawOrganicShellUnderlay(ctx, tile) {
+  const organic = getOrganicTileData(tile);
+  if (!organic?.asset) {
+    return;
+  }
+  const key = organic.asset.replace(/\.png$/i, "");
+  const image = rendererAssets.decor.organic[key];
+  if (!image) {
+    return;
+  }
+  const underlay = createOrganicShellUnderlay(image, organic);
+  ctx.drawImage(underlay, tile.x * TILE_SIZE_PX, tile.y * TILE_SIZE_PX);
+}
+
 function drawInnerWallTileDecor(state, ctx) {
   for (const tile of state.tiles || []) {
     const innerWall = getInnerWallTileData(tile);
@@ -1471,12 +1617,22 @@ function drawAngledWallTileDecor(state, ctx) {
 
 function drawHandDrawnTopology(state, ctx) {
   const floorImage = rendererAssets.images.floor;
+  const organicFloor = isOrganicDungeon(state);
   for (const tile of state.tiles) {
     if (!isWalkableTile(tile)) {
       continue;
     }
     const dx = tile.x * TILE_SIZE_PX;
     const dy = tile.y * TILE_SIZE_PX;
+    if (organicFloor) {
+      if (tile?.meta?.organicShell === true) {
+        drawOrganicShellUnderlay(ctx, tile);
+        continue;
+      }
+      ctx.fillStyle = ORGANIC_FLOOR_COLOR;
+      ctx.fillRect(dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
+      continue;
+    }
     const sx = (dx % floorImage.width);
     const sy = (dy % floorImage.height);
     ctx.drawImage(floorImage, sx, sy, TILE_SIZE_PX, TILE_SIZE_PX, dx, dy, TILE_SIZE_PX, TILE_SIZE_PX);
