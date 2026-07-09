@@ -1425,6 +1425,10 @@ function drawOrganicTileDecor(state, ctx) {
   }
 }
 
+function drawOrganicHallDecor(state, ctx) {
+  drawPlacedDecorList(state, ctx, state.decor?.organicHalls, rendererAssets.decor.organic);
+}
+
 function organicOpenMaskCacheKey(organic) {
   const sides = organic?.sides || {};
   const corners = organic?.corners || {};
@@ -1643,6 +1647,7 @@ function drawHandDrawnTopology(state, ctx) {
   drawWellDecor(state, ctx);
   drawJunkDecor(state, ctx);
   drawOrganicTileDecor(state, ctx);
+  drawOrganicHallDecor(state, ctx);
   drawInnerWallTileDecor(state, ctx);
 
   const wallRuns = [

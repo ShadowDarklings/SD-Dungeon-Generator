@@ -1586,8 +1586,21 @@ function getOrganicRoomTileSides(state, tile) {
   return sides;
 }
 
+function isOrganicShellTile(tile) {
+  return tile?.meta?.organicShell === true;
+}
+
 function getOrganicCaveFreeTileSides(state, tile) {
-  return getOrganicRoomTileSides(state, tile);
+  const sides = {};
+  for (const side of RECT_GRAPH_SIDES) {
+    const { dx, dy } = getOrganicNeighborDelta(side);
+    const neighbor = getTile(state, tile.x + dx, tile.y + dy);
+    sides[side] = (
+      neighbor?.type === TILE_TYPES.FLOOR &&
+      (!isOrganicMovementBlockingTile(neighbor) || isOrganicShellTile(neighbor))
+    ) ? "x" : "o";
+  }
+  return sides;
 }
 
 function organicTileTouchesDiagonalBoundary(state, tile) {
@@ -4428,7 +4441,7 @@ function getOrganicBoundingRect(keys) {
 }
 
 function carveOrganicRoomBlob(state, node, roomIndex, rng) {
-  const targetSize = rng.nextInt(roomIndex > 5 ? 14 : 16, roomIndex > 5 ? 34 : 28);
+  const targetSize = rng.nextInt(roomIndex > 5 ? 10 : 12, roomIndex > 5 ? 24 : 22);
   const keys = buildOrganicRoomBlobKeys(state, node, rng, targetSize);
   const rect = getOrganicBoundingRect(keys);
   const room = {
@@ -4472,7 +4485,7 @@ function createOrganicNodes(state, rng) {
     const direction = RECT_GRAPH_DIRECTIONS[side];
     const driftSide = rng.pick(getPerpendicularSides(side));
     const drift = RECT_GRAPH_DIRECTIONS[driftSide];
-    const distance = rng.nextInt(6, 11);
+    const distance = rng.nextInt(8, 14);
     const driftDistance = rng.nextInt(-4, 4);
     const candidate = {
       x: clamp(parent.x + direction.x * distance + drift.x * driftDistance, 4, state.map.width - 5),
@@ -4480,7 +4493,7 @@ function createOrganicNodes(state, rng) {
       depth: (parent.depth || 0) + 1,
       parent
     };
-    if (nodes.some((node) => organicPointDistance(node, candidate) < 6)) {
+    if (nodes.some((node) => organicPointDistance(node, candidate) < 7)) {
       continue;
     }
     nodes.push(candidate);
@@ -4529,13 +4542,15 @@ function getOrganicHallShoulders(path, index, rng) {
   const shoulders = [];
   const primary = rng.pick(perpendiculars);
   const secondary = perpendiculars.find((side) => side !== primary) || perpendiculars[0];
-  shoulders.push({ x: current.x + primary.x, y: current.y + primary.y });
-  if (rng.nextFloat() < 0.42) {
+  if (rng.nextFloat() < 0.28) {
+    shoulders.push({ x: current.x + primary.x, y: current.y + primary.y });
+  }
+  if (rng.nextFloat() < 0.12) {
     shoulders.push({ x: current.x + secondary.x, y: current.y + secondary.y });
   }
 
   const previousStep = index > 0 ? getOrganicPathStep(path, index - 1) : step;
-  if ((previousStep.x !== step.x || previousStep.y !== step.y) && rng.nextFloat() < 0.74) {
+  if ((previousStep.x !== step.x || previousStep.y !== step.y) && rng.nextFloat() < 0.38) {
     shoulders.push({
       x: current.x - previousStep.x + primary.x,
       y: current.y - previousStep.y + primary.y
@@ -4595,6 +4610,203 @@ function carveOrganicHall(state, edge, hallIndex, roomsByNode, rng) {
   };
   state.halls.push(hall);
   return hall;
+}
+
+function parseOrganicHallCellLabel(label, rows, cols) {
+  const text = String(label || "").trim().toUpperCase();
+  if (!text) {
+    return null;
+  }
+  const centerX = Math.floor(cols / 2);
+  const centerY = Math.floor(rows / 2);
+  const cornerCells = {
+    NW: { x: 0, y: 0 },
+    NE: { x: cols - 1, y: 0 },
+    SE: { x: cols - 1, y: rows - 1 },
+    SW: { x: 0, y: rows - 1 }
+  };
+  if (cornerCells[text]) {
+    return cornerCells[text];
+  }
+  if (text === "C") return { x: centerX, y: centerY };
+  if (text === "N") return { x: centerX, y: 0 };
+  if (text === "S") return { x: centerX, y: rows - 1 };
+  if (text === "W") return { x: 0, y: centerY };
+  if (text === "E") return { x: cols - 1, y: centerY };
+
+  let match = text.match(/^N(\d+)$/);
+  if (match) return { x: clamp(Number(match[1]) || 0, 0, cols - 1), y: 0 };
+  match = text.match(/^S(\d+)$/);
+  if (match) return { x: clamp(Number(match[1]) || 0, 0, cols - 1), y: rows - 1 };
+  match = text.match(/^W(\d+)$/);
+  if (match) return { x: 0, y: clamp(Number(match[1]) || 0, 0, rows - 1) };
+  match = text.match(/^E(\d+)$/);
+  if (match) return { x: cols - 1, y: clamp(Number(match[1]) || 0, 0, rows - 1) };
+  match = text.match(/^NC(\d+)$/);
+  if (match) return { x: centerX, y: clamp(Number(match[1]) || 0, 0, rows - 1) };
+  match = text.match(/^SC(\d+)$/);
+  if (match) return { x: centerX, y: clamp(rows - (Number(match[1]) || 0), 0, rows - 1) };
+  return null;
+}
+
+function parseOrganicHallAsset(assetName) {
+  const fileName = String(assetName || "").split(/[\\/]/).pop();
+  const match = fileName.match(/^org-hall-(\d+)x(\d+)-(.+)\.png$/i);
+  if (!match) {
+    return null;
+  }
+  const rows = Number(match[1]) || 0;
+  const cols = Number(match[2]) || 0;
+  if (rows <= 0 || cols <= 0) {
+    return null;
+  }
+  const tokens = match[3].split("-").filter(Boolean);
+  const entIndex = tokens.findIndex((token) => token.toLowerCase() === "ent");
+  const exitIndex = tokens.findIndex((token) => token.toLowerCase() === "exit");
+  if (entIndex < 0 || exitIndex < 0 || entIndex + 1 >= tokens.length || exitIndex + 1 >= tokens.length) {
+    return null;
+  }
+  const contIndex = tokens.findIndex((token) => token.toLowerCase() === "cont");
+  const routeLabels = [
+    tokens[entIndex + 1],
+    ...(contIndex >= 0 && contIndex < exitIndex ? tokens.slice(contIndex + 1, exitIndex) : []),
+    tokens[exitIndex + 1]
+  ];
+  const routeKeys = new Set();
+  const routeCells = [];
+  for (const label of routeLabels) {
+    const point = parseOrganicHallCellLabel(label, rows, cols);
+    if (!point) {
+      continue;
+    }
+    const key = coordKey(point.x, point.y);
+    if (routeKeys.has(key)) {
+      continue;
+    }
+    routeKeys.add(key);
+    routeCells.push(point);
+  }
+  if (routeCells.length < 2) {
+    return null;
+  }
+  return {
+    asset: fileName,
+    widthTiles: cols,
+    heightTiles: rows,
+    routeCells,
+    area: rows * cols
+  };
+}
+
+function buildOrganicHallAssetCatalog(organicAssets = []) {
+  return organicAssets
+    .map(parseOrganicHallAsset)
+    .filter(Boolean)
+    .sort((a, b) => (b.area - a.area) || (b.routeCells.length - a.routeCells.length));
+}
+
+function isOrganicHallFootprintBlocked(state, hall, hallKeys, usedKeys, asset, x, y) {
+  for (let dy = 0; dy < asset.heightTiles; dy += 1) {
+    for (let dx = 0; dx < asset.widthTiles; dx += 1) {
+      const tile = getTile(state, x + dx, y + dy);
+      const key = coordKey(x + dx, y + dy);
+      if (!tile || usedKeys.has(key) || tile.roomId) {
+        return true;
+      }
+      const isRoute = asset.routeCells.some((cell) => cell.x === dx && cell.y === dy);
+      if (isRoute && (!hallKeys.has(key) || tile.type !== TILE_TYPES.FLOOR || tile.hallId !== hall.id)) {
+        return true;
+      }
+      if (isRoute && countOrganicCavePassableNeighbors(state, x + dx, y + dy) > 3) {
+        return true;
+      }
+      if (!isRoute && tile.type === TILE_TYPES.FLOOR) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function findOrganicHallDecorCandidates(state, hall, hallKeys, usedKeys, asset) {
+  const candidates = [];
+  for (const tilePoint of hall.tiles || []) {
+    for (const routeCell of asset.routeCells) {
+      const x = tilePoint.x - routeCell.x;
+      const y = tilePoint.y - routeCell.y;
+      if (!isPointInOrganicBounds(state, x, y, 1) ||
+          !isPointInOrganicBounds(state, x + asset.widthTiles - 1, y + asset.heightTiles - 1, 1)) {
+        continue;
+      }
+      if (isOrganicHallFootprintBlocked(state, hall, hallKeys, usedKeys, asset, x, y)) {
+        continue;
+      }
+      const routeMatches = asset.routeCells.reduce((count, cell) => (
+        count + (hallKeys.has(coordKey(x + cell.x, y + cell.y)) ? 1 : 0)
+      ), 0);
+      candidates.push({
+        x,
+        y,
+        score: routeMatches * 12 + asset.area
+      });
+    }
+  }
+  return candidates.sort((a, b) => (b.score - a.score) || (a.y - b.y) || (a.x - b.x));
+}
+
+function rememberOrganicHallDecorFootprint(usedKeys, placement) {
+  for (let dy = 0; dy < placement.heightTiles; dy += 1) {
+    for (let dx = 0; dx < placement.widthTiles; dx += 1) {
+      usedKeys.add(coordKey(placement.x + dx, placement.y + dy));
+    }
+  }
+}
+
+function placeOrganicHallDecor(state, rng, organicAssets = []) {
+  const assets = buildOrganicHallAssetCatalog(organicAssets);
+  if (!assets.length) {
+    return 0;
+  }
+  state.decor = state.decor || {};
+  state.decor.organicHalls = [];
+  const usedKeys = new Set();
+  let placed = 0;
+  for (const hall of state.halls || []) {
+    if (hall?.organic !== true || !Array.isArray(hall.tiles) || hall.tiles.length < 4) {
+      continue;
+    }
+    const hallKeys = new Set(hall.tiles.map((tile) => coordKey(tile.x, tile.y)));
+    const targetCount = clamp(Math.floor(hall.tiles.length / 9), 1, 3);
+    for (let count = 0; count < targetCount; count += 1) {
+      let selected = null;
+      for (const asset of assets) {
+        const candidates = findOrganicHallDecorCandidates(state, hall, hallKeys, usedKeys, asset);
+        if (candidates.length) {
+          selected = {
+            asset,
+            candidate: rng.pick(candidates.slice(0, Math.min(6, candidates.length)))
+          };
+          break;
+        }
+      }
+      if (!selected) {
+        break;
+      }
+      const placement = {
+        assetKey: selected.asset.asset,
+        x: selected.candidate.x,
+        y: selected.candidate.y,
+        widthTiles: selected.asset.widthTiles,
+        heightTiles: selected.asset.heightTiles,
+        hallId: hall.id,
+        organicHall: true
+      };
+      state.decor.organicHalls.push(placement);
+      rememberOrganicHallDecorFootprint(usedKeys, placement);
+      placed += 1;
+    }
+  }
+  return placed;
 }
 
 function isOrganicCavePassableTile(tile) {
@@ -6131,6 +6343,7 @@ function createOrganicDungeon(seed, level, options = {}) {
     carveOrganicHall(state, edge, index, roomsByNode, rng);
   });
   roughenOrganicCaveFootprint(state, rng);
+  placeOrganicHallDecor(state, rng, options.organicAssets || []);
 
   const entranceRoom = roomsByNode.get(nodes[0]) || state.rooms[0] || null;
   if (entranceRoom) {
