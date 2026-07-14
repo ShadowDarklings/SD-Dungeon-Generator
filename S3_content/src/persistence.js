@@ -221,6 +221,10 @@ function isLocalPreviewHost() {
   return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 }
 
+function isStaticS3WebsiteHost() {
+  return window.location.hostname.endsWith(".s3-website-us-west-2.amazonaws.com");
+}
+
 export async function listRuns() {
   const response = await fetch(`/api/runs?limit=${MAX_SAVED_RUNS}`, {
     credentials: "same-origin"
@@ -347,6 +351,9 @@ export async function importShadowdarklingsCharacter(options = {}) {
   } catch (error) {
     if (isLocalPreviewHost()) {
       return JSON.stringify(TEST_CHARACTER);
+    }
+    if (isStaticS3WebsiteHost()) {
+      throw new Error("Character import requires the EC2 app backend. Use https://44-252-95-80.sslip.io/site/ for ShadowDarklings imports.");
     }
     throw error;
   }
