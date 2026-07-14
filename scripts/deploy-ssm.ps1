@@ -15,6 +15,12 @@ function Quote-Remote([string]$Value) {
   return "'" + ($Value -replace "'", "'\''") + "'"
 }
 
+function Assert-NativeSuccess([string]$StepName) {
+  if ($LASTEXITCODE -ne 0) {
+    throw "$StepName failed with exit code $LASTEXITCODE."
+  }
+}
+
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
@@ -80,10 +86,17 @@ try {
     --parameters "file://$parametersFile" `
     --query "Command.CommandId" `
     --output text
+  Assert-NativeSuccess "aws ssm send-command"
+  $commandId = ($commandId | Out-String).Trim()
+  if (-not $commandId -or $commandId -eq "None") {
+    throw "aws ssm send-command did not return a command id."
+  }
 
   Write-Host "SSM command id: $commandId"
   aws ssm wait command-executed --region $Region --command-id $commandId --instance-id $InstanceId
+  Assert-NativeSuccess "aws ssm wait command-executed"
   $resultJson = aws ssm get-command-invocation --region $Region --command-id $commandId --instance-id $InstanceId --output json
+  Assert-NativeSuccess "aws ssm get-command-invocation"
   $result = $resultJson | ConvertFrom-Json
 
   if ($result.StandardOutputContent) {
