@@ -1,136 +1,181 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Charles Reeder -- Portfolio</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="css/lightbox.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Charles T Reeder software engineering portfolio: ShadowSpawner, concurrency demos, game persistence, algorithms, and MERN dashboard work." />
+  <title>Charles T Reeder - Software Engineering Portfolio</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-    <header>
-        <h1>Charles Reeder</h1>
-        <p>Illustrator. Professional Dungeon Master. Graduate student in software engineering.</p>
-        <nav>
-            <a href="https://github.com/maximumminiatures-oss">GitHub</a>
-            <a href="https://www.seattledungeonmaster.com/">Dungeon Master</a>
-        </nav>
-    </header>
+<body class="intro-active">
+  <div class="intro-loader" data-intro-loader aria-hidden="true">
+    <div class="intro-curtain"></div>
+    <div class="intro-name">Charles T<br />Reeder</div>
+  </div>
 
-    <main>
-        <section class="gallery">
-            <div class="photo">
-                <img class="gallery__thumb" src="images/elf.jpg" alt="Aes Aethen character art">
-                <p>Aes Aethen</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/orc.jpg" alt="Orc character art">
-                <p>Orc</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/stormqueen.jpg" alt="Brutal Beth character art">
-                <p>Brutal Beth</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/captain.jpg" alt="Captain Kastell character art">
-                <p>Captain Kastell</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/orcmother.jpg" alt="Caravaggio Orcb character art">
-                <p>Caravaggio Orcb</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/ghostarmor.jpg" alt="Craven Armor artwork">
-                <p>Craven Armor</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/counterspell.jpg" alt="Dispeller versus Wizard artwork">
-                <p>Dispeller Versus Wizard</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/dragonkid.jpg" alt="Dragonmayfin artwork">
-                <p>Dragonmayfin</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/flyinggoat.jpg" alt="Goat Final Smaller artwork">
-                <p>Goat Final Smaller</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/halflingdad.jpg" alt="Halfling Father Smallish artwork">
-                <p>Halfling Father Smallish</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/smartharpy.jpg" alt="Harpy of Intellect artwork">
-                <p>Harpy of Intellect</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/halfling.png" alt="Hin Fist of Lurien character art">
-                <p>Hin Fist of Lurien 4</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/halflingportrait.jpg" alt="Hin Fist character art">
-                <p>Hin Fist</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/lockpick.jpg" alt="Investigator Web artwork">
-                <p>Investigator Web</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/kobold.jpg" alt="Kobold character art">
-                <p>Kobold</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/ghost.jpg" alt="Lt. Renloh Ghost character art">
-                <p>Lt. Renloh Ghost</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/nematode.jpg" alt="Neatode artwork">
-                <p>Neatode</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/wasp.jpg" alt="Necrospae artwork">
-                <p>Necrospae</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/draconic.jpg" alt="Nox Bileclaw character art">
-                <p>Nox Bileclaw</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/orsonwelles.jpg" alt="Ondar Orson Welles Necromancer character art">
-                <p>Ondar Orson Welles Necromancer</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/orcrat.jpg" alt="Orcy Face 3 artwork">
-                <p>Orcy Face 3</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/skel.jpg" alt="Skel artwork">
-                <p>Skel</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/skelachnid.jpg" alt="Skelachnid artwork">
-                <p>Skelachnid</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/stormpriestess.jpg" alt="Smaller Copy artwork">
-                <p>Smaller Copy</p>
-            </div>
-            <div class="photo">
-                <img class="gallery__thumb" src="images/terror.jpg" alt="Terror artwork">
-                <p>Terror</p>
-            </div>
-        </section>
-    </main>
+  <header class="site-header">
+    <a class="mark" href="#top" aria-label="Charles Reeder portfolio home">CR</a>
+    <nav aria-label="Portfolio navigation">
+      <a href="#stack">Tools</a>
+      <a href="#projects">Projects</a>
+      <a href="illustration/">Illustration Portfolio</a>
+    </nav>
+  </header>
 
-    <footer>
-        <p>Deployed to AWS S3 - Cloud Web App Engineering, 2026</p>
-    </footer>
+  <main id="top">
+    <section class="hero section-reveal">
+      <div class="hero-copy">
+        <p class="eyebrow">Software engineering portfolio</p>
+        <h1 data-hero-name>Charles T<br />Reeder</h1>
+        <a class="resume-link" href="https://www.linkedin.com/in/charles-reeder-shadowspawner/">resume</a>
+        <p class="lead">Graduate software engineering student building practical systems: deployed web apps, procedural generation, persistence layers, concurrency demos, and algorithmic speedups.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#projects">View projects</a>
+          <a class="button" href="illustration/">Illustration Portfolio</a>
+          <a class="button" href="https://seattledungeonmaster.com/">Book me as a D&amp;D Dungeon Master</a>
+        </div>
+      </div>
+      <a class="shadow-logo-card" href="https://44-252-95-80.sslip.io/site/" aria-label="Open ShadowSpawner live site">
+        <span class="shadow-logo">ShadowSpawner</span>
+        <span>live deployed project</span>
+      </a>
+    </section>
 
-    <div class="lightbox" role="dialog" aria-modal="true" aria-hidden="true">
-        <img class="lightbox__img" src="" alt="Expanded gallery image">
-        <div class="lightbox__caption"></div>
-    </div>
+    <section id="stack" class="stack-section section-reveal">
+      <div class="section-heading">
+        <p class="eyebrow">My stack</p>
+        <h2>Proficiencies and Tools</h2>
+      </div>
+      <div class="tool-grid" aria-label="Skills and tools">
+        <span><img class="tool-logo" src="assets/python-logo.png" alt="" />Python</span>
+        <span><img class="tool-logo" src="assets/javascript-logo.png" alt="" />JavaScript</span>
+        <span><img class="tool-logo" src="assets/react-logo.png" alt="" />React</span>
+        <span><img class="tool-logo" src="assets/node-js-logo.png" alt="" />Node.js</span>
+        <span><img class="tool-logo" src="assets/unity-logo.png" alt="" />Unity</span>
+        <span><img class="tool-logo" src="assets/flask-logo.png" alt="" />Flask</span>
+        <span><img class="tool-logo" src="assets/postgres-logo.png" alt="" />Postgres</span>
+        <span><img class="tool-logo" src="assets/mongo-logo.png" alt="" />MongoDB</span>
+        <span><img class="tool-logo" src="assets/docker-logo.png" alt="" />Docker</span>
+        <span><img class="tool-logo" src="assets/aws-logo.png" alt="" />AWS</span>
+        <span><img class="tool-logo" src="assets/NginX-logo.png" alt="" />nginx</span>
+        <span><img class="tool-logo" src="assets/git-logo.png" alt="" />Git</span>
+      </div>
+    </section>
 
-    <script src="js/lightbox.js"></script>
+    <section id="projects" class="projects">
+      <article class="project project-feature section-reveal">
+        <div class="project-media">
+          <img src="assets/img/shadowspawner.jpg" alt="ShadowSpawner dungeon map with fog of war, side controls, and a character sheet modal" />
+        </div>
+        <div class="project-copy">
+          <p class="eyebrow">Primary project - deployed full-stack system</p>
+          <h2><a class="shadow-project-link" href="https://44-252-95-80.sslip.io/site/">ShadowSpawner</a></h2>
+          <p class="project-subtitle">JavaScript SPA, canvas rendering, Python/Flask, SQLModel, Postgres, Docker, nginx, AWS EC2</p>
+          <p>A deployed procedural dungeon web app with account-backed save/load, fog-of-war exploration, party state, character sheets, and production-style deployment.</p>
+          <ul>
+            <li>Owned the frontend dungeon engine: deterministic generation, canvas exploration, map tokens, room interactions, and visibility state.</li>
+            <li>Modeled <code>visibleNow</code> and <code>exploredEver</code> so rendering, interaction, and persistence stayed consistent.</li>
+            <li>Integrated against backend JSON contracts for saved runs, auth, ownership rules, and multiplayer host links.</li>
+          </ul>
+          <div class="project-links">
+            <a href="https://44-252-95-80.sslip.io/site/">Open live site</a>
+            <a href="https://github.com/ShadowDarklings/SD-Dungeon-Generator">Source</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="project section-reveal">
+        <div class="project-media motion-frame">
+          <video class="demo-video" src="assets/video/face-builder-demo.webm" poster="assets/img/face-builder.jpg" autoplay muted loop playsinline controls aria-label="Face Builder crowd stress-test demo"></video>
+        </div>
+        <div class="project-copy">
+          <p class="eyebrow">Concurrency and image-processing</p>
+          <h2>Threaded Face Builder</h2>
+          <p class="project-subtitle">Python, threading.Lock, Pillow, Tkinter, batch rendering</p>
+          <p>A threaded face-composition stress test showing race conditions, lock-protected correctness, and concurrent image preparation.</p>
+          <ul>
+            <li>Created no-lock and with-lock demos to show torn shared state versus protected reads.</li>
+            <li>Built randomized face generation with recoloring, seven-layer alpha compositing, blink variants, and scaling.</li>
+            <li>Measured 240 render jobs at 6.348s single-threaded versus 3.411s with four threads: a 1.86x speedup.</li>
+          </ul>
+          <div class="project-links">
+            <a href="https://github.com/maximumminiatures-oss/threaded-face-builder">Source</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="project section-reveal">
+        <div class="project-media motion-frame">
+          <video class="demo-video" src="assets/video/white-witch-demo.webm" poster="assets/img/white-witch.jpg" autoplay muted loop playsinline controls aria-label="White Witch moving through a procedurally generated dungeon"></video>
+        </div>
+        <div class="project-copy">
+          <p class="eyebrow">Game architecture and persistence</p>
+          <h2>The White Witch's Labyrinth</h2>
+          <p class="project-subtitle">Python, Pygame, game-state persistence, repository boundaries, integration tests</p>
+          <p>A team game branch focused on movement, save/load behavior, fog-of-war-style exploration, and separation between domain logic, engine, view, and persistence.</p>
+          <ul>
+            <li>Added runnable CLI and Pygame demo paths with documented setup.</li>
+            <li>Kept maze/domain behavior separated from repository persistence details.</li>
+            <li>Used contract and integration tests to stabilize the MVP before larger refactors.</li>
+          </ul>
+          <div class="project-links">
+            <a href="https://github.com/maximumminiatures-oss/white-witch-labyrinth">Source</a>
+          </div>
+        </div>
+      </article>
+
+      <article id="armstrong" class="project project-compact section-reveal">
+        <div class="performance-panel">
+          <p class="eyebrow">Algorithmic performance</p>
+          <h2>Speedy Armstrong Calculator</h2>
+          <div class="metric-row">
+            <span><strong>Fastest</strong> in the UW cohort contest</span>
+            <span><strong>100,000,000</strong> search limit</span>
+            <span><strong>Digit multiset</strong> pruning</span>
+          </div>
+        </div>
+        <div class="project-copy">
+          <p class="project-subtitle">Python, combinatorics, power-table precomputation, runtime measurement</p>
+          <p>A command-line Armstrong number finder built for speed. It won the contest for the entire UW cohort as the fastest Armstrong calculator code.</p>
+          <ul>
+            <li>Generated digit-count combinations instead of brute-forcing every integer.</li>
+            <li>Precomputed digit powers and validated only plausible candidates by digit-count equality.</li>
+          </ul>
+          <div class="project-links">
+            <a href="code/armstrong.html">see the Python code</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="project section-reveal">
+        <div class="project-media">
+          <img src="assets/img/settlement-calculator.jpg" alt="Settlement Treasure Calculator dashboard mock with controls and charts" />
+        </div>
+        <div class="project-copy">
+          <p class="eyebrow">MERN learning project</p>
+          <h2>Dungeon Settlement Wealth Calculator</h2>
+          <p class="project-subtitle">React, Recharts, Node.js, Express, MongoDB/Mongoose, local fallback persistence</p>
+          <p>A dashboard for generating fantasy settlement treasure, saving reports, and visualizing the resulting economy.</p>
+          <ul>
+            <li>Built React form controls and chart views for settlement inputs, loot distribution, and generated value summaries.</li>
+            <li>Implemented Express API routes for generation and saved settlements with MongoDB persistence when available.</li>
+            <li>Added browser local-storage fallback so the UI remains usable while learning or without a local database.</li>
+          </ul>
+          <div class="project-links">
+            <a href="https://github.com/maximumminiatures-oss/Town-Loot">Source</a>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a href="https://github.com/maximumminiatures-oss">GitHub</a>
+    <a href="https://www.linkedin.com/in/charles-reeder-shadowspawner/">LinkedIn</a>
+    <a href="illustration/">Illustration Portfolio</a>
+  </footer>
+
+  <script src="script.js"></script>
 </body>
 </html>

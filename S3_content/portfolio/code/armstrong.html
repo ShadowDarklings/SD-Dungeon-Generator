@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Speedy Armstrong Calculator Code - Charles Reeder</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body class="code-page">
+  <main class="code-shell">
+    <a class="back-link" href="../index.html#armstrong">Back to portfolio</a>
+    <p class="eyebrow">Full Python source</p>
+    <h1>Speedy Armstrong Calculator</h1>
+    <p class="lead">Contest-winning UW cohort implementation using digit-count combinations instead of brute force.</p>
+    <pre><code>#!/usr/bin/env python3
+
+import argparse
+import time
+
+
+MIN_NUMBER = 10
+MAX_NUMBER = 100_000_000
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description=&quot;Find Armstrong numbers quickly using digit multisets instead of brute force.&quot;
+    )
+    parser.add_argument(&quot;-n&quot;, &quot;--number&quot;, type=int, default=MAX_NUMBER, help=&quot;maximum number to search to&quot;)
+    return parser.parse_args()
+
+
+def validate_limit(limit):
+    if limit &lt; MIN_NUMBER:
+        raise ValueError(&quot;Maximum number must be at least 10.&quot;)
+
+
+def build_power_table(max_digits):
+    return [[digit ** digit_count for digit in range(10)] for digit_count in range(max_digits + 1)]
+
+
+def digit_counts(number):
+    counts = [0] * 10
+    for digit in str(number):
+        counts[ord(digit) - ord(&quot;0&quot;)] += 1
+    return tuple(counts)
+
+
+def generate_digit_count_sets(total_digits, digit=0, remaining=None, counts=None):
+    if remaining is None:
+        remaining = total_digits
+    if counts is None:
+        counts = [0] * 10
+
+    if digit == 9:
+        counts[digit] = remaining
+        yield tuple(counts)
+        counts[digit] = 0
+        return
+
+    for count in range(remaining + 1):
+        counts[digit] = count
+        yield from generate_digit_count_sets(total_digits, digit + 1, remaining - count, counts)
+    counts[digit] = 0
+
+
+def sum_for_counts(counts, powers):
+    total = 0
+    for digit, count in enumerate(counts):
+        if count:
+            total += count * powers[digit]
+    return total
+
+
+def find_armstrong_numbers(limit):
+    max_digits = len(str(limit))
+    power_table = build_power_table(max_digits)
+    found = set()
+
+    for digit_count in range(2, max_digits + 1):
+        lower_bound = 10 ** (digit_count - 1)
+        upper_bound = min(limit, 10**digit_count - 1)
+
+        if lower_bound &gt; limit:
+            break
+
+        powers = power_table[digit_count]
+        for counts in generate_digit_count_sets(digit_count):
+            candidate = sum_for_counts(counts, powers)
+
+            if candidate &lt; lower_bound or candidate &gt; upper_bound:
+                continue
+
+            if digit_counts(candidate) == counts:
+                found.add(candidate)
+
+    return sorted(found)
+
+
+def main():
+    args = parse_args()
+
+    try:
+        validate_limit(args.number)
+    except ValueError as error:
+        print(f&quot;Error: {error}&quot;)
+        return 1
+
+    start_time = time.perf_counter()
+    armstrong_numbers = find_armstrong_numbers(args.number)
+    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+
+    print(f&quot;It took {elapsed_ms} milliseconds to complete the task.&quot;)
+    print(&quot;Armstrong numbers found: &quot; + &quot;, &quot;.join(str(number) for number in armstrong_numbers))
+    return 0
+
+
+if __name__ == &quot;__main__&quot;:
+    raise SystemExit(main())</code></pre>
+  </main>
+</body>
+</html>
