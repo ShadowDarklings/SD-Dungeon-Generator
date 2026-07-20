@@ -1,11 +1,11 @@
 const TERRAIN = {
+  water: { label: "Water", rank: 0 },
   grass: { label: "Grass", rank: 1 },
-  forest: { label: "Forest", rank: 2 },
+  desert: { label: "Desert", rank: 2 },
   swamp: { label: "Swamp", rank: 3 },
-  desert: { label: "Desert", rank: 4 },
+  forest: { label: "Forest", rank: 4 },
   hills: { label: "Hills", rank: 5 },
   mountain: { label: "Mountain", rank: 6 },
-  water: { label: "Water", rank: 7 },
 };
 
 const NATURAL_TYPES = Object.keys(TERRAIN);
@@ -64,15 +64,6 @@ const WATER_PATTERNS = [
   "1xx1xx", "1xxx11", "1xxx1x", "1xxxx1", "1xxxxx", "xxxxxx",
 ];
 
-const BORDER_PREFIX = {
-  forest: "F",
-  swamp: "S",
-  desert: "D",
-  hills: "H",
-  mountain: "M",
-  water: "W",
-};
-
 const BORDER_ASSETS = {
   forest: {
     0: ["F_0sA.png"],
@@ -110,9 +101,6 @@ const BORDER_ASSETS = {
     3: ["M_3sA.png"],
     4: ["M_4sA.png"],
     5: ["M_5sA.png"],
-  },
-  water: {
-    1: ["W_1sA.png", "W_1sB.png", "W_1sC.png", "W_1sD.png"],
   },
 };
 
@@ -310,7 +298,10 @@ function generateTiles() {
 
   smoothTerrain(terrain, valid, 2);
   carveWaterThreads(terrain, valid);
+  enforceWaterGrassBorders(terrain);
   guaranteeCoverage(terrain);
+  enforceWaterGrassBorders(terrain);
+  guaranteeNonWaterCoverageAwayFromWater(terrain);
   return terrain;
 }
 
@@ -359,6 +350,36 @@ function guaranteeCoverage(terrain) {
     if ([...terrain.values()].includes(type)) continue;
     const target = keys.find((itemKey) => axialDistance(...parseKey(itemKey), 0, 0) > 1) || keys[0];
     terrain.set(target, type);
+  }
+}
+
+function enforceWaterGrassBorders(terrain) {
+  const updates = [];
+  for (const [itemKey, type] of terrain.entries()) {
+    if (type !== "water") continue;
+    const [q, r] = parseKey(itemKey);
+    for (const [nq, nr] of neighbors(q, r)) {
+      const neighborKey = key(nq, nr);
+      if (terrain.has(neighborKey) && terrain.get(neighborKey) !== "water") {
+        updates.push(neighborKey);
+      }
+    }
+  }
+  updates.forEach((neighborKey) => terrain.set(neighborKey, "grass"));
+}
+
+function touchesWater(terrain, itemKey) {
+  const [q, r] = parseKey(itemKey);
+  return neighbors(q, r).some(([nq, nr]) => terrain.get(key(nq, nr)) === "water");
+}
+
+function guaranteeNonWaterCoverageAwayFromWater(terrain) {
+  const terrainValues = [...terrain.values()];
+  const keys = [...terrain.keys()].sort(() => Math.random() - 0.5);
+  for (const type of NATURAL_TYPES.filter((item) => item !== "water" && item !== "grass")) {
+    if (terrainValues.includes(type)) continue;
+    const target = keys.find((itemKey) => terrain.get(itemKey) !== "water" && !touchesWater(terrain, itemKey));
+    if (target) terrain.set(target, type);
   }
 }
 
@@ -598,7 +619,7 @@ function borderOverlaysFor(q, r) {
   const overlays = [];
   const ordered = orderedNeighbors(q, r);
 
-  for (const overlayType of ["forest", "swamp", "desert", "hills", "mountain", "water"]) {
+  for (const overlayType of ["desert", "swamp", "forest", "hills", "mountain"]) {
     if (TERRAIN[overlayType].rank <= currentRank) continue;
     const assetsByCount = BORDER_ASSETS[overlayType] || {};
     const availableCounts = Object.keys(assetsByCount).map(Number).filter((count) => count > 0 && assetsByCount[count]?.length);
