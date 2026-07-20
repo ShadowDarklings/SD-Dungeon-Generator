@@ -592,14 +592,6 @@ function splitBorderRuns(sideIndices, maxSideCount) {
   return runs;
 }
 
-function borderRunToPattern(run) {
-  const pattern = ["x", "x", "x", "x", "x", "x"];
-  run.forEach((side) => {
-    pattern[side] = "1";
-  });
-  return pattern.join("");
-}
-
 function borderOverlaysFor(q, r) {
   const current = state.terrain.get(key(q, r));
   const currentRank = TERRAIN[current].rank;
@@ -617,15 +609,16 @@ function borderOverlaysFor(q, r) {
     });
     if (!sides.length) continue;
     const maxSideCount = Math.max(...availableCounts);
-    const basePatterns = availableCounts.map((count) => "1".repeat(count) + "x".repeat(6 - count));
     for (const run of splitBorderRuns(sides, maxSideCount)) {
-      const target = borderRunToPattern(run);
-      const match = findPatternMatch(basePatterns, target);
-      if (!match.pattern) continue;
-      const sideCount = match.pattern.split("").filter((char) => char === "1").length;
-      const options = assetsByCount[sideCount] || [];
-      const asset = options[deterministicIndex(`${q},${r}:${overlayType}:${target}`, options.length)];
-      if (asset) overlays.push({ asset, rotation: match.rotation, mirrored: match.mirrored });
+      const options = assetsByCount[run.length] || [];
+      const asset = options[deterministicIndex(`${q},${r}:${overlayType}:${run.join("-")}`, options.length)];
+      if (asset) {
+        overlays.push({
+          asset,
+          rotation: run[0] * 60,
+          mirrored: false,
+        });
+      }
     }
   }
   return overlays;
@@ -652,6 +645,13 @@ function drawImageCentered(name, x, y, options = {}) {
   ctx.drawImage(img, -TILE_WIDTH / 2, -TILE_HEIGHT / 2, TILE_WIDTH, TILE_HEIGHT);
   ctx.restore();
   return true;
+}
+
+function drawPatternImageCentered(name, x, y, options = {}) {
+  return drawImageCentered(name, x, y, {
+    ...options,
+    rotation: -(options.rotation || 0),
+  });
 }
 
 function drawFallbackHex(x, y, fill = "#314151") {
@@ -686,7 +686,7 @@ function drawTile(q, r) {
   const type = state.terrain.get(tileKey);
   if (type === "water") {
     const water = waterAssetFor(q, r);
-    drawImageCentered(water.asset, x, y, water) || drawFallbackHex(x, y, "#315f9f");
+    drawPatternImageCentered(water.asset, x, y, water) || drawFallbackHex(x, y, "#315f9f");
   } else {
     const transform = transformFor(type, q, r);
     const asset = baseAssetFor(type, q, r);
@@ -694,7 +694,7 @@ function drawTile(q, r) {
   }
 
   for (const overlay of borderOverlaysFor(q, r)) {
-    drawImageCentered(overlay.asset, x, y, overlay);
+    drawPatternImageCentered(overlay.asset, x, y, overlay);
   }
 
   if (!state.visible.has(tileKey)) {
