@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mini Hex World Map - Charles T Reeder</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body class="map-page">
+  <header class="site-header">
+    <a class="mark" href="../index.html" aria-label="Back to software portfolio">CR</a>
+    <nav aria-label="Portfolio navigation">
+      <a href="../index.html#projects">Software Projects</a>
+      <a href="../illustration/">Illustration Portfolio</a>
+      <a href="https://www.seattledungeonmaster.com/">Dungeon Master</a>
+    </nav>
+  </header>
+
+  <main class="map-shell">
+    <section class="map-hero section-reveal">
+      <div>
+        <p class="eyebrow">Interactive procedural map</p>
+        <h1>Radius-6 hex world generator.</h1>
+        <p class="lead">A small browser version of my Python/Tkinter ShadowDark world map system. It keeps the natural terrain set, cluster-friendly generation rules, and fantasy region names while removing water movement restrictions for quick portfolio browsing.</p>
+      </div>
+      <div class="map-controls" aria-label="Map controls">
+        <button class="button button-primary" type="button" data-new-map>New Map</button>
+        <button class="button" type="button" data-center-player>Center Token</button>
+      </div>
+    </section>
+
+    <section class="map-app section-reveal" aria-label="Playable mini world map">
+      <div class="map-stage">
+        <canvas id="world-map-canvas" width="1100" height="820" aria-label="Generated radius-six fantasy hex map"></canvas>
+      </div>
+      <aside class="map-panel">
+        <div>
+          <p class="eyebrow">Current hex</p>
+          <h2 data-current-terrain>Grass</h2>
+          <p data-current-region>Generate a new map to explore named terrain clusters.</p>
+        </div>
+        <div class="map-nudge-grid" aria-label="Movement controls">
+          <button type="button" data-move="0,-1">NW</button>
+          <button type="button" data-move="1,-1">NE</button>
+          <button type="button" data-move="-1,0">W</button>
+          <button type="button" data-move="1,0">E</button>
+          <button type="button" data-move="-1,1">SW</button>
+          <button type="button" data-move="0,1">SE</button>
+        </div>
+        <div class="terrain-legend" data-legend aria-label="Terrain legend"></div>
+        <p class="map-note">Arrow keys, WASD, Q/E/Z/C, and adjacent hex clicks all move the token. Water is intentionally passable in this portfolio version.</p>
+      </aside>
+    </section>
+  </main>
+
+  <script src="../script.js"></script>
+  <script src="world-map.js"></script>
+</body>
+</html>

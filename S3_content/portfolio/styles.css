@@ -378,6 +378,50 @@ p {
   object-fit: cover;
 }
 
+.world-map-preview {
+  display: grid;
+  place-items: center;
+  grid-template-columns: repeat(5, 72px);
+  grid-auto-rows: 64px;
+  justify-content: center;
+  align-content: center;
+  gap: 0 5px;
+  background:
+    linear-gradient(135deg, rgba(102, 211, 204, 0.18), rgba(224, 177, 94, 0.08)),
+    #0b121b;
+  text-decoration: none;
+}
+
+.preview-hex {
+  width: 74px;
+  aspect-ratio: 1.1547;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.preview-hex:nth-child(even) {
+  transform: translateY(32px);
+}
+
+.preview-grass { background: #7fb069; }
+.preview-forest { background: #245d38; }
+.preview-mountain { background: #9da3a9; }
+.preview-water { background: #315f9f; }
+.preview-swamp { background: #526b35; }
+.preview-hills { background: #c39a42; }
+.preview-desert { background: #d7b579; }
+
+.preview-token {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border: 3px solid #071013;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px rgba(102, 211, 204, 0.18), 0 18px 34px rgba(0, 0, 0, 0.35);
+}
+
 .project-copy h2 {
   margin-bottom: 5px;
   font-size: clamp(30px, 4.4vw, 58px);
@@ -544,6 +588,140 @@ p {
   line-height: 1.55;
 }
 
+.map-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(102, 211, 204, 0.15), transparent 31%),
+    radial-gradient(circle at 85% 8%, rgba(224, 177, 94, 0.12), transparent 28%),
+    #090d14;
+}
+
+.map-shell {
+  width: min(1320px, calc(100% - 32px));
+  padding: 52px 0 72px;
+}
+
+.map-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+
+.map-hero h1 {
+  max-width: 860px;
+  margin-bottom: 12px;
+  font-size: clamp(42px, 7vw, 84px);
+  line-height: 0.93;
+}
+
+.map-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.map-app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.map-stage,
+.map-panel {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: var(--shadow);
+}
+
+.map-stage {
+  min-height: 560px;
+}
+
+#world-map-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 520px;
+}
+
+.map-panel {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  padding: 20px;
+}
+
+.map-panel h2 {
+  margin-bottom: 8px;
+  font-size: 32px;
+}
+
+.map-panel p:not(.eyebrow) {
+  color: var(--muted);
+}
+
+.map-nudge-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.map-nudge-grid button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.map-nudge-grid button:hover,
+.map-nudge-grid button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.terrain-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.terrain-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dbe3ea;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.terrain-swatch {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+}
+
+.terrain-grass { background: #7fb069; border-color: #4f7b48; }
+.terrain-forest { background: #245d38; border-color: #163a23; }
+.terrain-mountain { background: #9da3a9; border-color: #5f6670; }
+.terrain-water { background: #315f9f; border-color: #17365e; }
+.terrain-swamp { background: #526b35; border-color: #344621; }
+.terrain-hills { background: #c39a42; border-color: #836023; }
+.terrain-desert { background: #d7b579; border-color: #9a7441; }
+
+.map-note {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
 .illustration-page {
   background: #06050a;
 }
@@ -639,6 +817,8 @@ p {
   .hero,
   .project,
   .project-compact,
+  .map-hero,
+  .map-app,
   .section-heading {
     grid-template-columns: 1fr;
   }
@@ -658,13 +838,18 @@ p {
   .gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .map-controls {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 560px) {
   main,
   .site-footer,
   .illustration-hero,
-  .gallery-grid {
+  .gallery-grid,
+  .map-shell {
     width: min(100% - 24px, 1180px);
   }
 
@@ -685,6 +870,23 @@ p {
   }
 
   .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .world-map-preview {
+    grid-template-columns: repeat(4, 54px);
+    grid-auto-rows: 48px;
+  }
+
+  .preview-hex {
+    width: 56px;
+  }
+
+  .preview-hex:nth-child(even) {
+    transform: translateY(24px);
+  }
+
+  .terrain-legend {
     grid-template-columns: 1fr;
   }
 }
