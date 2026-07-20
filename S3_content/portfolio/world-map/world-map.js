@@ -1,17 +1,24 @@
 const TERRAIN = {
-  grass: { label: "Grass", color: "#7fb069", stroke: "#4f7b48" },
-  forest: { label: "Forest", color: "#245d38", stroke: "#163a23" },
-  mountain: { label: "Mountain", color: "#9da3a9", stroke: "#5f6670" },
-  water: { label: "Water", color: "#315f9f", stroke: "#17365e" },
-  swamp: { label: "Swamp", color: "#526b35", stroke: "#344621" },
-  hills: { label: "Hills", color: "#c39a42", stroke: "#836023" },
-  desert: { label: "Desert", color: "#d7b579", stroke: "#9a7441" },
+  grass: { label: "Grass", rank: 1 },
+  forest: { label: "Forest", rank: 2 },
+  swamp: { label: "Swamp", rank: 3 },
+  desert: { label: "Desert", rank: 4 },
+  hills: { label: "Hills", rank: 5 },
+  mountain: { label: "Mountain", rank: 6 },
+  water: { label: "Water", rank: 7 },
 };
 
 const NATURAL_TYPES = Object.keys(TERRAIN);
 const RADIUS = 6;
-const HEX_SIZE = 36;
+const TILE_WIDTH = 130;
+const TILE_HEIGHT = 149;
+const HEX_SIZE = TILE_HEIGHT / 2;
 const SQRT3 = Math.sqrt(3);
+const STEP_X = SQRT3 * HEX_SIZE;
+const STEP_Y = 1.5 * HEX_SIZE;
+const REVEAL_RADIUS = 2;
+const ASSET_ROOT = "../assets/hex_tiles/";
+
 const DIRECTIONS = [
   [1, 0],
   [1, -1],
@@ -20,6 +27,7 @@ const DIRECTIONS = [
   [-1, 1],
   [0, 1],
 ];
+const USER_SIDE_ORDER = [4, 5, 0, 1, 2, 3];
 
 const AFFINITY = {
   water: { water: 16, forest: 4, mountain: 1, swamp: 5, hills: 4, grass: 10, desert: 2 },
@@ -29,6 +37,83 @@ const AFFINITY = {
   hills: { water: 3, forest: 7, mountain: 10, swamp: 3, hills: 16, grass: 10, desert: 7 },
   grass: { water: 10, forest: 10, mountain: 2, swamp: 10, hills: 10, grass: 14, desert: 10 },
   desert: { water: 2, forest: 4, mountain: 3, swamp: 1, hills: 10, grass: 10, desert: 16 },
+};
+
+const BASE_ASSETS = {
+  grass: ["grass_1.png", "grass_2.png", "grass_3.png", "grass_4.png", "grass_5.png", "grass_6.png"],
+  forest: ["forest1.png", "forest2.png", "forest3.png", "forest4.png", "forest5.png"],
+  swamp: ["swamp1.png", "swamp2.png", "swamp3.png"],
+  desert: ["desert1.png", "desert2.png", "desert3.png"],
+  hills: ["hill1.png", "hill2.png", "hill3.png"],
+  mountain: ["Mountain1.png", "Mountain2.png", "Mountain3.png"],
+  water: ["wat_A.png", "wat_B.png", "wat_C.png", "wat_D.png", "wat_E.png", "wat_F.png", "wat_G.png"],
+};
+
+const FALLBACK_ASSETS = {
+  grass: ["grass_v0_gen3.png", "grass_v1_gen3.png", "grass_v2_gen3.png", "grass_v3_gen3.png"],
+  forest: ["forest_v3_gen3.png"],
+  swamp: ["swamp_v0_gen3.png", "swamp_v1_gen3.png", "swamp_v2_gen3.png", "swamp_v3_gen3.png"],
+  desert: ["desert1.png", "desert2.png", "desert3.png"],
+  hills: ["hills_v0_gen3.png", "hills_v1_gen3.png", "hills_v2_gen3.png", "hills_v3_gen3.png"],
+  mountain: ["mountain_v0_gen3.png", "mountain_v1_gen3.png", "mountain_v2_gen3.png", "mountain_v3_gen3.png"],
+  water: ["water_v0_gen3.png", "water_v1_gen3.png", "water_v2_gen3.png", "water_v3_gen3.png"],
+};
+
+const WATER_PATTERNS = [
+  "111111", "11x11x", "1x1111", "1x111x", "1x11xx", "1x1x1x", "1xx111",
+  "1xx1xx", "1xxx11", "1xxx1x", "1xxxx1", "1xxxxx", "xxxxxx",
+];
+
+const BORDER_PREFIX = {
+  forest: "F",
+  swamp: "S",
+  desert: "D",
+  hills: "H",
+  mountain: "M",
+  water: "W",
+};
+
+const BORDER_ASSETS = {
+  forest: {
+    0: ["F_0sA.png"],
+    1: ["F_1sA.png", "F_1sB.png", "F_1sC.png", "F_1sD.png", "F_1sE.png", "F_1sF.png", "F_1sG.png", "F_1sH.png", "F_1sI.png", "F_1sJ.png"],
+    2: ["F_2sA.png", "F_2sB.png", "F_2sC.png", "F_2sD.png"],
+    3: ["F_3sA.png", "F_3sB.png", "F_3sC.png"],
+    4: ["F_4sA.png", "F_4sB.png", "F_4sC.png"],
+    5: ["F_5sA.png", "F_5sB.png", "F_5sC.png"],
+    6: ["F_6sA.png"],
+  },
+  swamp: {
+    1: ["S_1sA.png", "S_1sB.png", "S_1sC.png"],
+    2: ["S_2sA.png", "S_2sB.png", "S_2sC.png"],
+    3: ["S_3sA.png", "S_3sB.png", "S_3sC.png"],
+    4: ["S_4sA.png", "S_4sB.png"],
+    5: ["S_5sA.png"],
+  },
+  desert: {
+    1: ["D_1sA.png"],
+    2: ["D_2sA.png"],
+    3: ["D_3sA.png"],
+    4: ["D_4sA.png"],
+    5: ["D_5sA.png"],
+  },
+  hills: {
+    1: ["H_1sA.png"],
+    2: ["H_2sA.png"],
+    3: ["H_3sA.png"],
+    4: ["H_4sA.png"],
+    5: ["H_5sA.png"],
+  },
+  mountain: {
+    1: ["M_1sA.png"],
+    2: ["M_2sA.png"],
+    3: ["M_3sA.png"],
+    4: ["M_4sA.png"],
+    5: ["M_5sA.png"],
+  },
+  water: {
+    1: ["W_1sA.png", "W_1sB.png", "W_1sC.png", "W_1sD.png"],
+  },
 };
 
 const NAME_DATA = {
@@ -84,6 +169,7 @@ const currentTerrain = document.querySelector("[data-current-terrain]");
 const currentRegion = document.querySelector("[data-current-region]");
 const legend = document.querySelector("[data-legend]");
 
+const imageCache = new Map();
 let state = null;
 
 function key(q, r) {
@@ -100,8 +186,8 @@ function axialDistance(aq, ar, bq = 0, br = 0) {
 
 function axialToPixel(q, r) {
   return {
-    x: HEX_SIZE * (SQRT3 * q + (SQRT3 / 2) * r),
-    y: HEX_SIZE * 1.5 * r,
+    x: STEP_X * q + (STEP_X / 2) * r,
+    y: STEP_Y * r,
   };
 }
 
@@ -131,6 +217,11 @@ function neighbors(q, r) {
   return DIRECTIONS.map(([dq, dr]) => [q + dq, r + dr]);
 }
 
+function orderedNeighbors(q, r) {
+  const local = neighbors(q, r);
+  return USER_SIDE_ORDER.map((index) => local[index]);
+}
+
 function allCoords(radius = RADIUS) {
   const coords = [];
   for (let q = -radius; q <= radius; q += 1) {
@@ -139,6 +230,19 @@ function allCoords(radius = RADIUS) {
     }
   }
   return coords;
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function deterministicIndex(seed, count) {
+  return count ? hashString(seed) % count : 0;
 }
 
 function choice(items) {
@@ -200,8 +304,7 @@ function generateTiles() {
     const [nq, nr] = choice(openNeighbors);
     const parent = terrain.get(sourceKey);
     const entries = NATURAL_TYPES.map((type) => ({ value: type, weight: AFFINITY[parent][type] || 1 }));
-    const picked = weightedChoice(entries);
-    terrain.set(key(nq, nr), picked);
+    terrain.set(key(nq, nr), weightedChoice(entries));
     frontier.push(key(nq, nr));
   }
 
@@ -326,7 +429,7 @@ function makeClusterLabel(cluster, width) {
     text: generateName(cluster.type, largeWater),
     q: anchor.q,
     r: anchor.r,
-    size: Math.max(12, Math.min(21, 11 + width * 1.8)),
+    size: Math.max(15, Math.min(24, 13 + width * 2)),
     angle: Math.random() < 0.5 ? -10 : 10,
   };
 }
@@ -337,152 +440,266 @@ function newMap() {
     terrain,
     labels: labelClusters(terrain),
     player: { q: 0, r: 0 },
+    explored: new Set(),
+    visible: new Set(),
   };
+  revealFrom(0, 0);
   draw();
   updateCurrentPanel();
 }
 
-function polygonPoints(cx, cy, size) {
-  const points = [];
-  for (let i = 0; i < 6; i += 1) {
-    const angle = (Math.PI / 180) * (60 * i - 30);
-    points.push([cx + size * Math.cos(angle), cy + size * Math.sin(angle)]);
+function revealFrom(q, r) {
+  state.visible = new Set();
+  const seen = new Set([key(q, r)]);
+  const queue = [[q, r, 0]];
+  while (queue.length) {
+    const [cq, cr, dist] = queue.shift();
+    const tileKey = key(cq, cr);
+    if (!state.terrain.has(tileKey)) continue;
+    state.visible.add(tileKey);
+    state.explored.add(tileKey);
+
+    if (state.terrain.get(tileKey) === "water") {
+      revealWaterBody(cq, cr);
+    }
+
+    if (dist < REVEAL_RADIUS) {
+      for (const [nq, nr] of neighbors(cq, cr)) {
+        const nk = key(nq, nr);
+        if (!seen.has(nk)) {
+          seen.add(nk);
+          queue.push([nq, nr, dist + 1]);
+        }
+      }
+    }
   }
-  return points;
 }
 
-function drawHex(cx, cy, size, fill, stroke) {
-  const points = polygonPoints(cx, cy, size);
+function revealWaterBody(q, r) {
+  const queue = [[q, r]];
+  const visited = new Set([key(q, r)]);
+  while (queue.length) {
+    const [cq, cr] = queue.shift();
+    const currentKey = key(cq, cr);
+    state.visible.add(currentKey);
+    state.explored.add(currentKey);
+    for (const [nq, nr] of neighbors(cq, cr)) {
+      const nk = key(nq, nr);
+      if (!visited.has(nk) && state.terrain.get(nk) === "water") {
+        visited.add(nk);
+        queue.push([nq, nr]);
+      }
+    }
+  }
+}
+
+function imageNames() {
+  const names = new Set(["fog.png"]);
+  Object.values(BASE_ASSETS).flat().forEach((name) => names.add(name));
+  Object.values(FALLBACK_ASSETS).flat().forEach((name) => names.add(name));
+  WATER_PATTERNS.forEach((pattern) => names.add(`wat_grass_${pattern}.png`));
+  Object.values(BORDER_ASSETS).forEach((byCount) => Object.values(byCount).flat().forEach((name) => names.add(name)));
+  return [...names];
+}
+
+function preloadImages() {
+  if (typeof Image === "undefined") return Promise.resolve();
+  const jobs = imageNames().map((name) => new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      imageCache.set(name, img);
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = `${ASSET_ROOT}${name}`;
+  }));
+  return Promise.all(jobs);
+}
+
+function getImage(name) {
+  return imageCache.get(name);
+}
+
+function baseAssetFor(type, q, r) {
+  const options = BASE_ASSETS[type]?.length ? BASE_ASSETS[type] : FALLBACK_ASSETS[type];
+  return options[deterministicIndex(`${type}:${q},${r}:base`, options.length)];
+}
+
+function transformFor(type, q, r) {
+  if (type === "water") return { rotation: 0, mirrored: false };
+  const hash = hashString(`${type}:${q},${r}:transform`);
+  return {
+    rotation: [0, 60, 120, 180, 240, 300][hash % 6],
+    mirrored: Boolean((hash >> 3) & 1),
+  };
+}
+
+function targetWaterPattern(q, r) {
+  return orderedNeighbors(q, r).map(([nq, nr]) => {
+    const type = state.terrain.get(key(nq, nr));
+    return type && type !== "water" ? "1" : "x";
+  }).join("");
+}
+
+function waterAssetFor(q, r) {
+  const target = targetWaterPattern(q, r);
+  const patterns = Object.fromEntries(WATER_PATTERNS.map((pattern) => [pattern, `wat_grass_${pattern}.png`]));
+  const match = findPatternMatch(Object.keys(patterns), target);
+  let asset = match.pattern ? patterns[match.pattern] : null;
+  if (match.pattern === "xxxxxx" || !asset || !getImage(asset)) {
+    asset = baseAssetFor("water", q, r);
+  }
+  return { asset, rotation: match.rotation, mirrored: match.mirrored };
+}
+
+function findPatternMatch(basePatterns, targetPattern) {
+  if (basePatterns.includes(targetPattern)) return { pattern: targetPattern, rotation: 0, mirrored: false };
+  const flippedIndices = [1, 0, 5, 4, 3, 2];
+  for (const base of basePatterns) {
+    for (let i = 1; i < 6; i += 1) {
+      const shifted = base.slice(-i) + base.slice(0, -i);
+      if (shifted === targetPattern) return { pattern: base, rotation: i * 60, mirrored: false };
+    }
+    const flipped = flippedIndices.map((index) => base[index]).join("");
+    if (flipped === targetPattern) return { pattern: base, rotation: 0, mirrored: true };
+    for (let i = 1; i < 6; i += 1) {
+      const shiftedFlip = flipped.slice(-i) + flipped.slice(0, -i);
+      if (shiftedFlip === targetPattern) return { pattern: base, rotation: i * 60, mirrored: true };
+    }
+  }
+  return { pattern: null, rotation: 0, mirrored: false };
+}
+
+function splitBorderRuns(sideIndices, maxSideCount) {
+  const remaining = new Set(sideIndices);
+  const runs = [];
+  if (!remaining.size) return runs;
+  if (remaining.size === 6 && maxSideCount >= 6) return [[0, 1, 2, 3, 4, 5]];
+
+  while (remaining.size) {
+    const starts = [...remaining].filter((side) => !remaining.has((side + 5) % 6));
+    const start = starts.length ? Math.min(...starts) : Math.min(...remaining);
+    const run = [];
+    let side = start;
+    while (remaining.has(side)) {
+      run.push(side);
+      side = (side + 1) % 6;
+      if (side === start) break;
+    }
+    run.forEach((item) => remaining.delete(item));
+    while (run.length) runs.push(run.splice(0, Math.min(run.length, maxSideCount)));
+  }
+  return runs;
+}
+
+function borderRunToPattern(run) {
+  const pattern = ["x", "x", "x", "x", "x", "x"];
+  run.forEach((side) => {
+    pattern[side] = "1";
+  });
+  return pattern.join("");
+}
+
+function borderOverlaysFor(q, r) {
+  const current = state.terrain.get(key(q, r));
+  const currentRank = TERRAIN[current].rank;
+  const overlays = [];
+  const ordered = orderedNeighbors(q, r);
+
+  for (const overlayType of ["forest", "swamp", "desert", "hills", "mountain", "water"]) {
+    if (TERRAIN[overlayType].rank <= currentRank) continue;
+    const assetsByCount = BORDER_ASSETS[overlayType] || {};
+    const availableCounts = Object.keys(assetsByCount).map(Number).filter((count) => count > 0 && assetsByCount[count]?.length);
+    if (!availableCounts.length) continue;
+    const sides = [];
+    ordered.forEach(([nq, nr], sideIndex) => {
+      if (state.terrain.get(key(nq, nr)) === overlayType) sides.push(sideIndex);
+    });
+    if (!sides.length) continue;
+    const maxSideCount = Math.max(...availableCounts);
+    const basePatterns = availableCounts.map((count) => "1".repeat(count) + "x".repeat(6 - count));
+    for (const run of splitBorderRuns(sides, maxSideCount)) {
+      const target = borderRunToPattern(run);
+      const match = findPatternMatch(basePatterns, target);
+      if (!match.pattern) continue;
+      const sideCount = match.pattern.split("").filter((char) => char === "1").length;
+      const options = assetsByCount[sideCount] || [];
+      const asset = options[deterministicIndex(`${q},${r}:${overlayType}:${target}`, options.length)];
+      if (asset) overlays.push({ asset, rotation: match.rotation, mirrored: match.mirrored });
+    }
+  }
+  return overlays;
+}
+
+function screenFor(q, r) {
+  const playerPixel = axialToPixel(state.player.q, state.player.r);
+  const tilePixel = axialToPixel(q, r);
+  return {
+    x: canvas.width / 2 + tilePixel.x - playerPixel.x,
+    y: canvas.height / 2 + tilePixel.y - playerPixel.y,
+  };
+}
+
+function drawImageCentered(name, x, y, options = {}) {
+  const img = getImage(name);
+  if (!img) return false;
+  const { rotation = 0, mirrored = false, alpha = 1 } = options;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.scale(mirrored ? -1 : 1, 1);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, -TILE_WIDTH / 2, -TILE_HEIGHT / 2, TILE_WIDTH, TILE_HEIGHT);
+  ctx.restore();
+  return true;
+}
+
+function drawFallbackHex(x, y, fill = "#314151") {
+  ctx.save();
+  ctx.translate(x, y);
   ctx.beginPath();
-  points.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  for (let i = 0; i < 6; i += 1) {
+    const angle = (Math.PI / 180) * (60 * i - 30);
+    const px = HEX_SIZE * Math.cos(angle);
+    const py = HEX_SIZE * Math.sin(angle);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
   ctx.closePath();
   ctx.fillStyle = fill;
   ctx.fill();
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(0,0,0,0.52)";
   ctx.stroke();
-}
-
-function drawTerrainDetail(type, cx, cy, variant) {
-  ctx.save();
-  ctx.globalAlpha = 0.78;
-  ctx.strokeStyle = "rgba(0,0,0,0.28)";
-  ctx.fillStyle = "rgba(255,255,255,0.42)";
-  if (type === "forest") {
-    for (let i = 0; i < 3; i += 1) {
-      const x = cx - 12 + i * 12 + (variant % 2) * 2;
-      ctx.beginPath();
-      ctx.moveTo(x, cy - 14);
-      ctx.lineTo(x - 8, cy + 8);
-      ctx.lineTo(x + 8, cy + 8);
-      ctx.closePath();
-      ctx.fillStyle = "#12381f";
-      ctx.fill();
-    }
-  } else if (type === "mountain") {
-    ctx.fillStyle = "#5f6670";
-    ctx.beginPath();
-    ctx.moveTo(cx - 20, cy + 14);
-    ctx.lineTo(cx - 4, cy - 18);
-    ctx.lineTo(cx + 12, cy + 14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#d8dde4";
-    ctx.beginPath();
-    ctx.moveTo(cx - 4, cy - 18);
-    ctx.lineTo(cx - 9, cy - 7);
-    ctx.lineTo(cx + 2, cy - 8);
-    ctx.closePath();
-    ctx.fill();
-  } else if (type === "water") {
-    ctx.strokeStyle = "rgba(220,240,255,0.65)";
-    ctx.lineWidth = 2;
-    for (let i = -1; i <= 1; i += 1) {
-      ctx.beginPath();
-      ctx.arc(cx + i * 10, cy + i * 2, 8, 0.15 * Math.PI, 0.85 * Math.PI);
-      ctx.stroke();
-    }
-  } else if (type === "swamp") {
-    ctx.strokeStyle = "#233314";
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 4; i += 1) {
-      ctx.beginPath();
-      ctx.moveTo(cx - 18 + i * 11, cy + 13);
-      ctx.lineTo(cx - 14 + i * 11, cy - 6);
-      ctx.stroke();
-    }
-  } else if (type === "hills") {
-    ctx.strokeStyle = "#795722";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(cx - 10, cy + 8, 14, Math.PI, 0);
-    ctx.arc(cx + 8, cy + 10, 12, Math.PI, 0);
-    ctx.stroke();
-  } else if (type === "desert") {
-    ctx.strokeStyle = "#9a7441";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx - 21, cy + 4);
-    ctx.quadraticCurveTo(cx - 4, cy - 8, cx + 22, cy + 2);
-    ctx.stroke();
-  } else if (type === "grass") {
-    ctx.fillStyle = "#d8ef9f";
-    for (let i = 0; i < 5; i += 1) {
-      ctx.fillRect(cx - 18 + i * 9, cy + ((i + variant) % 3) * 4 - 3, 3, 9);
-    }
-  }
   ctx.restore();
 }
 
-function getBounds() {
-  const coords = [...state.terrain.keys()].map(parseKey).map(([q, r]) => axialToPixel(q, r));
-  const xs = coords.map((p) => p.x);
-  const ys = coords.map((p) => p.y);
-  return {
-    minX: Math.min(...xs) - HEX_SIZE,
-    maxX: Math.max(...xs) + HEX_SIZE,
-    minY: Math.min(...ys) - HEX_SIZE,
-    maxY: Math.max(...ys) + HEX_SIZE,
-  };
-}
+function drawTile(q, r) {
+  const tileKey = key(q, r);
+  const { x, y } = screenFor(q, r);
+  if (x < -TILE_WIDTH || x > canvas.width + TILE_WIDTH || y < -TILE_HEIGHT || y > canvas.height + TILE_HEIGHT) return;
 
-function mapTransform() {
-  const bounds = getBounds();
-  const width = bounds.maxX - bounds.minX;
-  const height = bounds.maxY - bounds.minY;
-  const scale = Math.min((canvas.width - 80) / width, (canvas.height - 80) / height);
-  return {
-    scale,
-    ox: canvas.width / 2 - ((bounds.minX + bounds.maxX) / 2) * scale,
-    oy: canvas.height / 2 - ((bounds.minY + bounds.maxY) / 2) * scale,
-  };
-}
-
-function toScreen(q, r) {
-  const { scale, ox, oy } = mapTransform();
-  const p = axialToPixel(q, r);
-  return { x: p.x * scale + ox, y: p.y * scale + oy, scale };
-}
-
-function draw() {
-  if (!ctx || !state) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  gradient.addColorStop(0, "#0d141f");
-  gradient.addColorStop(1, "#182230");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  for (const [itemKey, type] of state.terrain.entries()) {
-    const [q, r] = parseKey(itemKey);
-    const { x, y, scale } = toScreen(q, r);
-    const terrain = TERRAIN[type];
-    drawHex(x, y, HEX_SIZE * scale * 0.96, terrain.color, terrain.stroke);
-    drawTerrainDetail(type, x, y, (q * 7 + r * 13) & 3);
+  if (!state.explored.has(tileKey)) {
+    drawImageCentered("fog.png", x, y) || drawFallbackHex(x, y, "#121212");
+    return;
   }
 
-  drawLabels();
-  drawPlayer();
+  const type = state.terrain.get(tileKey);
+  if (type === "water") {
+    const water = waterAssetFor(q, r);
+    drawImageCentered(water.asset, x, y, water) || drawFallbackHex(x, y, "#315f9f");
+  } else {
+    const transform = transformFor(type, q, r);
+    const asset = baseAssetFor(type, q, r);
+    drawImageCentered(asset, x, y, transform) || drawFallbackHex(x, y, "#526b35");
+  }
+
+  for (const overlay of borderOverlaysFor(q, r)) {
+    drawImageCentered(overlay.asset, x, y, overlay);
+  }
+
+  if (!state.visible.has(tileKey)) {
+    drawImageCentered("fog.png", x, y, { alpha: 0.34 }) || drawFallbackHex(x, y, "rgba(0,0,0,0.34)");
+  }
 }
 
 function drawLabels() {
@@ -490,14 +707,16 @@ function drawLabels() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (const label of state.labels) {
-    const { x, y, scale } = toScreen(label.q, label.r);
+    if (!state.explored.has(key(label.q, label.r))) continue;
+    const { x, y } = screenFor(label.q, label.r);
+    if (x < -180 || x > canvas.width + 180 || y < -120 || y > canvas.height + 120) continue;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate((label.angle * Math.PI) / 180);
-    ctx.font = `800 ${label.size * scale}px Georgia, serif`;
-    ctx.lineWidth = Math.max(3, 4 * scale);
-    ctx.strokeStyle = "rgba(0,0,0,0.76)";
-    ctx.fillStyle = "rgba(255,249,222,0.92)";
+    ctx.font = `800 ${label.size}px Georgia, serif`;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(0,0,0,0.82)";
+    ctx.fillStyle = "rgba(255,249,222,0.94)";
     ctx.strokeText(label.text, 0, 0);
     ctx.fillText(label.text, 0, 0);
     ctx.restore();
@@ -506,26 +725,48 @@ function drawLabels() {
 }
 
 function drawPlayer() {
-  const { x, y, scale } = toScreen(state.player.q, state.player.r);
+  const { x, y } = screenFor(state.player.q, state.player.r);
   ctx.save();
   ctx.fillStyle = "#66d3cc";
   ctx.strokeStyle = "#071013";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.arc(x, y, 12 * scale + 6, 0, Math.PI * 2);
+  ctx.arc(x, y, 16, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#071013";
   ctx.beginPath();
-  ctx.arc(x, y, 4 * scale + 2, 0, Math.PI * 2);
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+function draw() {
+  if (!ctx || !state) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, "#07090d");
+  gradient.addColorStop(1, "#151b24");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const sortedKeys = [...state.terrain.keys()].sort((a, b) => {
+    const [aq, ar] = parseKey(a);
+    const [bq, br] = parseKey(b);
+    return ar === br ? bq - aq : ar - br;
+  });
+  for (const itemKey of sortedKeys) {
+    const [q, r] = parseKey(itemKey);
+    drawTile(q, r);
+  }
+  drawLabels();
+  drawPlayer();
 }
 
 function regionFor(q, r) {
   const type = state.terrain.get(key(q, r));
   const best = state.labels
-    .filter((label) => label.type === type)
+    .filter((label) => label.type === type && state.explored.has(key(label.q, label.r)))
     .map((label) => ({ label, dist: axialDistance(q, r, label.q, label.r) }))
     .sort((a, b) => a.dist - b.dist)[0];
   return best ? best.label.text : `Unnamed ${TERRAIN[type].label.toLowerCase()} region`;
@@ -543,6 +784,7 @@ function movePlayer(dq, dr) {
   const nr = state.player.r + dr;
   if (!state.terrain.has(key(nq, nr))) return;
   state.player = { q: nq, r: nr };
+  revealFrom(nq, nr);
   draw();
   updateCurrentPanel();
 }
@@ -551,11 +793,14 @@ function handleCanvasClick(event) {
   const rect = canvas.getBoundingClientRect();
   const sx = ((event.clientX - rect.left) / rect.width) * canvas.width;
   const sy = ((event.clientY - rect.top) / rect.height) * canvas.height;
-  const { scale, ox, oy } = mapTransform();
-  const [q, r] = pixelToAxial((sx - ox) / scale, (sy - oy) / scale);
+  const playerPixel = axialToPixel(state.player.q, state.player.r);
+  const worldX = sx - canvas.width / 2 + playerPixel.x;
+  const worldY = sy - canvas.height / 2 + playerPixel.y;
+  const [q, r] = pixelToAxial(worldX, worldY);
   if (!state.terrain.has(key(q, r))) return;
   if (axialDistance(q, r, state.player.q, state.player.r) === 1) {
     state.player = { q, r };
+    revealFrom(q, r);
     draw();
     updateCurrentPanel();
   }
@@ -571,6 +816,7 @@ function bindControls() {
   document.querySelector("[data-new-map]")?.addEventListener("click", newMap);
   document.querySelector("[data-center-player]")?.addEventListener("click", () => {
     state.player = { q: 0, r: 0 };
+    revealFrom(0, 0);
     draw();
     updateCurrentPanel();
   });
@@ -608,11 +854,14 @@ function bindControls() {
 if (canvas && ctx) {
   renderLegend();
   bindControls();
-  newMap();
-  window.__miniWorldMap = {
-    newMap,
-    movePlayer,
-    getState: () => state,
-    terrainTypes: NATURAL_TYPES,
-  };
+  preloadImages().then(() => {
+    newMap();
+    window.__miniWorldMap = {
+      newMap,
+      movePlayer,
+      getState: () => state,
+      terrainTypes: NATURAL_TYPES,
+      imageCount: () => imageCache.size,
+    };
+  });
 }

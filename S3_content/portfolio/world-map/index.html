@@ -21,7 +21,7 @@
       <div>
         <p class="eyebrow">Interactive procedural map</p>
         <h1>Radius-6 hex world generator.</h1>
-        <p class="lead">A small browser version of my Python/Tkinter ShadowDark world map system. It keeps the natural terrain set, cluster-friendly generation rules, and fantasy region names while removing water movement restrictions for quick portfolio browsing.</p>
+        <p class="lead">A small browser version of my Python/Tkinter ShadowDark world map system. It keeps the natural terrain set, authored tile art, border overlays, fog-of-war exploration, cluster-friendly generation rules, and fantasy region names while removing water movement restrictions for quick portfolio browsing.</p>
       </div>
       <div class="map-controls" aria-label="Map controls">
         <button class="button button-primary" type="button" data-new-map>New Map</button>
@@ -31,7 +31,7 @@
 
     <section class="map-app section-reveal" aria-label="Playable mini world map">
       <div class="map-stage">
-        <canvas id="world-map-canvas" width="1100" height="820" aria-label="Generated radius-six fantasy hex map"></canvas>
+        <canvas id="world-map-canvas" width="940" height="660" aria-label="Generated radius-six fantasy hex map"></canvas>
       </div>
       <aside class="map-panel">
         <div>
@@ -48,7 +48,7 @@
           <button type="button" data-move="0,1">SE</button>
         </div>
         <div class="terrain-legend" data-legend aria-label="Terrain legend"></div>
-        <p class="map-note">Arrow keys, WASD, Q/E/Z/C, and adjacent hex clicks all move the token. Water is intentionally passable in this portfolio version.</p>
+        <p class="map-note">Arrow keys, WASD, Q/E/Z/C, and adjacent hex clicks all move the token. The camera follows the player, unexplored hexes stay under fog, and water is intentionally passable in this portfolio version.</p>
       </aside>
     </section>
   </main>
