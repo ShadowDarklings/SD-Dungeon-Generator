@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCC Random Generator</title>
+  <link rel="icon" href="MCC-icon.ico">
+  <link rel="stylesheet" href="mcc-npc-generator.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="generator-panel" aria-labelledby="app-title">
+      <header class="app-header">
+        <img class="app-mark" src="MCC-icon.jpg" alt="">
+        <div>
+          <h1 id="app-title">MCC Random Generator</h1>
+          <p>NPCs, settlements, encounters, and hex maps</p>
+        </div>
+      </header>
+
+      <div class="actions">
+        <button id="generateNpc" class="primary-action" type="button">Generate NPC</button>
+        <button id="generateSettlement" class="secondary-action" type="button">Generate Settlement</button>
+        <button id="generateEncounter" class="secondary-action" type="button">Random Encounter</button>
+        <button id="generateHexMap" class="secondary-action" type="button">Generate Hex Map</button>
+        <button id="copyOutput" class="icon-action" type="button" title="Copy result" aria-label="Copy result">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="9" width="10" height="10" rx="1.5"></rect>
+            <path d="M5 15V5h10"></path>
+          </svg>
+        </button>
+      </div>
+
+      <label class="output-label" for="npcOutput">Output</label>
+      <textarea id="npcOutput" spellcheck="false" readonly></textarea>
+      <div id="richOutput" class="rich-output" hidden></div>
+
+      <div id="hexMapPanel" class="hex-map-panel" hidden>
+        <div class="map-toolbar">
+          <h2>Hex Map</h2>
+          <span id="hexMapMeta"></span>
+          <button id="closeHexMap" class="icon-action" type="button" title="Close map" aria-label="Close map">X</button>
+        </div>
+        <div id="hexMap" class="hex-map" aria-label="Generated pointy-top hex map"></div>
+        <div id="hexPopupBackdrop" class="hex-popup-backdrop" hidden></div>
+        <dialog id="hexPopup" class="hex-popup">
+          <button id="closeHexPopup" class="popup-close" type="button" aria-label="Close popup">X</button>
+          <h2 id="hexPopupTitle"></h2>
+          <pre id="hexPopupBody"></pre>
+          <div id="hexPopupRich" class="rich-output popup-rich-output" hidden></div>
+        </dialog>
+      </div>
+
+      <div class="roll-details" aria-live="polite">
+        <h2>Rolls</h2>
+        <ol id="rollLog"></ol>
+      </div>
+    </section>
+
+    <aside class="history-panel" aria-labelledby="history-title">
+      <h2 id="history-title">Recent</h2>
+      <ul id="historyList"></ul>
+    </aside>
+  </main>
+
+  <script src="mcc-npc-generator.js"></script>
+</body>
+</html>

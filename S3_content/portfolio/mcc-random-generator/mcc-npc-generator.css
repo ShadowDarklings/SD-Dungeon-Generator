@@ -1,0 +1,503 @@
+:root {
+  color-scheme: dark;
+  --bg: #141512;
+  --panel: #22231d;
+  --panel-2: #1a1d20;
+  --ink: #f2ede1;
+  --muted: #b9b1a2;
+  --line: #444237;
+  --accent: #e0c060;
+  --accent-dark: #796321;
+  --danger: #bb5a3c;
+  --focus: #66c6a5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background:
+    linear-gradient(120deg, rgba(20, 21, 18, 0.86), rgba(26, 29, 32, 0.92)),
+    url("MCC-icon.jpg") center / cover fixed;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(1040px, calc(100vw - 32px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 32px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.generator-panel,
+.history-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(34, 35, 29, 0.95);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+}
+
+.generator-panel {
+  padding: 20px;
+}
+
+.history-panel {
+  padding: 16px;
+  background: rgba(26, 29, 32, 0.94);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-mark {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #6f693f;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.55rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.app-header p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+
+.primary-action,
+.secondary-action,
+.icon-action {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.primary-action {
+  min-height: 44px;
+  padding: 0 18px;
+  color: #1c190b;
+  background: var(--accent);
+  font-weight: 700;
+}
+
+.secondary-action {
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--ink);
+  background: #303127;
+  border-color: var(--line);
+  font-weight: 700;
+}
+
+.primary-action:hover {
+  background: #f0d47c;
+  transform: translateY(-1px);
+}
+
+.secondary-action:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.primary-action:active,
+.secondary-action:active,
+.icon-action:active {
+  transform: translateY(0);
+}
+
+.icon-action {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink);
+  background: #303127;
+  border-color: var(--line);
+}
+
+.icon-action:hover {
+  border-color: var(--accent);
+}
+
+.icon-action svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+button:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.output-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+textarea {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  padding: 14px;
+  color: var(--ink);
+  background: #101112;
+  border: 1px solid #565342;
+  border-radius: 6px;
+  line-height: 1.45;
+}
+
+.rich-output {
+  width: 100%;
+  min-height: 360px;
+  max-height: 68vh;
+  overflow: auto;
+  padding: 12px;
+  color: var(--ink);
+  background: #101112;
+  border: 1px solid #565342;
+  border-radius: 6px;
+}
+
+.settlement-summary,
+.leader-detail pre {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--ink);
+  font: 0.92rem/1.42 Consolas, "Segoe UI Mono", monospace;
+}
+
+.settlement-summary {
+  margin-bottom: 12px;
+}
+
+.leader-detail {
+  border-top: 1px solid #383b3b;
+}
+
+.leader-detail:last-child {
+  border-bottom: 1px solid #383b3b;
+}
+
+.leader-detail summary {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: minmax(92px, 0.7fr) minmax(120px, 1fr) minmax(160px, 1.4fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  list-style: none;
+  cursor: pointer;
+  background: #1a1d20;
+  border-left: 3px solid transparent;
+}
+
+.leader-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.leader-detail summary:hover,
+.leader-detail[open] summary {
+  border-left-color: var(--accent);
+  background: #242721;
+}
+
+.leader-kind {
+  color: var(--accent);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+
+.leader-name {
+  font-weight: 800;
+}
+
+.leader-genotype {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.leader-detail pre {
+  padding: 12px 10px 14px;
+  background: #0d0f10;
+}
+
+.popup-rich-output {
+  min-height: 0;
+  max-height: calc(78vh - 84px);
+  margin-top: 12px;
+  padding: 10px;
+}
+
+.hex-map-panel {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101112;
+  overflow: hidden;
+}
+
+.map-toolbar {
+  min-height: 38px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #1a1d20;
+}
+
+.map-toolbar .icon-action {
+  width: 34px;
+  height: 34px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.map-toolbar span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.hex-map {
+  width: 100%;
+  overflow: auto;
+  background: #0d0f10;
+}
+
+.hex-map-panel.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: #080909;
+}
+
+.hex-map-panel.fullscreen .hex-map {
+  height: 100%;
+}
+
+.hex-map-panel.fullscreen svg {
+  min-width: 1320px;
+}
+
+.hex-map svg {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+}
+
+.hex-tile {
+  stroke: rgba(12, 12, 12, 0.92);
+  stroke-width: 1.3;
+  cursor: pointer;
+}
+
+.hex-tile.unexplored {
+  filter: grayscale(68%) brightness(58%);
+}
+
+.hex-tile.explored {
+  stroke: #f2ede1;
+  stroke-width: 2;
+}
+
+.hex-label,
+.hex-marker {
+  pointer-events: none;
+  font-family: "Segoe UI", Arial, sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: rgba(15, 15, 12, 0.9);
+  font-weight: 800;
+}
+
+.hex-label {
+  font-size: 7px;
+}
+
+.hex-marker {
+  font-size: 9px;
+}
+
+.hex-click-target {
+  cursor: pointer;
+}
+
+.hex-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.hex-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  width: min(720px, calc(100vw - 28px));
+  max-height: min(78vh, 720px);
+  padding: 18px;
+  color: var(--ink);
+  background: #141512;
+  border: 1px solid #6f693f;
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+}
+
+.hex-popup::backdrop {
+  background: transparent;
+}
+
+.hex-popup h2 {
+  padding-right: 36px;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.hex-popup pre {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  overflow: auto;
+  color: var(--ink);
+  font: 0.92rem/1.42 Consolas, "Segoe UI Mono", monospace;
+}
+
+.popup-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: #303127;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.roll-details {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.roll-details ol,
+.history-panel ul {
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.roll-details ol {
+  display: grid;
+  gap: 8px;
+  list-style-position: inside;
+  color: var(--muted);
+}
+
+.history-panel ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.history-panel li {
+  padding: 9px 10px;
+  border: 1px solid #383b3b;
+  border-radius: 6px;
+  background: #121517;
+  color: #ded8ca;
+  line-height: 1.35;
+}
+
+.copy-flash {
+  border-color: var(--focus);
+  color: var(--focus);
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100vw - 20px, 620px);
+    grid-template-columns: 1fr;
+    padding: 10px 0;
+  }
+
+  .generator-panel,
+  .history-panel {
+    padding: 14px;
+  }
+
+  .app-header {
+    align-items: flex-start;
+  }
+
+  .leader-detail summary {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}

@@ -1,0 +1,9 @@
+mutant-crawl-classics.pdf
+*.doc
+*.docx
+tech_level_3_*.jpg
+*.lnk
+*.url
+desktop.ini
+.DS_Store
+Thumbs.db
