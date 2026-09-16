@@ -10,6 +10,16 @@ from urllib.parse import urlsplit
 CREATE_URL = "https://shadowdarklings.net/create"
 SOURCE_SWITCHES = ("Scroll #1", "Scroll #2", "Scroll #3", "Scroll #4", "B&R&K",
     "Roustabout", "Unnatural Selection", "Darcy")
+SOURCE_IDS = {
+    "Scroll #1": "flexSwitchCheckDefaultCS1",
+    "Scroll #2": "flexSwitchCheckDefaultCS2",
+    "Scroll #3": "flexSwitchCheckDefaultCS3",
+    "Scroll #4": "flexSwitchCheckDefaultCS4",
+    "B&R&K": "flexSwitchCheckDefaultSG",
+    "Roustabout": "flexSwitchCheckDefaultRB",
+    "Unnatural Selection": "flexSwitchCheckDefaultUS",
+    "Darcy": "flexSwitchCheckDefaultDP",
+}
 ALLOWED_HOSTS = {"shadowdarklings.net", "www.shadowdarklings.net", "fonts.googleapis.com",
     "fonts.gstatic.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"}
 MAX_IMPORT_BYTES = 128 * 1024
@@ -77,11 +87,16 @@ def browser_import(base_classes_only):
             page.get_by_role("button", name="Random 1").click()
             for label in SOURCE_SWITCHES:
                 try:
-                    page.get_by_role("switch", name=label).set_checked(not base_classes_only, timeout=500)
+                    page.locator(f"#{SOURCE_IDS[label]}").first.set_checked(not base_classes_only, timeout=1000)
                 except Exception:
-                    continue
+                    try:
+                        page.get_by_role("switch", name=label).set_checked(not base_classes_only, timeout=500)
+                    except Exception:
+                        continue
             page.get_by_role("button", name="Generate a Random Character").click()
-            page.get_by_role("button", name="JSON").click()
+            json_button = page.get_by_role("button", name="JSON")
+            json_button.wait_for(state="visible", timeout=30000)
+            json_button.click()
             page.wait_for_timeout(750)
             result = page.evaluate("Promise.race([navigator.clipboard.readText(), new Promise((_, reject) => setTimeout(() => reject(new Error('Clipboard timeout')), 3000))])")
             result = str(result).strip()
