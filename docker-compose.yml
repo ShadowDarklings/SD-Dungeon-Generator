@@ -32,6 +32,10 @@ services:
     build: .
     volumes:
       - gunicorn-socket:/tmp
+    # Chromium's sandbox needs this capability on Ubuntu hosts that restrict
+    # unprivileged user namespaces through AppArmor.
+    cap_add:
+      - SYS_ADMIN
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the sd_app role}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}

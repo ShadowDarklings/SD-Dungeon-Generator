@@ -105,10 +105,12 @@ Shadowdarklings availability, or backup restore readiness.
   it runs in a separate process with a 60-second timeout, filtered environment,
   restricted browser host list, no downloads/service workers, and Chromium's
   sandbox required in production. Verify the host's user-namespace/seccomp
-  configuration supports Chromium sandboxing; do not disable it to work around
-  deployment errors. Apply an outbound firewall policy to prevent access to
-  private networks/cloud metadata as defense in depth. Monitor memory and
-  latency before increasing capacity.
+  configuration supports Chromium sandboxing; on Ubuntu hosts that restrict
+  unprivileged user namespaces through AppArmor, the app container needs
+  `SYS_ADMIN` so Chromium can start its sandbox. Do not disable Chromium's
+  sandbox to work around deployment errors. Apply an outbound firewall policy
+  to prevent access to private networks/cloud metadata as defense in depth.
+  Monitor memory and latency before increasing capacity.
 - The application fails closed on missing shared rate-limit configuration or
   an overprivileged runtime database role. Monitor database errors, Redis
   failures, runtime timeouts, 429 rates, storage growth and failed backups.
