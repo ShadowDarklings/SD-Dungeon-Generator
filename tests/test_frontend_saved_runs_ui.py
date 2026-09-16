@@ -90,8 +90,9 @@ def test_multiplayer_controls_and_modal_structure_exist():
     assert modal.select_one("#multiplayer-join-btn") is not None
     assert modal.select_one("#multiplayer-presence-list") is not None
     assert modal.select_one("[data-testid='multiplayer-presence-list']") is not None
-    assert modal.select_one("#multiplayer-player-select") is not None
-    assert modal.select_one("#multiplayer-character-select") is not None
-    assert modal.select_one("#multiplayer-assign-btn") is not None
+    assert modal.select_one("#room-option-autonomous_exploration") is not None
+    assert modal.select_one("#room-option-extra_characters_without_host") is not None
+    assert modal.select_one("#room-option-bury_others") is not None
+    assert modal.select_one("#multiplayer-assign-btn") is None
     assert modal.select_one("#multiplayer-refresh-btn") is not None
     assert modal.select_one("#multiplayer-close") is not None

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="account-security">
+<h1>Account</h1>
+<p>{{ user.username }}</p>
+<p><a href="/api/account/export">Export Account Data</a> | <a href="/runs">Saved Games and Recovery</a></p>
+{% if codes %}
+<h2>Recovery Codes</h2>
+<p>Keep these private. Each code can reset your password once. These codes are shown only now; previous codes no longer work.</p>
+<pre>{% for code in codes %}{{ code }}
+{% endfor %}</pre>
+{% endif %}
+<form method="post" class="vstack gap-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Current password <input class="form-control" type="password" name="current_password" maxlength="1024" autocomplete="current-password"></label>
+  <label>New password <input class="form-control" type="password" name="new_password" minlength="6" maxlength="1024" autocomplete="new-password"></label>
+  <div><button class="btn btn-primary" name="action" value="password">Change Password</button></div>
+  <div><button class="btn btn-secondary" name="action" value="revoke">Sign Out Other Sessions</button></div>
+  <div><button class="btn btn-secondary" name="action" value="recovery">Generate Recovery Codes</button></div>
+  <h2>Delete Account</h2>
+  <p>This permanently removes your account, personal saves, and hosted dungeons from the active database. Character copies in other hosts' games remain. Backup copies are subject to the server's retention policy.</p>
+  <label>Confirm your username <input class="form-control" name="confirmation" maxlength="80" autocomplete="off"></label>
+  <div><button class="btn btn-danger" name="action" value="delete">Delete Account</button></div>
+</form>
+</section>
+{% endblock %}

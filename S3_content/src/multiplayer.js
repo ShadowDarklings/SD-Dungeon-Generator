@@ -1,144 +1,29 @@
-import { serializeDungeonState } from "./persistence.js";
+import { serializeDungeonState } from './persistence.js';
+import { apiFetch, readApiResponse } from './api.js';
 
-const MULTIPLAYER_BASE_PATH = "/api/multiplayer/sessions";
-
-function normalizeSessionCode(value) {
-  const text = String(value || "").trim();
-  if (!text) {
-    return "";
-  }
+export function normalizeSessionCode(value) {
+  const text = String(value || '').trim();
   try {
-    const url = new URL(text, window.location.origin);
-    return url.searchParams.get("session") || url.pathname.split("/").filter(Boolean).pop() || text;
+    const url = new URL(text);
+    return (url.searchParams.get('join') || '').toUpperCase();
   } catch {
-    return text;
+    return text.toUpperCase();
   }
 }
 
-function inviteUrlForCode(code) {
-  const url = new URL(window.location.href);
-  url.searchParams.set("session", code);
-  return url.toString();
+export async function roomRequest(id, action = '', body = null, method = 'POST') {
+  const path = `/api/rooms${id ? `/${encodeURIComponent(id)}` : ''}${action ? `/${action}` : ''}`;
+  return readApiResponse(await apiFetch(path, {
+    method: body === null ? 'GET' : method,
+    ...(body === null ? {} : { body: JSON.stringify(body) })
+  }));
 }
 
-async function parseMultiplayerResponse(response) {
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    if (response.status === 404) {
-      throw new Error("Multiplayer backend is not connected yet.");
-    }
-    throw new Error(response.redirected ? "Login required before multiplayer." : "Server returned a non-JSON multiplayer response.");
-  }
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || data.error || "Multiplayer request failed.");
-  }
-  return data;
-}
-
-function buildSessionPayload(state, hostCharacterId = null) {
-  return {
-    seed: state?.seed,
-    level: state?.level,
-    host_character_id: hostCharacterId,
-    state_json: serializeDungeonState(state)
-  };
-}
-
-export async function createHostSession(state, options = {}) {
-  const response = await fetch(MULTIPLAYER_BASE_PATH, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildSessionPayload(state, options.hostCharacterId || null))
-  });
-  const data = await parseMultiplayerResponse(response);
-  const code = data.invite_code || data.code || data.session_code || data.id;
-  return {
-    ...data,
-    invite_code: code,
-    invite_url: data.invite_url || (code ? inviteUrlForCode(code) : "")
-  };
-}
-
-export async function joinHostSession(inviteValue, options = {}) {
-  const code = normalizeSessionCode(inviteValue);
-  if (!code) {
-    throw new Error("Enter a host invite code or link.");
-  }
-  const response = await fetch(`${MULTIPLAYER_BASE_PATH}/${encodeURIComponent(code)}/join`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      character_id: options.characterId || null,
-      display_name: options.displayName || ""
-    })
-  });
-  const data = await parseMultiplayerResponse(response);
-  return {
-    ...data,
-    invite_code: data.invite_code || data.code || code,
-    invite_url: data.invite_url || inviteUrlForCode(data.invite_code || data.code || code)
-  };
-}
-
-export async function getHostSession(inviteValue) {
-  const code = normalizeSessionCode(inviteValue);
-  if (!code) {
-    throw new Error("No multiplayer session code is active.");
-  }
-  const response = await fetch(`${MULTIPLAYER_BASE_PATH}/${encodeURIComponent(code)}`, {
-    credentials: "same-origin"
-  });
-  const data = await parseMultiplayerResponse(response);
-  return {
-    ...data,
-    invite_code: data.invite_code || data.code || code,
-    invite_url: data.invite_url || inviteUrlForCode(data.invite_code || data.code || code)
-  };
-}
-
-export async function updateHostSessionState(inviteValue, state) {
-  const code = normalizeSessionCode(inviteValue);
-  if (!code) {
-    throw new Error("No multiplayer session code is active.");
-  }
-  const response = await fetch(`${MULTIPLAYER_BASE_PATH}/${encodeURIComponent(code)}/state`, {
-    method: "PUT",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      state_json: serializeDungeonState(state)
-    })
-  });
-  const data = await parseMultiplayerResponse(response);
-  return {
-    ...data,
-    invite_code: data.invite_code || data.code || code,
-    invite_url: data.invite_url || inviteUrlForCode(data.invite_code || data.code || code)
-  };
-}
-
-export async function assignSessionCharacter(inviteValue, playerId, characterId, options = {}) {
-  const code = normalizeSessionCode(inviteValue);
-  if (!code) {
-    throw new Error("No multiplayer session code is active.");
-  }
-  if (!playerId || !characterId) {
-    throw new Error("Choose both a player and a dot.");
-  }
-  const response = await fetch(`${MULTIPLAYER_BASE_PATH}/${encodeURIComponent(code)}/assignments`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      player_id: playerId,
-      character_id: characterId,
-      state_json: options.state ? serializeDungeonState(options.state) : undefined
-    })
-  });
-  return parseMultiplayerResponse(response);
-}
-
-export { inviteUrlForCode, normalizeSessionCode };
+export const createHostSession = (state, options = {}) => roomRequest('', '', {
+  name: state.run?.name || 'Unnamed dungeon', state_json: serializeDungeonState(state), options
+});
+export const joinHostSession = (value, options = {}) => roomRequest('', 'join', {
+  code: normalizeSessionCode(value), display_name: options.displayName || 'Adventurer'
+});
+export const getHostSession = (id) => roomRequest(id);
+export const listJoinedRooms = () => roomRequest('', 'saved');

@@ -23,6 +23,16 @@ main {
     flex: 1;
 }
 
+.account-security {
+    font-family: "Times New Roman", Georgia, serif;
+    max-width: 48rem;
+}
+
+.account-security pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .site-header {
     background: #000;
 }

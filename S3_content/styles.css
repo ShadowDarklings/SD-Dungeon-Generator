@@ -2642,3 +2642,57 @@ body {
     grid-template-columns: 1fr;
   }
 }
+.room-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+  white-space: normal;
+}
+.room-option input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; }
+#multiplayer-invite-code { font: bold 24px monospace; }
+body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+.layout { flex: 1; min-height: 0; height: auto; }
+.controls-panel { height: 100%; }
+#room-state-banner { flex: 0 0 auto; padding: 6px 12px; margin: 0; background: #f1d66b; color: #222; font: 14px/1.4 "Times New Roman", Georgia, serif; }
+.character-card[draggable="true"] { cursor: grab; }
+.character-card.is-readonly input, .character-card.is-readonly button { opacity: .65; }
+.multiplayer-presence-row { gap: 12px; flex-wrap: wrap; }
+.multiplayer-modal .modal-actions { flex-wrap: wrap; }
+.room-option[hidden] { display: none; }
+.multiplayer-modal { border-radius: 8px; background: #28282a; }
+.multiplayer-modal, .multiplayer-modal input, .multiplayer-modal button { font-family: "Times New Roman", Georgia, serif; letter-spacing: 0; }
+.controls-panel button:disabled { opacity: .5; cursor: not-allowed; }
+.multiplayer-modal button { min-height: 32px; border-radius: 4px; background: #f4f4f4; }
+.multiplayer-section { padding: 12px 0; border: 0; border-top: 1px solid #666; border-radius: 0; background: none; }
+.multiplayer-presence-list { padding: 0; border: 0; border-radius: 0; background: none; }
+.multiplayer-presence-row { padding: 6px 0; border-radius: 0; background: none; }
+.room-option { margin: 4px 0; line-height: 1.4; }
+#room-account-links {
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0;
+  color: #f3f5fb;
+}
+#room-account-links a,
+#room-account-links a:visited {
+  color: #9ff7ff;
+}
+#room-account-links a:hover,
+#room-account-links a:focus-visible {
+  color: #d6fcff;
+  text-decoration-thickness: 2px;
+}
+.character-card { min-width: 0; max-width: 100%; border-radius: 8px; overflow-wrap: anywhere; }
+.characters-list { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.character-mini-header { white-space: normal; }
+.character-reorder-handle { touch-action: none; cursor: grab; width: 24px; height: 28px; padding: 0; margin-right: 6px; font: bold 20px monospace; }
+@media (max-width: 680px) {
+  .controls-panel { min-width: 0; padding-right: 12px; }
+  .site-title { font-size: 2rem; letter-spacing: 0; }
+  .multiplayer-modal { padding: 14px; }
+  .multiplayer-link-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .multiplayer-modal .modal-actions { grid-template-columns: 1fr 1fr; }
+}

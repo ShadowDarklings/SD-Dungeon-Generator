@@ -296,7 +296,9 @@ function normalizeAmmo(gear, raw = {}) {
 }
 
 function normalizeCharacterSource(raw = {}, index = 0) {
-  const normalizedRaw = clonePlain(raw);
+  // Preserve imported fields without nesting another complete sheet on every sync.
+  const normalizedRaw = clonePlain({ ...(raw.raw || {}), ...raw });
+  delete normalizedRaw.raw;
   const stats = normalizeAbilityScores(raw.stats || {});
   const rolledStats = normalizeAbilityScores(raw.rolledStats || raw.stats || {});
   const gear = Array.isArray(raw.gear) ? clonePlain(raw.gear) : [];

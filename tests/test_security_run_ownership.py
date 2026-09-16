@@ -100,6 +100,7 @@ def test_owner_can_access_own_run(client_and_users):
     
     # PUT own run should succeed
     res = client.put(f"/api/runs/{run_id}", json={
+        "revision": 1,
         "seed": 4242,
         "level": 3,
         "state_json": {"character": {"x": 2, "y": 2}}

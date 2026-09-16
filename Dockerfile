@@ -1,6 +1,14 @@
+FROM node:24-bookworm-slim AS rules
+WORKDIR /rules
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 FROM python:3.12-bookworm
 
 WORKDIR /app
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+COPY --from=rules /usr/local/bin/node /usr/local/bin/node
+COPY --from=rules /rules/node_modules /app/node_modules
 
 # Install Chromium runtime libraries directly. Playwright's --with-deps fallback
 # can break on newer Debian images when distro package names change.
@@ -44,6 +52,10 @@ RUN python -m playwright install chromium
 
 # Copy the rest of the app.
 COPY . .
+RUN groupadd --gid 10001 game && useradd --uid 10001 --gid game --create-home game \
+    && chmod -R a+rX /opt/playwright /app \
+    && chown game:game /app
+USER game
 
 # Gunicorn binds to a Unix socket shared with nginx (see gunicorn.conf.py).
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]

@@ -9,3 +9,12 @@ venv
 *.db
 .DS_Store
 tests
+node_modules
+test-results
+browser-checks
+*.sqlite3
+preview-*.log
+.preview-secret
+nginx/certs
+.env.*
+backups

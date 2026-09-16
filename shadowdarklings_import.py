@@ -1,0 +1,99 @@
+"""Bounded browser import, isolated from the web process and its credentials."""
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+from urllib.parse import urlsplit
+
+CREATE_URL = "https://shadowdarklings.net/create"
+SOURCE_SWITCHES = ("Scroll #1", "Scroll #2", "Scroll #3", "Scroll #4", "B&R&K",
+    "Roustabout", "Unnatural Selection", "Darcy")
+ALLOWED_HOSTS = {"shadowdarklings.net", "www.shadowdarklings.net", "fonts.googleapis.com",
+    "fonts.gstatic.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"}
+MAX_IMPORT_BYTES = 128 * 1024
+
+
+def stop_import_process(process):
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        taskkill = Path(os.environ["SYSTEMROOT"]) / "System32" / "taskkill.exe"
+        subprocess.run([str(taskkill), "/PID", str(process.pid), "/T", "/F"],
+            capture_output=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+    else:
+        os.killpg(process.pid, signal.SIGKILL)
+    process.wait(timeout=10)
+
+
+def fetch_shadowdarklings_character_json(base_classes_only=False):
+    allowed_environment = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "HOME", "LANG", "PLAYWRIGHT_BROWSERS_PATH"}
+    environment = {key: value for key, value in os.environ.items() if key.upper() in allowed_environment}
+    environment["SD_IMPORT_SANDBOX"] = "1" if os.environ.get("FLASK_ENV") == "production" else "0"
+    command = [sys.executable, str(Path(__file__).resolve()), "--worker"]
+    if base_classes_only:
+        command.append("--base-only")
+    options = {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, **options)
+    try:
+        output, _ = process.communicate(timeout=60)
+        if process.returncode or len(output) > MAX_IMPORT_BYTES:
+            raise RuntimeError("Shadowdarklings import is temporarily unavailable.")
+        result = output.decode("utf-8").strip()
+        if not isinstance(json.loads(result), dict):
+            raise RuntimeError("Shadowdarklings returned an invalid character.")
+        return result
+    except subprocess.TimeoutExpired as exc:
+        stop_import_process(process)
+        raise RuntimeError("Shadowdarklings import timed out. Please try again later.") from exc
+    except (ValueError, UnicodeError) as exc:
+        raise RuntimeError("Shadowdarklings returned an invalid character.") from exc
+    finally:
+        stop_import_process(process)
+        process.stdout.close()
+
+
+def browser_import(base_classes_only):
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True,
+            chromium_sandbox=os.environ.get("SD_IMPORT_SANDBOX") == "1", timeout=15000)
+        try:
+            context = browser.new_context(viewport={"width": 1280, "height": 1440},
+                accept_downloads=False, service_workers="block")
+            context.set_default_timeout(8000)
+            def allow_source(route):
+                target = urlsplit(route.request.url)
+                if target.scheme == "https" and target.hostname in ALLOWED_HOSTS and target.port in {None, 443}:
+                    route.continue_()
+                else:
+                    route.abort()
+            context.route("**/*", allow_source)
+            context.grant_permissions(["clipboard-read", "clipboard-write"], origin=CREATE_URL)
+            page = context.new_page()
+            page.goto(CREATE_URL, wait_until="domcontentloaded", timeout=20000)
+            page.get_by_role("button", name="Random 1").click()
+            for label in SOURCE_SWITCHES:
+                try:
+                    page.get_by_role("switch", name=label).set_checked(not base_classes_only, timeout=500)
+                except Exception:
+                    continue
+            page.get_by_role("button", name="Generate a Random Character").click()
+            page.get_by_role("button", name="JSON").click()
+            page.wait_for_timeout(750)
+            result = page.evaluate("Promise.race([navigator.clipboard.readText(), new Promise((_, reject) => setTimeout(() => reject(new Error('Clipboard timeout')), 3000))])")
+            result = str(result).strip()
+            if len(result.encode("utf-8")) > MAX_IMPORT_BYTES or not isinstance(json.loads(result), dict):
+                raise ValueError("Invalid character export")
+            return result
+        finally:
+            browser.close()
+
+
+if __name__ == "__main__" and "--worker" in sys.argv:
+    try:
+        sys.stdout.buffer.write(browser_import("--base-only" in sys.argv).encode("utf-8"))
+    except Exception:
+        sys.exit(1)

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="account-security">
+<h1>Recover Account</h1>
+<form method="post" class="vstack gap-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Username <input class="form-control" name="username" maxlength="80" required autocomplete="username"></label>
+  <label>Recovery code <input class="form-control" name="recovery_code" maxlength="100" required autocomplete="off"></label>
+  <label>New password <input class="form-control" type="password" name="new_password" minlength="6" maxlength="1024" required autocomplete="new-password"></label>
+  <button class="btn btn-primary" type="submit">Reset Password</button>
+</form>
+</section>
+{% endblock %}

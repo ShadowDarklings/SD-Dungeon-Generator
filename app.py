@@ -12,6 +12,7 @@ import re
 import random
 import secrets
 import requests
+from urllib.parse import urlsplit
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from flask import (
@@ -20,15 +21,22 @@ from flask import (
 )
 from sqlmodel import SQLModel, Field, Session, create_engine, select, delete
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import RequestEntityTooLarge
 from flask_login import (
-    LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+    LoginManager, UserMixin, login_user, logout_user, login_required, current_user, user_logged_in
 )
 from sqlalchemy import (
-    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint, text
+    Column, JSON, DateTime, UniqueConstraint, Integer, ForeignKey, String, CheckConstraint, text, inspect, update
 )
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
-from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
+from room_models import GameRoom, RoomMember, RoomInvite, RoomCommand, SaveCheckpoint
+from validation import validate_json, validate_state
+from storage_limits import storage_available, STORAGE_FULL
+
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # ---------------------------------------------------------------------------
 # 1. Environment Secrets Management (§12)
@@ -56,13 +64,17 @@ app = Flask(__name__)
 # Without this, Flask won't realize the incoming traffic is over HTTPS, which breaks
 # our url_for redirects and stops secure cookies from attaching!
 from werkzeug.middleware.proxy_fix import ProxyFix
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0, x_prefix=0)
 
 app.config["SECRET_KEY"] = SECRET_KEY
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 app.config["REMEMBER_COOKIE_DURATION"] = timedelta(days=14)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+app.config["PUBLIC_BASE_URL"] = os.environ.get("PUBLIC_BASE_URL", "https://ctreeder.com" if os.environ.get("FLASK_ENV") == "production" else "").rstrip("/")
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_CONTENT_LENGTH_BYTES", 5 * 1024 * 1024))
 app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = (
     os.environ.get("SHADOWDARKLINGS_IMPORT_ENABLED") == "1"
     or os.environ.get("FLASK_ENV") != "production"
@@ -73,12 +85,125 @@ if os.environ.get("FLASK_ENV") == "production":
     app.config["SESSION_COOKIE_SECURE"] = True
 else:
     app.config["SESSION_COOKIE_SECURE"] = False
+app.config["REMEMBER_COOKIE_SECURE"] = app.config["SESSION_COOKIE_SECURE"]
+
+if os.environ.get("FLASK_ENV") == "production":
+    if len(SECRET_KEY) < 32 or SECRET_KEY in {"change-me", "dev-secret-not-for-production"}:
+        raise RuntimeError("Production requires a random SECRET_KEY of at least 32 characters.")
+    if os.environ.get("ALLOW_ANON_SHADOWDARKLINGS_IMPORT") == "1":
+        raise RuntimeError("The development import bypass must not be enabled in production.")
+    if os.environ.get("RATELIMIT_STORAGE_URI", "memory://").startswith("memory"):
+        raise RuntimeError("Production requires a shared rate-limit storage URI.")
 
 csrf = CSRFProtect(app)
+
+PASSWORD_MIN_LENGTH = int(os.environ.get("PASSWORD_MIN_LENGTH", 6))
+PASSWORD_MAX_LENGTH = int(os.environ.get("PASSWORD_MAX_LENGTH", 1024))
+app.config["PASSWORD_MIN_LENGTH"] = PASSWORD_MIN_LENGTH
+app.config["PASSWORD_MAX_LENGTH"] = PASSWORD_MAX_LENGTH
+
+SECURITY_HEADERS = {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+        "img-src 'self' data:; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    ),
+}
+
+
+@app.after_request
+def add_security_headers(response):
+    for header, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    if app.config["SESSION_COOKIE_SECURE"] or request.is_secure:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+    if request.path.startswith("/api/") or request.path in {"/login", "/register", "/recover", "/runs", "/account"}:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     return jsonify({"error": "csrf_invalid", "message": "CSRF validation failed."}), 400
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_entity_too_large(e):
+    return jsonify({"error": "payload_too_large", "message": "Request body is too large."}), 413
+
+
+rate_storage_uri = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+limiter = Limiter(get_remote_address, app=app, storage_uri=rate_storage_uri,
+    storage_options={"socket_connect_timeout": 2, "socket_timeout": 2} if rate_storage_uri.startswith(("redis://", "rediss://")) else {},
+    default_limits=[])
+
+
+def _skip_rate_limits():
+    return bool(app.config.get("TESTING"))
+
+
+def rate_limit(limit_value, **kwargs):
+    def account_key():
+        if current_user.is_authenticated:
+            return f"user:{current_user.id}"
+        if request.path == "/login" and request.method == "POST":
+            from rooms import digest
+            return "login:" + digest(request.form.get("username", "").strip(), "rate")
+        return "ip:" + get_remote_address()
+    def decorator(view):
+        view = limiter.limit(limit_value, exempt_when=_skip_rate_limits, key_func=account_key, **kwargs)(view)
+        return limiter.limit(limit_value, exempt_when=_skip_rate_limits, key_func=get_remote_address, **kwargs)(view)
+    return decorator
+
+
+@app.errorhandler(429)
+def rate_limit_error(error):
+    response = jsonify(error="rate_limited", message="Too many requests. Please wait before retrying.")
+    response.status_code = 429
+    response.headers["Retry-After"] = "60"
+    return response
+
+
+@app.before_request
+def validate_request_boundary():
+    if request.path.startswith("/api/multiplayer/sessions"):
+        return {"error": "retired_api", "message": "Reload the game to use the current dungeon rooms."}, 410
+    public_url = app.config.get("PUBLIC_BASE_URL")
+    if public_url and request.host != urlsplit(public_url).netloc:
+        if request.path != "/healthz":
+            return {"error": "invalid_host", "message": "Invalid host."}, 400
+    origin = request.headers.get("Origin")
+    expected_origin = public_url or request.host_url.rstrip("/")
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and origin and origin != expected_origin:
+        return {"error": "invalid_origin", "message": "Cross-origin requests are not allowed."}, 403
+    if request.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH"}:
+        try:
+            if not request.is_json:
+                raise ValueError("Content-Type must be application/json.")
+            validate_json(request.get_json(silent=True))
+        except (ValueError, RecursionError, OverflowError) as exc:
+            return {"error": "invalid_json", "message": str(exc)}, 400
+
+
+@app.get("/api/session")
+def api_session():
+    return {"csrf_token": generate_csrf(), "authenticated": bool(current_user.is_authenticated),
+        "username": current_user.username if current_user.is_authenticated else None}
+
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -92,8 +217,21 @@ def unauthorized():
     return redirect(url_for("login"))
 
 
+@login_manager.needs_refresh_handler
+def refresh_login():
+    if request.path.startswith("/api/"):
+        return {"error": "reauthentication_required", "message": "Sign in again before accessing account security settings."}, 401
+    session["login_destination"] = "/account"
+    return redirect(url_for("login"))
+
+
 # Initialize Engines
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(DATABASE_URL, echo=False, hide_parameters=True)
+if engine.dialect.name == "sqlite":
+    from sqlalchemy import event
+    @event.listens_for(engine, "connect")
+    def sqlite_foreign_keys(connection, record):
+        connection.execute("PRAGMA foreign_keys=ON")
 S3_CONTENT_DIR = Path(__file__).parent / "S3_content"
 SHADOWDARKLINGS_CREATE_URL = "https://shadowdarklings.net/create"
 
@@ -124,6 +262,18 @@ def migrate_existing_database() -> None:
     tables. The EC2 pgdata volume may survive branch upgrades, so keep these
     migrations idempotent and narrow.
     """
+    additions = {"users": {"session_version": "INTEGER NOT NULL DEFAULT 0"},
+        "saved_runs": {"revision": "INTEGER NOT NULL DEFAULT 1", "deleted_at": "TIMESTAMP"},
+        "saved_characters": {"revision": "INTEGER NOT NULL DEFAULT 1", "deleted_at": "TIMESTAMP"}}
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table_name, columns in additions.items():
+            if not inspector.has_table(table_name):
+                continue
+            existing = {column["name"] for column in inspector.get_columns(table_name)}
+            for column_name, definition in columns.items():
+                if column_name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"))
     if not DATABASE_URL.startswith("postgresql"):
         return
 
@@ -150,6 +300,10 @@ class User(SQLModel, UserMixin, table=True):
     email: str | None = Field(default=None, unique=True, index=True, max_length=254)
     display_name: str | None = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    session_version: int = Field(default=0, nullable=False)
+
+    def get_id(self):
+        return f"{self.id}:{self.session_version}"
 
 class OAuthIdentity(SQLModel, table=True):
     __tablename__ = "oauth_identities"
@@ -173,6 +327,8 @@ class SavedRun(SQLModel, table=True):
     seed: int = Field(nullable=False)
     level: int = Field(sa_column=Column(Integer, CheckConstraint("level BETWEEN 1 AND 10"), nullable=False))
     state_json: dict = Field(sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=1, nullable=False)
+    deleted_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)))
 
@@ -183,6 +339,8 @@ class SavedCharacter(SQLModel, table=True):
     user_id: int = Field(sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True))
     name: str = Field(sa_column=Column(String(200), nullable=False))
     character_json: dict = Field(sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=1, nullable=False)
+    deleted_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)))
 
@@ -282,7 +440,19 @@ class MultiplayerPlayer(SQLModel, table=True):
 # Create tables AFTER every model class is defined. Calling this earlier
 # (the pre-fix position was between OAuthIdentity and SavedRun) meant a fresh
 # database only got `users` and `oauth_identities` - the first save would 500.
-bootstrap_database()
+if os.environ.get("SD_SKIP_DB_BOOTSTRAP") != "1":
+    if os.environ.get("FLASK_ENV") != "production" or os.environ.get("AUTO_MIGRATE") == "1":
+        bootstrap_database()
+    if os.environ.get("FLASK_ENV") == "production":
+        import shutil
+        if not shutil.which(os.environ.get("GAME_NODE_EXECUTABLE", "node")):
+            raise RuntimeError("Production requires the Node.js game runtime.")
+        if engine.dialect.name != "postgresql":
+            raise RuntimeError("Production requires PostgreSQL.")
+        with engine.connect() as connection:
+            role = connection.execute(text("SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = current_user")).first()
+            if not role or any(role):
+                raise RuntimeError("The web application's database role must be unprivileged.")
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +484,12 @@ def close_db_session(exception=None):
 @login_manager.user_loader
 def load_user(user_id):
     db = get_db_session()
-    return db.get(User, int(user_id))
+    try:
+        identity, _, version = str(user_id).partition(":")
+        user = db.get(User, int(identity))
+        return user if user and user.session_version == int(version or 0) else None
+    except (ValueError, TypeError):
+        return None
 
 
 @app.context_processor
@@ -360,9 +535,23 @@ def serve_s3_content(filename):
 # Routes — authentication (Flask-rendered, not static)
 # ---------------------------------------------------------------------------
 
+def remember_login_destination():
+    destination = request.args.get("next")
+    if destination and destination.startswith("/site/") and not destination.startswith("//") and "\\" not in destination:
+        session["login_destination"] = destination[:300]
+
+
+def login_destination():
+    destination = session.pop("login_destination", "")
+    return destination if (destination.startswith("/site/") or destination in {"/account", "/runs"}) and "\\" not in destination else url_for("site_home")
+
+
 @app.route("/register", methods=["GET", "POST"])
+@rate_limit("5 per minute", methods=["POST"])
+@rate_limit("20 per hour", methods=["POST"])
 def register():
     if request.method == "GET":
+        remember_login_destination()
         return render_template("register.html")
 
     # POST: create a new user.
@@ -371,6 +560,18 @@ def register():
 
     if not username or not password:
         flash("Username and password are required.")
+        return redirect(url_for("register"))
+
+    if len(username) > 80:
+        flash("Username must be at most 80 characters.")
+        return redirect(url_for("register"))
+
+    if len(password) < PASSWORD_MIN_LENGTH:
+        flash(f"Password must be at least {PASSWORD_MIN_LENGTH} characters.")
+        return redirect(url_for("register"))
+
+    if len(password) > PASSWORD_MAX_LENGTH:
+        flash("Password is too long.")
         return redirect(url_for("register"))
 
     db = get_db_session()
@@ -389,17 +590,23 @@ def register():
 
     session.permanent = True
     login_user(user)
-    return redirect(url_for("home"))
+    return redirect(login_destination())
 
 
 @app.route("/login", methods=["GET", "POST"])
+@rate_limit("10 per minute", methods=["POST"])
+@rate_limit("50 per hour", methods=["POST"])
 def login():
     if request.method == "GET":
+        remember_login_destination()
         return render_template("login.html")
 
     # POST: validate credentials.
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
+    if len(username) > 80 or len(password) > PASSWORD_MAX_LENGTH:
+        flash("Invalid username or password.")
+        return redirect(url_for("login"))
 
     db = get_db_session()
     user = db.exec(select(User).where(User.username == username)).first()
@@ -417,17 +624,20 @@ def login():
     # session expires after PERMANENT_SESSION_LIFETIME (2h).
     remember = request.form.get("remember") == "1"
     login_user(user, remember=remember)
-    return redirect(url_for("home"))
+    return redirect(login_destination())
 
 
 @app.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    g.clear_guest_cookie = True
     logout_user()
+    session.pop("room_guest_key", None)
     return redirect(url_for("home"))
 
 
 @app.route("/login/github")
+@rate_limit("20 per minute")
 def login_github():
     redirect_uri = url_for("auth_github_callback", _external=True)
     return oauth.github.authorize_redirect(redirect_uri)
@@ -447,7 +657,7 @@ def auth_github_callback():
         return redirect(url_for("login"))
 
     profile = resp.json()
-    github_id = str(profile.get("id"))
+    github_id = str(profile.get("id") or "")
     github_login = profile.get("login")
     github_email = profile.get("email")
     github_name = profile.get("name") or github_login
@@ -481,16 +691,8 @@ def auth_github_callback():
         user = db.exec(email_stmt).first()
 
     if user:
-        db.add(OAuthIdentity(
-            user_id=user.id,
-            provider="github",
-            provider_user_id=github_id,
-            provider_login=github_login,
-        ))
-        db.commit()
-        session.permanent = True
-        login_user(user)
-        return redirect(url_for("list_runs_page"))
+        flash("An account with this email already exists. Sign in to that account first.")
+        return redirect(url_for("login"))
 
     unique_username = f"github_{github_login}"
     collision_stmt = select(User).where(User.username == unique_username)
@@ -554,8 +756,16 @@ def about():
 def healthz():
     """Lightweight liveness/readiness check for nginx and Docker Compose."""
     try:
+        if os.environ.get("FLASK_ENV") == "production" and not limiter.storage.check():
+            return {"status": "degraded", "rate_limits": "unavailable"}, 503
         with Session(engine) as db:
             db.exec(text("SELECT 1"))
+            db.exec(select(GameRoom.id).limit(1)).first()
+            db.exec(select(User.session_version).limit(1)).first()
+            if os.environ.get("FLASK_ENV") == "production" and engine.dialect.name == "postgresql":
+                role = db.exec(text("SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = current_user")).first()
+                if any(role):
+                    return {"status": "degraded", "database": "overprivileged_role"}, 503
         return {"status": "ok", "database": "ok"}, 200
     except Exception as exc:
         app.logger.warning("Health check failed: %s", exc)
@@ -563,7 +773,7 @@ def healthz():
 
 
 @app.route("/api/shadowdarklings/import", methods=["POST"])
-@csrf.exempt
+@rate_limit("10 per hour")
 def import_shadowdarklings_character():
     # login_required: this endpoint launches a headless browser server-side —
     # anonymous access would be a trivial resource-exhaustion (DoS) vector.
@@ -576,13 +786,22 @@ def import_shadowdarklings_character():
             "message": "Character import is not available in this environment.",
         }, 503
     allow_anon_dev_import = os.getenv("ALLOW_ANON_SHADOWDARKLINGS_IMPORT") == "1"
-    if not current_user.is_authenticated and not allow_anon_dev_import:
+    from rooms import find_member
+    request_data = request.get_json(silent=True) or {}
+    room_id = request_data.get("room_id")
+    room = get_db_session().get(GameRoom, room_id) if isinstance(room_id, str) else None
+    member = find_member(get_db_session(), room) if room else None
+    room_guest = bool(member and member.status == "active" and room.closed_at is None)
+    if not current_user.is_authenticated and not allow_anon_dev_import and not room_guest:
         return {"error": "login_required", "message": "Authentication required."}, 401
 
     try:
-        data = request.get_json(silent=True) or {}
+        data = request_data
         base_classes_only = bool(data.get("base_classes_only", False))
-        character_json = fetch_shadowdarklings_character_json(base_classes_only=base_classes_only)
+        from import_capacity import import_slot
+        with import_slot():
+            character_json = fetch_shadowdarklings_character_json(base_classes_only=base_classes_only)
+        validate_json(json.loads(character_json), max_bytes=128 * 1024)
     except Exception as exc:
         # Hardened production failover to 503 Service Unavailable per contract architecture
         return {
@@ -657,50 +876,7 @@ def populate_child_tables(db, run, state):
     db.commit()
 
 
-SHADOWDARKLINGS_SOURCE_SWITCHES = [
-    "Scroll #1",
-    "Scroll #2",
-    "Scroll #3",
-    "Scroll #4",
-    "B&R&K",
-    "Roustabout",
-    "Unnatural Selection",
-    "Darcy",
-]
-
-
-def set_shadowdarklings_source_switches(page, enabled: bool) -> None:
-    """Set the optional ShadowDarklings source switches to a consistent state."""
-    for label in SHADOWDARKLINGS_SOURCE_SWITCHES:
-        switch = page.get_by_role("switch", name=label)
-        try:
-            switch.set_checked(enabled)
-        except Exception:
-            # Some source switches may be disabled by the site; skip those safely.
-            continue
-
-
-def fetch_shadowdarklings_character_json(base_classes_only: bool = False) -> str:
-    """Generate a ShadowDarklings character and capture the exported JSON from the live site."""
-    from playwright.sync_api import sync_playwright
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            context = browser.new_context(viewport={"width": 1280, "height": 1440})
-            context.grant_permissions(["clipboard-read", "clipboard-write"], origin=SHADOWDARKLINGS_CREATE_URL)
-            page = context.new_page()
-            page.goto(SHADOWDARKLINGS_CREATE_URL, wait_until="networkidle")
-            page.get_by_role("button", name="Random 1").click()
-            set_shadowdarklings_source_switches(page, not base_classes_only)
-            page.get_by_role("button", name="Generate a Random Character").click()
-            page.get_by_role("button", name="JSON").click()
-            page.wait_for_timeout(750)
-            clipboard_text = str(page.evaluate("navigator.clipboard.readText()")).strip()
-            if not clipboard_text:
-                raise RuntimeError("ShadowDarklings export did not return character JSON.")
-            return clipboard_text
-    except Exception as exc:
-        raise RuntimeError(f"ShadowDarklings import failed: {exc}") from exc
+from shadowdarklings_import import fetch_shadowdarklings_character_json
 
 
 # ---------------------------------------------------------------------------
@@ -716,7 +892,7 @@ def list_runs_page():
     db = get_db_session()
     runs = db.exec(
         select(SavedRun)
-        .where(SavedRun.user_id == current_user.id)
+        .where(SavedRun.user_id == current_user.id, SavedRun.deleted_at == None)
         .order_by(SavedRun.updated_at.desc())
         .limit(limit)
     ).all()
@@ -725,7 +901,7 @@ def list_runs_page():
 
 @app.route("/api/runs", methods=["POST"])
 @login_required
-@csrf.exempt
+@rate_limit("60 per minute")
 def create_run():
     data = request.get_json(silent=True)
     if data is None:
@@ -743,10 +919,20 @@ def create_run():
     if not isinstance(state_json, dict):
         return {"error": "invalid_state", "message": "state_json is required and must be an object."}, 400
         
+    try:
+        validate_state(state_json)
+    except ValueError as exc:
+        return {"error": "invalid_state", "message": str(exc)}, 400
     db = get_db_session()
-    
+    db.exec(update(User).where(User.id == current_user.id).values(session_version=User.session_version))
+    if len(db.exec(select(SavedRun.id).where(SavedRun.user_id == current_user.id, SavedRun.deleted_at == None)).all()) >= 10:
+        return {"error": "save_limit", "message": "You can keep up to 10 saved games. Replace or delete an existing save."}, 409
+    state_json["schema_version"] = 1
     run = SavedRun(user_id=current_user.id, seed=seed, level=level, state_json=state_json)
     db.add(run)
+    if not storage_available(db, current_user.id, SavedRun, SavedCharacter):
+        db.rollback()
+        return STORAGE_FULL
     db.commit()
     db.refresh(run)
     
@@ -760,6 +946,7 @@ def create_run():
 
     return {
         "id": run.id,
+        "revision": run.revision,
         "seed": run.seed,
         "level": run.level,
         "state_json": run.state_json,
@@ -778,7 +965,7 @@ def api_list_runs():
     db = get_db_session()
     runs = db.exec(
         select(SavedRun)
-        .where(SavedRun.user_id == current_user.id)
+        .where(SavedRun.user_id == current_user.id, SavedRun.deleted_at == None)
         .order_by(SavedRun.updated_at.desc())
         .limit(limit)
     ).all()
@@ -787,6 +974,8 @@ def api_list_runs():
     for r in runs:
         results.append({
             "id": r.id,
+            "revision": r.revision,
+            "name": r.state_json.get("run", {}).get("name") or f"Level {r.level} - Seed {r.seed}",
             "seed": r.seed,
             "level": r.level,
             "created_at": r.created_at.isoformat() if r.created_at else None,
@@ -803,11 +992,12 @@ def get_run(run_id):
     run = db.exec(select(SavedRun).where(SavedRun.id == run_id)).first()
     
     # Enforce BOLA OWASP A01 Rule: 404 instead of 403 (§4)
-    if run is None or run.user_id != current_user.id:
+    if run is None or run.user_id != current_user.id or run.deleted_at:
         return {"error": "not_found", "message": "Saved run not found."}, 404
         
     return {
         "id": run.id,
+        "revision": run.revision,
         "seed": run.seed,
         "level": run.level,
         "state_json": run.state_json,
@@ -818,18 +1008,23 @@ def get_run(run_id):
 
 @app.route("/api/runs/<int:run_id>", methods=["PUT"])
 @login_required
-@csrf.exempt
+@rate_limit("60 per minute")
 def update_run(run_id):
     data = request.get_json(silent=True)
     if data is None:
         return {"error": "invalid_json", "message": "Request body must be valid JSON."}, 400
         
     db = get_db_session()
+    db.exec(update(User).where(User.id == current_user.id).values(session_version=User.session_version))
     run = db.exec(select(SavedRun).where(SavedRun.id == run_id)).first()
     
     # Enforce BOLA OWASP A01 Rule: 404 instead of 403 (§4)
-    if run is None or run.user_id != current_user.id:
+    if run is None or run.user_id != current_user.id or run.deleted_at:
         return {"error": "not_found", "message": "Saved run not found."}, 404
+    if db.exec(select(GameRoom.id).where(GameRoom.saved_run_id == run.id)).first():
+        return {"error": "room_save", "message": "Open this hosted dungeon before saving it."}, 409
+    if type(data.get("revision")) is not int or data["revision"] != run.revision:
+        return {"error": "revision_conflict", "message": "This save changed in another window. Reload it before overwriting."}, 409
         
     state_json = data.get("state_json")
     if not isinstance(state_json, dict):
@@ -847,10 +1042,25 @@ def update_run(run_id):
             return {"error": "invalid_level", "message": "Level must be between 1 and 10."}, 400
         run.level = level
         
-    run.state_json = state_json
-    run.updated_at = datetime.now(timezone.utc)
-    
-    db.add(run)
+    try:
+        validate_state(state_json)
+    except ValueError as exc:
+        return {"error": "invalid_state", "message": str(exc)}, 400
+    snapshot = SaveCheckpoint(saved_run_id=run.id, revision=run.revision, state_json=run.state_json)
+    state_json["schema_version"] = 1
+    changed = db.exec(update(SavedRun).where(SavedRun.id == run.id, SavedRun.revision == data["revision"], SavedRun.deleted_at == None).values(
+        state_json=state_json, seed=run.seed, level=run.level, revision=SavedRun.revision + 1, updated_at=datetime.now(timezone.utc)))
+    if changed.rowcount != 1:
+        db.rollback()
+        return {"error": "revision_conflict", "message": "This save changed. Reload before overwriting."}, 409
+    db.add(snapshot)
+    db.flush()
+    old = db.exec(select(SaveCheckpoint.id).where(SaveCheckpoint.saved_run_id == run.id).order_by(SaveCheckpoint.id.desc()).offset(10)).all()
+    if old:
+        db.exec(delete(SaveCheckpoint).where(SaveCheckpoint.id.in_(old)))
+    if not storage_available(db, current_user.id, SavedRun, SavedCharacter):
+        db.rollback()
+        return STORAGE_FULL
     db.commit()
     db.refresh(run)
     
@@ -863,6 +1073,7 @@ def update_run(run_id):
 
     return {
         "id": run.id,
+        "revision": run.revision,
         "seed": run.seed,
         "level": run.level,
         "state_json": run.state_json,
@@ -873,16 +1084,21 @@ def update_run(run_id):
 
 @app.route("/api/runs/<int:run_id>", methods=["DELETE"])
 @login_required
-@csrf.exempt
 def delete_run(run_id):
     db = get_db_session()
+    db.exec(update(User).where(User.id == current_user.id).values(session_version=User.session_version))
     run = db.exec(select(SavedRun).where(SavedRun.id == run_id)).first()
     
     # Enforce BOLA OWASP A01 rule (404 instead of 403)
-    if run is None or run.user_id != current_user.id:
+    if run is None or run.user_id != current_user.id or run.deleted_at:
         return {"error": "not_found", "message": "Saved run not found."}, 404
         
-    db.delete(run)
+    run.deleted_at = datetime.now(timezone.utc)
+    run.revision += 1
+    db.add(run)
+    for room in db.exec(select(GameRoom).where(GameRoom.saved_run_id == run.id)).all():
+        room.closed_at = datetime.now(timezone.utc)
+        db.add(room)
     db.commit()
 
     return "", 204
@@ -890,7 +1106,7 @@ def delete_run(run_id):
 
 @app.route("/api/characters", methods=["POST"])
 @login_required
-@csrf.exempt
+@rate_limit("60 per minute")
 def create_saved_character():
     data = request.get_json(silent=True)
     if data is None:
@@ -903,18 +1119,29 @@ def create_saved_character():
     if not isinstance(character_json, dict):
         return {"error": "invalid_character", "message": "character_json is required and must be an object."}, 400
 
+    try:
+        validate_json(character_json, max_bytes=128 * 1024)
+    except ValueError as exc:
+        return {"error": "invalid_character", "message": str(exc)}, 400
     db = get_db_session()
+    db.exec(update(User).where(User.id == current_user.id).values(session_version=User.session_version))
+    if len(db.exec(select(SavedCharacter.id).where(SavedCharacter.user_id == current_user.id, SavedCharacter.deleted_at == None)).all()) >= 50:
+        return {"error": "save_limit", "message": "Your 50-character library is full."}, 409
     saved = SavedCharacter(
         user_id=current_user.id,
         name=name.strip()[:200],
         character_json=character_json,
     )
     db.add(saved)
+    if not storage_available(db, current_user.id, SavedRun, SavedCharacter):
+        db.rollback()
+        return STORAGE_FULL
     db.commit()
     db.refresh(saved)
 
     return {
         "id": saved.id,
+        "revision": saved.revision,
         "name": saved.name,
         "character_json": saved.character_json,
         "created_at": saved.created_at.isoformat() if saved.created_at else None,
@@ -932,7 +1159,7 @@ def api_list_saved_characters():
     db = get_db_session()
     characters = db.exec(
         select(SavedCharacter)
-        .where(SavedCharacter.user_id == current_user.id)
+        .where(SavedCharacter.user_id == current_user.id, SavedCharacter.deleted_at == None)
         .order_by(SavedCharacter.updated_at.desc())
         .limit(limit)
     ).all()
@@ -941,6 +1168,7 @@ def api_list_saved_characters():
         "results": [
             {
                 "id": character.id,
+                "revision": character.revision,
                 "name": character.name,
                 "created_at": character.created_at.isoformat() if character.created_at else None,
                 "updated_at": character.updated_at.isoformat() if character.updated_at else None,
@@ -958,11 +1186,12 @@ def get_saved_character(character_id):
     db = get_db_session()
     saved = db.exec(select(SavedCharacter).where(SavedCharacter.id == character_id)).first()
 
-    if saved is None or saved.user_id != current_user.id:
+    if saved is None or saved.user_id != current_user.id or saved.deleted_at:
         return {"error": "not_found", "message": "Saved character not found."}, 404
 
     return {
         "id": saved.id,
+        "revision": saved.revision,
         "name": saved.name,
         "character_json": saved.character_json,
         "created_at": saved.created_at.isoformat() if saved.created_at else None,
@@ -1129,7 +1358,7 @@ _INVALID_JSON = ({"error": "invalid_json", "message": "Request body must be vali
 
 @app.route("/api/multiplayer/sessions", methods=["POST"])
 @login_required
-@csrf.exempt
+@rate_limit("10 per minute")
 def create_multiplayer_session():
     data = _json_body_or_none(required=True)
     if data is None:
@@ -1190,7 +1419,7 @@ def create_multiplayer_session():
 
 @app.route("/api/multiplayer/sessions/<invite_code>/join", methods=["POST"])
 @login_required
-@csrf.exempt
+@rate_limit("10 per minute")
 def join_multiplayer_session(invite_code):
     data = _json_body_or_none(required=False)
     if data is None:
@@ -1272,7 +1501,7 @@ def get_multiplayer_session(invite_code):
 
 @app.route("/api/multiplayer/sessions/<invite_code>/state", methods=["PUT"])
 @login_required
-@csrf.exempt
+@rate_limit("120 per minute")
 def update_multiplayer_session_state(invite_code):
     data = _json_body_or_none(required=True)
     if data is None:
@@ -1303,7 +1532,7 @@ def update_multiplayer_session_state(invite_code):
 
 @app.route("/api/multiplayer/sessions/<invite_code>/assignments", methods=["POST"])
 @login_required
-@csrf.exempt
+@rate_limit("60 per minute")
 def assign_multiplayer_character(invite_code):
     data = _json_body_or_none(required=True)
     if data is None:
@@ -1402,6 +1631,11 @@ def get_random_tables():
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+from rooms import register_room_routes
+register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit)
+from account_security import register_account_routes
+register_account_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit)
 
 if __name__ == "__main__":
     # If running locally via python app.py, default to debug mode.

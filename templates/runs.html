@@ -32,6 +32,7 @@
                     <td>{{ run.updated_at.strftime('%b %d, %Y %H:%M') if run.updated_at else '—' }}</td>
                     <td>
                         <a href="{{ url_for('site_home') }}?loadRun={{ run.id }}" class="btn btn-sm btn-outline-primary">Load</a>
+                        <button class="btn btn-sm btn-outline-secondary history-run-btn" data-run-id="{{ run.id }}" data-revision="{{ run.revision }}">History</button>
                         <button class="btn btn-sm btn-outline-danger delete-run-btn" data-run-id="{{ run.id }}">Delete</button>
                     </td>
                 </tr>
@@ -49,7 +50,11 @@
     </div>
     {% endif %}
 </div>
+<section class="my-4"><h2 class="h4">Saved Characters</h2><div id="private-character-list"></div></section>
+<section class="my-4"><h2 class="h4">Recently Deleted</h2><div id="deleted-save-list"></div></section>
+<section class="my-4" id="save-history" hidden><h2 class="h4">Game History</h2><div id="save-history-list"></div></section>
+<p id="save-management-status" role="status"></p>
 
 {# Inline scripts are blocked by the CSP (script-src 'self') — keep JS in static files. #}
-<script src="{{ url_for('static', filename='js/runs.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/runs.js') }}"></script>
 {% endblock %}

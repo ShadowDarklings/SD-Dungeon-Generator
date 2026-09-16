@@ -31,6 +31,8 @@ import {
   createSavedCharacter,
   updateRun
 } from "./persistence.js";
+import { serializeDungeonState } from "./persistence.js";
+import { getAccountSession } from "./api.js";
 import {
   abilityScoreModifier,
   decrementCharacterDyingRounds,
@@ -55,12 +57,12 @@ import { extractDamageReferences, normalizeDamageExpression, rollDamageExpressio
 import { preloadRendererAssets, renderDungeon } from "./render.js";
 import { loadSpellLibrary, normalizeSpellLookupKey } from "./spells.js";
 import {
-  assignSessionCharacter,
+  roomRequest,
+  listJoinedRooms,
   createHostSession,
   getHostSession,
   joinHostSession,
-  normalizeSessionCode,
-  updateHostSessionState
+  normalizeSessionCode
 } from "./multiplayer.js";
 import {
   advanceTorchTime,
@@ -78,6 +80,8 @@ import {
   wanderingEnabled
 } from "./wandering.js";
 
+const SERVER_RUNTIME = globalThis.__SD_SERVER_RUNTIME__ === true;
+let serverMonsterTurns = null;
 const ui = {
   mapHost: document.getElementById("map-host"),
   levelInput: document.getElementById("level-input"),
@@ -224,6 +228,7 @@ let multiplayerSession = {
 let multiplayerRefreshTimer = null;
 let multiplayerRefreshInFlight = false;
 let multiplayerAutoJoinAttempted = false;
+let accountSession = { authenticated: false };
 let pendingLightRequest = null;
 let lastDyingAutoTickAt = Date.now();
 let autoEndTurnTimer = null;
@@ -578,6 +583,7 @@ function setStatus(resultOrMessage) {
 }
 
 function delay(ms) {
+  if (SERVER_RUNTIME) return Promise.resolve();
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
@@ -703,6 +709,7 @@ async function flyOutCombatBanner() {
 }
 
 async function showCombatBannerNow(text, color, options = {}) {
+  if (SERVER_RUNTIME) return;
   const layer = getCombatBannerLayer();
   if (!layer) {
     return;
@@ -795,7 +802,7 @@ function syncSidebarWidth() {
   if (!panel) {
     return;
   }
-  panel.style.width = `${SIDEBAR_WIDTH_PX}px`;
+  panel.style.width = window.innerWidth <= 1200 ? "100%" : `${SIDEBAR_WIDTH_PX}px`;
   panel.style.setProperty("--sidebar-width", `${SIDEBAR_WIDTH_PX}px`);
   const layout = document.querySelector(".layout");
   if (layout) {
@@ -822,6 +829,7 @@ function processWanderingChecks(count) {
 }
 
 function render() {
+  if (SERVER_RUNTIME) return;
   renderDungeon(state, layers, {
     forceBlackout: forceBlackoutWhenTorchOut && !hasAnyVisibleLightSource()
   });
@@ -1058,6 +1066,7 @@ function getMonsterAttackDisplayName(monster) {
 }
 
 function applyMonsterAttackRoll(monster, attack) {
+  if (isSharedRoom()) return;
   if (!ui.damageResult || !attack) {
     return;
   }
@@ -1078,6 +1087,7 @@ function createMonsterAttackButton(monster, attack) {
   button.className = "damage-token attack-roll-button";
   button.textContent = attack.name;
   button.title = `Roll attack ${attack.bonusText || formatModifier(attack.bonus || 0)}`;
+  button.disabled = isSharedRoom();
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     applyMonsterAttackRoll(monster, attack);
@@ -1408,6 +1418,7 @@ function shouldAutoEndCurrentCharacterTurn() {
 }
 
 function scheduleAutoEndTurnIfNeeded(delayMs = 300) {
+  if (SERVER_RUNTIME || isSharedRoom()) return;
   clearAutoEndTurnTimer();
   if (!shouldAutoEndCurrentCharacterTurn()) {
     return;
@@ -1639,9 +1650,7 @@ function checkCombatEnd() {
     return true;
   }
   combat.turnOrder = combat.turnOrder.filter((entry) => entry.type === "monster" || state.characters.some((character) => character.id === entry.id && !isCharacterDead(character)));
-  if (combat.turnIndex >= combat.turnOrder.length) {
-    combat.turnIndex = 0;
-  }
+  // The turn-advance caller starts the next round after the final entry.
   return false;
 }
 
@@ -1695,7 +1704,8 @@ function startCurrentCombatTurn() {
     return;
   }
   if (entry.type === "monster") {
-    void runAutoMonsterTurns();
+    if (SERVER_RUNTIME) serverMonsterTurns = runAutoMonsterTurns();
+    else void runAutoMonsterTurns();
     return;
   }
   const character = state.characters.find((candidate) => candidate.id === entry.id);
@@ -1757,6 +1767,7 @@ function advanceCombatTurn() {
 }
 
 function endCurrentTurn() {
+  if (sendSharedCommand("end_turn")) return;
   const entry = getCurrentCombatEntry();
   if (!entry || entry.type !== "character") {
     setStatus("It is not a character turn.");
@@ -1799,6 +1810,7 @@ function characterWearsHeavyStealthArmor(character) {
 }
 
 function performStealth() {
+  if (sendSharedCommand("stealth")) return;
   const character = getActiveCharacter(state);
   if (!character) {
     setStatus("Select a character to attempt stealth.");
@@ -1959,6 +1971,11 @@ function getAlertingMonstersFromAttack(originMonster) {
 }
 
 function resolveCharacterAttackAgainstMonster(character, combatAttack, monster) {
+  if (isSharedRoom()) {
+    const attackIndex = getRenderableAttacks(character).findIndex((text) => parseAttackText(text)?.name === combatAttack?.attack?.name);
+    sendSharedCommand("attack", { monster_id: monster?.id, attack_index: Math.max(0, attackIndex) }, character);
+    return { message: "Attack submitted." };
+  }
   if (!character) {
     const message = "Select a character before attacking a monster.";
     setStatus(message);
@@ -2050,6 +2067,7 @@ function attackClickedMonster(monster) {
 }
 
 function applyDamageResultToPanel(roll, sourceLabel) {
+  if (SERVER_RUNTIME) { lastDamageRoll = { ...roll, sourceLabel }; return; }
   if (!ui.damageResult || !roll) {
     return;
   }
@@ -2061,7 +2079,7 @@ function applyDamageResultToPanel(roll, sourceLabel) {
     display: roll.expression
   };
   if (ui.damageExpandBtn) {
-    ui.damageExpandBtn.hidden = roll.terms.length === 0;
+    ui.damageExpandBtn.hidden = !(roll.terms?.length || roll.rolls?.length);
   }
   renderDamageDetail(lastDamageRoll);
   pushDiceHistory(`${roll.total} Damage`, `${sourceLabel || "Damage"} ${roll.expression}`);
@@ -2120,6 +2138,7 @@ function processMonsterSightings() {
 }
 
 function processMonsterVisibilityChange() {
+  if (isSharedRoom()) return null;
   if (!state) {
     return { combatStarted: false, combatEnded: false, messages: [] };
   }
@@ -2150,6 +2169,7 @@ function removeMonsterPeacefully(monster) {
 }
 
 function persuadeMonster(monster) {
+  if (sendSharedCommand("persuade", { monster_id: monster?.id })) return;
   const character = getActiveCharacter(state);
   if (!character) {
     setStatus("Select a character to persuade the monster.");
@@ -2424,6 +2444,7 @@ async function runMonsterTurn(monster) {
 }
 
 async function runAutoMonsterTurns() {
+  if (isSharedRoom()) return;
   const combat = ensureCombatState();
   if (combat.autoRunning) {
     return;
@@ -2531,7 +2552,7 @@ function createBackstabButton(character, attack) {
       expression: backstabExpression,
       display: `${attack.name} Backstab x ${multiplier}`,
       context: `${attack.name} backstab ${backstabExpression}`
-    }, `${character?.name || "Character"} backstab`);
+    }, `${character?.name || "Character"} backstab`, { character });
   });
   return button;
 }
@@ -3364,6 +3385,7 @@ function getLightAttemptFailure(source) {
 }
 
 function attemptLightSource(source) {
+  if (sendSharedCommand("light", { source })) return;
   const active = getActiveCharacter(state);
   const failure = getLightAttemptFailure(source);
   if (failure) {
@@ -3743,6 +3765,7 @@ function addDroppedGearPile(item, tile, litSource = "") {
 }
 
 function dropCharacterGear(character, gearIndex) {
+  if (sendSharedCommand("drop_gear", { gear_index: gearIndex }, character)) return { message: "Item drop submitted." };
   if (!character || !Array.isArray(character.gear)) {
     return { message: "No character gear to drop." };
   }
@@ -3787,6 +3810,7 @@ function dropCharacterGear(character, gearIndex) {
 }
 
 function pickupDroppedEquipment(entity) {
+  if (sendSharedCommand("pickup", { entity_id: entity?.id })) return { message: "Pickup submitted." };
   const character = getActiveCharacter(state);
   if (!character) {
     return { message: "Select a character to pick up equipment." };
@@ -4855,6 +4879,7 @@ function setCharacterMoneyValue(character, key, value) {
 }
 
 function updateCharacterMoneyField(character, key, nextValue) {
+  if (sendSharedCommand("money", { key, amount: Number(nextValue) }, character)) return getCharacterMoney(character, key);
   const previousValue = getCharacterMoney(character, key);
   if (Number.parseInt(nextValue, 10) > previousValue) {
     return previousValue;
@@ -5183,6 +5208,7 @@ function syncPlayerToActiveCharacter() {
 }
 
 function activateCharacter(character) {
+  if (!ownsCharacter(character)) return null;
   if (!state || !character) {
     return null;
   }
@@ -5287,6 +5313,7 @@ function applyCharacterAmmoOverrides() {
 }
 
 function refreshCharacterViews(character) {
+  if (sendSharedCommand("edit_character", { character_json: structuredClone(character) }, character)) return;
   const currentCharacter = getCurrentCharacter(character);
   clearMagicLightIfIncapacitated(currentCharacter);
   normalizeCharacterState(state);
@@ -5348,6 +5375,41 @@ function renderCharacterCard(character) {
 
   const header = document.createElement("div");
   header.className = "character-mini-header";
+  const reorder = document.createElement("button");
+  reorder.type = "button";
+  reorder.className = "character-reorder-handle";
+  reorder.textContent = "::";
+  reorder.title = "Reorder character";
+  reorder.setAttribute("aria-label", `Reorder ${character.name}`);
+  reorder.addEventListener("click", (event) => event.stopPropagation());
+  let reorderPointer = null;
+  reorder.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    reorderPointer = event.pointerId;
+    reorder.setPointerCapture(event.pointerId);
+  });
+  reorder.addEventListener("pointerup", (event) => {
+    if (event.pointerId !== reorderPointer) return;
+    event.stopPropagation();
+    reorderPointer = null;
+    const destination = document.elementFromPoint(event.clientX, event.clientY)?.closest(".character-card")?.dataset.characterId;
+    reorderLocalCharacter(character.id, destination);
+  });
+  reorder.addEventListener("pointercancel", () => { reorderPointer = null; });
+  reorder.addEventListener("keydown", (event) => {
+    if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const ids = [...ui.charactersList.children].map((item) => item.dataset.characterId);
+    const index = ids.indexOf(character.id);
+    const nextIndex = Math.max(0, Math.min(ids.length - 1, index + (event.key === "ArrowUp" ? -1 : 1)));
+    ids.splice(index, 1);
+    ids.splice(nextIndex, 0, character.id);
+    localStorage.setItem(roomOrderKey(), JSON.stringify(ids));
+    updateCharactersUi();
+  });
+  header.append(reorder);
   const name = document.createElement("span");
   name.className = "character-mini-name";
   name.textContent = character.name;
@@ -5375,6 +5437,7 @@ function renderCharacterCard(character) {
 }
 
 function removeCharacterCompletely(character) {
+  if (sendSharedCommand(isCharacterDead(character) ? "bury" : "dismiss", {}, character)) return false;
   if (!state || !character?.id) {
     return false;
   }
@@ -5491,6 +5554,14 @@ function renderCharacterDetail(character, target = ui.characterDetail, options =
     sheet.append(dismissal);
   }
   target.append(sheet);
+  target.dataset.characterId = character.id;
+  if (isSharedRoom() && !canControlCharacter(character)) {
+    for (const control of target.querySelectorAll("input, select, textarea, button")) control.disabled = true;
+    const save = target.querySelector(".sd-save-character-button");
+    if (save && ownsCharacter(character)) save.disabled = false;
+    const bury = target.querySelector(".sd-dismiss-button");
+    if (bury && isCharacterDead(character) && canBuryCharacter(character)) bury.disabled = false;
+  }
 }
 
 function enableCharacterNameEdit(character) {
@@ -6038,6 +6109,7 @@ function createMiniInlineNumberField(value, max, onChange) {
 }
 
 function updateCharactersUi() {
+  if (SERVER_RUNTIME) return;
   if (!state) {
     return;
   }
@@ -6050,15 +6122,38 @@ function updateCharactersUi() {
   applyCharacterColorOverrides();
   ensureCharacterPresentation();
   ui.charactersList.innerHTML = "";
+  if (isSharedRoom() && !multiplayerSession.owned_character_ids?.includes(state.activeCharacterId)) state.activeCharacterId = multiplayerSession.owned_character_ids?.[0] || null;
   ui.charactersEmpty.hidden = state.characters.length > 0;
-  for (const character of state.characters) {
-    ui.charactersList.append(renderCharacterCard(character));
+  const order = localCharacterOrder();
+  const orderedCharacters = [...state.characters].sort((a, b) => {
+    const index = (id) => order.includes(id) ? order.indexOf(id) : order.length;
+    return index(a.id) - index(b.id);
+  });
+  for (const character of orderedCharacters) {
+    const card = renderCharacterCard(character);
+    card.dataset.characterId = character.id;
+    card.draggable = true;
+    card.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/plain", character.id));
+    card.addEventListener("dragover", (event) => event.preventDefault());
+    card.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const source = event.dataTransfer.getData("text/plain");
+      if (source === character.id || !state.characters.some((item) => item.id === source)) return;
+      const ids = orderedCharacters.map((item) => item.id).filter((id) => id !== source);
+      ids.splice(ids.indexOf(character.id), 0, source);
+      localStorage.setItem(roomOrderKey(), JSON.stringify(ids));
+      updateCharactersUi();
+    });
+    card.classList.toggle("is-readonly", !canControlCharacter(character));
+    if (!canControlCharacter(character)) for (const control of card.querySelectorAll("input, select, button:not(.character-reorder-handle)")) control.disabled = true;
+    ui.charactersList.append(card);
   }
   ui.characterDetail.hidden = true;
   ui.characterDetail.innerHTML = "";
 }
 
 function openCharacterSheet(character) {
+  if (isSharedRoom() && multiplayerSession.role !== "host" && !multiplayerSession.owned_character_ids?.length) return;
   if (!ui.characterSheetModal || !ui.characterSheetContent) {
     return;
   }
@@ -6467,7 +6562,7 @@ async function importShadowdarklingsCharacterOneClick() {
     return;
   }
 
-  const livingCount = state.characters.filter((character) => character.dead !== true && character.slain !== true).length;
+  const livingCount = state.characters.length;
   const availableSlots = Math.max(0, MAX_SESSION_CHARACTERS - livingCount);
   if (!availableSlots) {
     ui.charactersEmpty.hidden = false;
@@ -6487,7 +6582,8 @@ async function importShadowdarklingsCharacterOneClick() {
 
   try {
     const characterJson = await importShadowdarklingsCharacter({
-      baseClassesOnly: getBaseClassesOnlyToggleState()
+      baseClassesOnly: getBaseClassesOnlyToggleState(),
+      roomId: multiplayerSession.id
     });
     const characters = extractShadowdarkCharacters(characterJson);
     if (!characters.length) {
@@ -6495,6 +6591,11 @@ async function importShadowdarklingsCharacterOneClick() {
     }
 
     const importedCharacters = characters.slice(0, availableSlots);
+    if (isSharedRoom()) {
+      await executeSharedCommand({ type: "import", character_json: importedCharacters[0] });
+      return;
+    }
+    for (const imported of importedCharacters) putCharacterFirst(imported.id);
     placeCharactersNearStartingStairs(importedCharacters);
     state.characters.push(...importedCharacters);
     queueCharactersForNextCombatRound(importedCharacters);
@@ -6611,6 +6712,7 @@ function characterHasSpellCastingAdvantage(character, spell) {
 }
 
 function refreshOpenCharacterSheet(character) {
+  if (SERVER_RUNTIME) return;
   updatePanels();
   if (!ui.characterSheetModal?.hidden && ui.characterSheetContent) {
     renderCharacterDetail(getCurrentCharacter(character), ui.characterSheetContent, { popout: true });
@@ -6618,6 +6720,7 @@ function refreshOpenCharacterSheet(character) {
 }
 
 function performSpellCast(character, spell) {
+  if (sendSharedCommand("spell", { spell_name: spell?.name }, character)) return;
   const currentCharacter = getCurrentCharacter(character) || getActiveCharacter(state);
   if (!currentCharacter || !spell) {
     return;
@@ -6761,6 +6864,7 @@ function applyManualDieRoll(button) {
   const modifierInput = ui.manualDieModifier;
   const count = clampNumber(countInput?.value, 1, 99, 1);
   const modifier = clampNumber(modifierInput?.value, -99, 99, 0);
+  if (sendSharedCommand("roll", { sides, count, modifier })) return;
   countInput.value = formatTwoDigitInputValue(count);
   modifierInput.value = formatTwoDigitInputValue(modifier);
   sizeControlField(countInput);
@@ -6915,6 +7019,7 @@ function applyDamageRoll(reference, sourceLabel = "", options = {}) {
   if (!expression || !ui.damageResult) {
     return;
   }
+  if (sendSharedCommand("roll", { expression }, options.character || getActiveCharacter(state))) return;
   const roll = rollDamageExpression(expression);
   lastDamageRoll = {
     ...roll,
@@ -6959,6 +7064,7 @@ function applyGenericSpellCheck(reference, options = {}) {
   const character = getCurrentCharacter(options.character) || getActiveCharacter(state);
   const tier = parseGenericSpellTier(contextText);
   const modifier = parseSpellCheckModifier(reference?.expression, character, contextText);
+  if (sendSharedCommand("roll", { sides: 20, count: 1, modifier }, character)) return;
   const result = rollCheck(modifier);
   const characterName = character?.name || "The caster";
   const succeeded = result.total >= 10 + tier;
@@ -6991,6 +7097,7 @@ function createDamageButton(reference, options = {}) {
   button.className = "damage-token";
   button.textContent = options.label || reference.expression;
   button.title = `Roll ${reference.display || reference.expression}`;
+  button.disabled = isSharedRoom() && !options.character;
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     if (options.spellCheck) {
@@ -6998,7 +7105,7 @@ function createDamageButton(reference, options = {}) {
       return;
     }
     applyDamageRoll(reference, options.sourceLabel || "", {
-      resultLabel: "Damage"
+      resultLabel: "Damage", character: options.character
     });
   });
   return button;
@@ -7058,6 +7165,7 @@ function createDamageAwareLine(text, options = {}) {
 }
 
 function renderSpellDetail(spell, character) {
+  if (SERVER_RUNTIME) return;
   const currentCharacter = getCurrentCharacter(character) || getActiveCharacter(state);
   const failed = isCharacterSpellFailed(currentCharacter, spell);
   ui.spellDetailTitle.textContent = spell.name.toUpperCase();
@@ -7557,6 +7665,7 @@ function moveCoinUnits(source, target, key, amount) {
 }
 
 function adjustCoinFeature(loot, direction) {
+  if (sendSharedCommand("coin_adjust", { entity_id: loot.id, direction })) return false;
   const key = getCoinEntityKey(loot);
   const floor = isFloorCoinEntity(loot);
   let counterpart = findCoinCounterpart(loot, key);
@@ -7579,6 +7688,7 @@ function adjustCoinFeature(loot, direction) {
 }
 
 function setCoinFeatureAmount(loot, nextAmount) {
+  if (sendSharedCommand("coin_amount", { entity_id: loot.id, amount: Number(nextAmount) })) return;
   const key = getCoinEntityKey(loot);
   const current = getCoinEntityAmount(loot, key);
   const counterpart = findCoinCounterpart(loot, key);
@@ -7672,6 +7782,7 @@ function updateRoomLootPanel() {
     lootAllButton.type = "button";
     lootAllButton.textContent = "Get All";
     lootAllButton.addEventListener("click", () => {
+      if (sendSharedCommand("collect")) return;
       const result = collectRoomLoot(state);
       normalizeCharacterState(state);
       syncAllCharacterEquipmentDerivedStats();
@@ -7693,6 +7804,7 @@ function updateRoomLootPanel() {
     const isDroppedEquipment = loot.subtype === "dropped-equipment";
     lootButton.textContent = formatRoomLootButtonText(loot);
     lootButton.addEventListener("click", () => {
+      if (sendSharedCommand("pickup", { entity_id: loot.id })) return;
       const activeCharacter = getActiveCharacter(state);
       const result = isDroppedEquipment
         ? pickupDroppedEquipment(loot)
@@ -7900,6 +8012,7 @@ function updateTrapPanel() {
       disarmButton.type = "button";
       disarmButton.textContent = "Disarm?";
       disarmButton.addEventListener("click", () => {
+        if (sendSharedCommand("disarm", { entity_id: trap.id })) return;
         const context = getCharacterActionContext("disarm");
         const result = disarmTrap(state, trap.id, context.modifier, { doubleRoll: context.doubleRoll });
         const message = createDisarmResultMessage(result);
@@ -7921,6 +8034,7 @@ function updateTrapPanel() {
 }
 
 function updatePanels() {
+  if (SERVER_RUNTIME) return;
   updatePartyAssetsUi();
   updateLootUi();
   updateCharactersUi();
@@ -7980,6 +8094,7 @@ function formatRollTooltip(result, action) {
 }
 
 function showCheckResult(result, action = "check", options = {}) {
+  if (SERVER_RUNTIME) { lastDamageRoll = { kind: "check", result, actionLabel: action, total: result?.total }; return; }
   if (!result || !ui.damageResult) {
     return;
   }
@@ -8064,6 +8179,7 @@ function processOutOfCombatDyingTick() {
 }
 
 function performSearch() {
+  if (sendSharedCommand("search")) return;
   if (!state) {
     return;
   }
@@ -8092,6 +8208,7 @@ function performSearch() {
 }
 
 function performGet() {
+  if (sendSharedCommand("get")) return;
   if (!state) {
     return;
   }
@@ -8114,6 +8231,7 @@ function performGet() {
 }
 
 function performLeave() {
+  if (sendSharedCommand("leave")) return;
   if (!state) {
     return;
   }
@@ -8132,6 +8250,7 @@ function performLeave() {
 }
 
 function performDisarm() {
+  if (sendSharedCommand("disarm")) return;
   if (!state) {
     return;
   }
@@ -8186,7 +8305,10 @@ async function saveCharacterSnapshot(character) {
     saveButton.textContent = "SAVING...";
   }
   try {
-    const result = await createSavedCharacter(formatSavedCharacterName(currentCharacter), currentCharacter);
+    if (!ownsCharacter(currentCharacter)) throw new Error("You can save only your own characters.");
+    const result = isSharedRoom()
+      ? await roomRequest(multiplayerSession.id, `characters/${currentCharacter.id}/save`, { name: formatSavedCharacterName(currentCharacter) })
+      : await createSavedCharacter(formatSavedCharacterName(currentCharacter), currentCharacter);
     setStatus(`Saved character ${result.name || currentCharacter.name}.`);
   } catch (error) {
     setStatus(error.message);
@@ -8231,6 +8353,12 @@ function renderSavedCharactersList() {
 async function loadSelectedCharacter(savedCharacter) {
   ui.saveLoadStatus.textContent = "Loading character...";
   try {
+    if (state.characters.length >= MAX_SESSION_CHARACTERS) throw new Error("The dungeon already contains 16 characters.");
+    if (isSharedRoom()) {
+      await executeSharedCommand({ type: "import", saved_character_id: savedCharacter.id });
+      closeSaveLoadModal();
+      return;
+    }
     const loaded = savedCharacter.character_json ? savedCharacter : await loadSavedCharacter(savedCharacter.id);
     const [character] = extractShadowdarkCharacters(JSON.stringify(loaded.character_json));
     if (!character) {
@@ -8245,6 +8373,7 @@ async function loadSelectedCharacter(savedCharacter) {
     const previousActiveCharacterId = state.activeCharacterId;
     placeCharactersNearStartingStairs([character]);
     state.characters.push(character);
+    putCharacterFirst(character.id);
     if (!isCombatActive()) {
       state.activeCharacterId = character.id;
     } else {
@@ -8277,6 +8406,15 @@ async function refreshSavedRuns() {
   ui.savedRunsList.innerHTML = "";
   try {
     saveDialog.runs = await listRunsWithNames();
+    if (saveDialog.mode !== "save") {
+      const joined = await listJoinedRooms();
+      const roomRuns = joined.results || [];
+      const roomSaveIds = new Set(roomRuns.map((room) => room.saved_run_id));
+      saveDialog.runs = [
+        ...roomRuns.map((room) => ({ ...room, room_id: room.id })),
+        ...saveDialog.runs.filter((run) => !roomSaveIds.has(run.id))
+      ];
+    }
     ui.saveLoadStatus.textContent = saveDialog.runs.length ? "" : "No saved runs yet.";
   } catch (error) {
     saveDialog.runs = [];
@@ -8295,7 +8433,7 @@ function renderSavedRunsList() {
     label.textContent = run.name || `Level ${run.level} - Seed ${run.seed}`;
     const meta = document.createElement("span");
     meta.className = "saved-run-meta";
-    meta.textContent = `L${run.level} seed ${run.seed}`;
+    meta.textContent = run.room_id ? (run.role === "host" ? "Hosted dungeon" : "Joined host's dungeon") : `L${run.level} seed ${run.seed}`;
     button.append(label, meta);
     button.addEventListener("click", () => {
       if (saveDialog.mode === "save") {
@@ -8315,6 +8453,7 @@ function renderSavedRunsList() {
 }
 
 async function openSaveLoadModal(mode) {
+  if (mode === "save" && isSharedRoom() && multiplayerSession.role !== "host") return;
   saveDialog = {
     mode,
     runs: [],
@@ -8355,6 +8494,14 @@ async function saveCurrentRun(overwriteRun = null) {
     ui.saveLoadStatus.textContent = "Enter a save name.";
     return;
   }
+  if (isSharedRoom()) {
+    try {
+      const saved = await requestRoomHostChange("save", { name });
+      applyMultiplayerSessionState(saved);
+      ui.saveLoadStatus.textContent = "Dungeon saved.";
+    } catch (error) { ui.saveLoadStatus.textContent = error.message; }
+    return;
+  }
   const duplicate = overwriteRun || findRunByName(name);
   if (!overwriteRun && duplicate) {
     saveDialog.pendingRun = duplicate;
@@ -8369,9 +8516,10 @@ async function saveCurrentRun(overwriteRun = null) {
   ui.saveLoadStatus.textContent = "Saving...";
   try {
     const result = duplicate
-      ? await updateRun(duplicate.id, name, state)
+      ? await updateRun(duplicate.id, name, state, duplicate.revision)
       : await createRun(name, state);
     state.run.id = result.id || duplicate?.id || state.run.id;
+    state.run.revision = result.revision;
     state.run.name = name;
     state.run.dirty = false;
     state.run.lastSavedAt = result.updated_at || result.created_at || new Date().toISOString();
@@ -8385,6 +8533,13 @@ async function saveCurrentRun(overwriteRun = null) {
 async function loadSelectedRun(run) {
   ui.saveLoadStatus.textContent = "Loading...";
   try {
+    if (run.room_id) {
+      if (isSharedRoom() && multiplayerSession.id !== run.room_id) await leaveSharedRoom();
+      applyMultiplayerSessionState(await roomRequest(run.room_id, "resume", {}));
+      closeSaveLoadModal();
+      return;
+    }
+    if (isSharedRoom()) await leaveSharedRoom();
     const loaded = await (run.state_json ? Promise.resolve(run) : loadRun(run.id));
     state = hydrateDungeonState(loaded.state_json);
     state.run.id = loaded.id;
@@ -8407,313 +8562,342 @@ async function loadSelectedRun(run) {
   }
 }
 
-function normalizeMultiplayerSession(raw = {}, fallback = {}) {
-  const inviteCode = raw.invite_code || raw.code || raw.session_code || fallback.inviteCode || "";
-  return {
-    inviteCode,
-    inviteUrl: raw.invite_url || fallback.inviteUrl || (inviteCode ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(inviteCode)}` : ""),
-    role: raw.role || fallback.role || "",
-    currentPlayerId: raw.current_player_id ?? raw.currentPlayerId ?? fallback.currentPlayerId ?? null,
-    players: Array.isArray(raw.players) ? raw.players : fallback.players || [],
-    assignments: Array.isArray(raw.assignments) ? raw.assignments : fallback.assignments || [],
-    stateJson: raw.state_json || raw.stateJson || fallback.stateJson || null
-  };
+function isSharedRoom() {
+  return !SERVER_RUNTIME && Boolean(multiplayerSession.id);
 }
 
-function getAssignedCharacterIdForCurrentPlayer() {
-  const currentPlayerId = String(multiplayerSession.currentPlayerId ?? "");
-  if (!currentPlayerId) {
-    return "";
-  }
-  const assignment = multiplayerSession.assignments.find((entry) => {
-    return String(entry?.player_id ?? entry?.playerId ?? "") === currentPlayerId;
+function ownsCharacter(character) {
+  return !isSharedRoom() || multiplayerSession.owned_character_ids?.includes(character?.id);
+}
+
+function canControlCharacter(character) {
+  return ownsCharacter(character) && (!isSharedRoom() || multiplayerSession.can_explore);
+}
+
+function canBuryCharacter(character) {
+  return !isSharedRoom() || (multiplayerSession.can_explore &&
+    (ownsCharacter(character) || multiplayerSession.role === "host" || multiplayerSession.options?.bury_others));
+}
+
+function roomOrderKey() {
+  return `sd-character-order:${multiplayerSession.id || "solo"}:${multiplayerSession.current_player_id || "local"}`;
+}
+
+function localCharacterOrder() {
+  try { return JSON.parse(localStorage.getItem(roomOrderKey()) || "[]"); } catch { return []; }
+}
+
+function putCharacterFirst(id) {
+  if (SERVER_RUNTIME) return;
+  const order = [id, ...localCharacterOrder().filter((item) => item !== id)];
+  localStorage.setItem(roomOrderKey(), JSON.stringify(order));
+}
+
+function reorderLocalCharacter(source, destination) {
+  if (!destination || source === destination) return;
+  const ids = [...ui.charactersList.children].map((item) => item.dataset.characterId).filter((id) => id !== source);
+  if (!ids.includes(destination)) return;
+  ids.splice(ids.indexOf(destination), 0, source);
+  localStorage.setItem(roomOrderKey(), JSON.stringify(ids));
+  updateCharactersUi();
+}
+
+let sharedCommandQueue = Promise.resolve();
+let sharedCommandPending = 0;
+let applyingSharedState = false;
+const sharedEditTimers = new Map();
+
+async function executeSharedCommand(command, expectedRevision = null) {
+  sharedCommandPending += 1;
+  const task = sharedCommandQueue.then(async () => {
+    const id = multiplayerSession.id;
+    const requestId = crypto.randomUUID();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await roomRequest(id, "commands", {
+          revision: expectedRevision ?? multiplayerSession.revision, request_id: requestId, command
+        });
+        applyMultiplayerSessionState(result, { message: result.message });
+        if (result.dice?.kind === "check") showCheckResult(result.dice.result, result.dice.actionLabel, { message: result.message });
+        else if (result.dice) applyDamageResultToPanel(result.dice, result.message);
+        return result;
+      } catch (error) {
+        if (error.status === 409 && attempt === 0 && command.type !== "edit_character") {
+          applyMultiplayerSessionState(await getHostSession(id));
+          continue;
+        }
+        applyMultiplayerSessionState(await getHostSession(id).catch(() => multiplayerSession));
+        throw error;
+      }
+    }
   });
-  return String(assignment?.character_id ?? assignment?.characterId ?? "");
+  sharedCommandQueue = task.catch((error) => setStatus(error.message)).finally(() => { sharedCommandPending -= 1; });
+  return task;
+}
+
+function sendSharedCommand(type, values = {}, character = getActiveCharacter(state)) {
+  if (!isSharedRoom() || applyingSharedState) return false;
+  if (!(type === "bury" ? canBuryCharacter(character) : canControlCharacter(character))) {
+    setStatus(!ownsCharacter(character) ? "Choose one of your own characters." : "The dungeon is paused while the host is away.");
+    return true;
+  }
+  if (type === "edit_character") {
+    clearTimeout(sharedEditTimers.get(character.id));
+    const revision = multiplayerSession.revision;
+    sharedEditTimers.set(character.id, setTimeout(() => {
+      sharedEditTimers.delete(character.id);
+      void executeSharedCommand({ type, character_id: character.id, ...values }, revision).catch((error) => setStatus(error.message));
+    }, 350));
+    return true;
+  }
+  void executeSharedCommand({ type, character_id: character?.id, ...values }).catch((error) => setStatus(error.message));
+  return true;
 }
 
 function getCharacterNameById(characterId) {
-  if (!characterId) {
-    return "";
-  }
   return state?.characters?.find((character) => character.id === characterId)?.name || "";
 }
 
 function redrawFromHydratedState(message = "") {
-  if (!state) {
-    return;
-  }
-  recomputeVisibility(state);
-  setupCanvasLayers(state);
+  if (!state) return;
+  if (!layers || viewport.width !== state.map.width * TILE_SIZE_PX || viewport.height !== state.map.height * TILE_SIZE_PX) setupCanvasLayers(state);
+  updateCharactersUi();
   updatePanels();
   updateWanderingUi();
   render();
-  if (message) {
-    setStatus(message);
-  }
+  if (message) setStatus(message);
 }
 
-function applyMultiplayerSessionState(sessionPayload, options = {}) {
-  const normalized = normalizeMultiplayerSession(sessionPayload, multiplayerSession);
-  multiplayerSession = normalized;
-  if (normalized.role !== "player" || !normalized.stateJson) {
-    renderMultiplayerUi();
-    return;
+function applyMultiplayerSessionState(payload, options = {}) {
+  if (payload.id && multiplayerSession.id === payload.id && payload.revision < multiplayerSession.revision) return;
+  const previousOwned = multiplayerSession.owned_character_ids || [];
+  const activeId = state?.activeCharacterId;
+  const oldRoom = multiplayerSession.id;
+  if (oldRoom !== payload.id) for (const input of document.querySelectorAll(".room-option input")) delete input.dataset.dirty;
+  multiplayerSession = { ...(oldRoom === payload.id ? multiplayerSession : {}), ...payload };
+  if (payload.id && oldRoom !== payload.id) history.replaceState(null, "", `/site/?room=${encodeURIComponent(payload.id)}`);
+  if (payload.invite_code) multiplayerSession.inviteCode = payload.invite_code;
+  if (payload.invite_url) multiplayerSession.inviteUrl = payload.invite_url;
+  const newOwned = (payload.owned_character_ids || []).filter((id) => !previousOwned.includes(id));
+  for (const id of newOwned) putCharacterFirst(id);
+  if (payload.state_json) {
+    applyingSharedState = true;
+    try {
+      state = hydrateDungeonState(payload.state_json);
+      state.sharedRoom = true;
+      const owned = multiplayerSession.owned_character_ids || [];
+      state.activeCharacterId = newOwned.at(-1) || (owned.includes(activeId) ? activeId : owned[0]) || null;
+      if (state.activeCharacterId) syncPlayerToActiveCharacter();
+      redrawFromHydratedState(options.message || payload.state_json.activity?.at(-1)?.message || "");
+      if (oldRoom !== payload.id || newOwned.length) {
+        const focus = state.characters.find((item) => item.id === state.activeCharacterId) || state.player;
+        const center = getMapViewCenter(ui.mapHost.parentElement);
+        viewport.panX = center.x - (Number(focus.x) + .5) * TILE_SIZE_PX * viewport.scale;
+        viewport.panY = center.y - (Number(focus.y) + .5) * TILE_SIZE_PX * viewport.scale;
+        commitViewportTransform();
+      }
+      const sheetId = ui.characterSheetContent?.dataset.characterId;
+      const sheetCharacter = state.characters.find((item) => item.id === sheetId);
+      if (!ui.characterSheetModal?.hidden && sheetCharacter && !ui.characterSheetContent.contains(document.activeElement)) renderCharacterDetail(sheetCharacter, ui.characterSheetContent, { popout: true });
+    } finally { applyingSharedState = false; }
   }
-  const assignedCharacterId = getAssignedCharacterIdForCurrentPlayer();
-  const nextState = hydrateDungeonState(normalized.stateJson);
-  if (assignedCharacterId && nextState.characters?.some((character) => character.id === assignedCharacterId)) {
-    nextState.activeCharacterId = assignedCharacterId;
-  }
-  state = nextState;
-  redrawFromHydratedState(options.message || "");
+  if (multiplayerSession.id) history.replaceState(null, "", `/site/?room=${encodeURIComponent(multiplayerSession.id)}`);
+  renderMultiplayerUi();
 }
 
 function setMultiplayerStatus(message, tone = "") {
-  if (!ui.multiplayerStatus) {
-    return;
-  }
   ui.multiplayerStatus.textContent = message || "";
   ui.multiplayerStatus.dataset.tone = tone;
 }
 
-function renderMultiplayerUi() {
-  if (!ui.multiplayerPresenceList) {
-    return;
-  }
-
-  const hasInvite = Boolean(multiplayerSession.inviteCode || multiplayerSession.inviteUrl);
-  ui.multiplayerInviteRow.hidden = !hasInvite;
-  ui.multiplayerInviteLink.value = multiplayerSession.inviteUrl || "";
-
-  const players = multiplayerSession.players.length
-    ? multiplayerSession.players
-    : hasInvite
-      ? [{ id: "host", display_name: "Host", role: multiplayerSession.role || "host" }]
-      : [];
-
-  ui.multiplayerPresenceList.innerHTML = "";
-  if (!players.length) {
-    ui.multiplayerPresenceList.textContent = "No connected players yet.";
-  } else {
-    for (const player of players) {
-      const row = document.createElement("div");
-      row.className = "multiplayer-presence-row";
-      const name = document.createElement("span");
-      name.textContent = player.display_name || player.username || player.name || `Player ${player.id}`;
-      const meta = document.createElement("span");
-      meta.className = "multiplayer-presence-meta";
-      const assignedName = getCharacterNameById(player.assigned_character_id || player.assignedCharacterId);
-      const roleText = player.role === "host" || player.is_host ? "host" : "player";
-      meta.textContent = assignedName ? `${roleText} - ${assignedName}` : roleText;
-      row.append(name, meta);
-      ui.multiplayerPresenceList.append(row);
-    }
-  }
-
-  ui.multiplayerPlayerSelect.innerHTML = "";
-  for (const player of players) {
-    const option = document.createElement("option");
-    option.value = player.id || player.user_id || "";
-    option.textContent = player.display_name || player.username || player.name || "Player";
-    ui.multiplayerPlayerSelect.append(option);
-  }
-
-  ui.multiplayerCharacterSelect.innerHTML = "";
-  const characters = Array.isArray(state?.characters) ? state.characters : [];
-  for (const character of characters) {
-    const option = document.createElement("option");
-    option.value = character.id;
-    option.textContent = character.name || "Unnamed dot";
-    ui.multiplayerCharacterSelect.append(option);
-  }
-
-  const canAssign = Boolean(
-    hasInvite &&
-    multiplayerSession.role === "host" &&
-    ui.multiplayerPlayerSelect.value &&
-    ui.multiplayerCharacterSelect.value
-  );
-  ui.multiplayerAssignBtn.disabled = !canAssign;
-  ui.multiplayerRefreshBtn.disabled = !hasInvite;
-  ensureMultiplayerRefreshLoop();
+function selectedRoomOptions() {
+  return Object.fromEntries(["autonomous_exploration", "extra_characters_without_host", "bury_others"].map((key) =>
+    [key, document.getElementById(`room-option-${key}`)?.checked === true]));
 }
 
-function setMultiplayerInviteMode(isInviteJoinMode) {
-  if (ui.multiplayerTitle) {
-    ui.multiplayerTitle.textContent = isInviteJoinMode ? "Join Game" : "Invite Players";
+function renderMultiplayerUi() {
+  if (SERVER_RUNTIME || !ui.multiplayerPresenceList) return;
+  const active = isSharedRoom();
+  const host = multiplayerSession.role === "host";
+  ui.multiplayerHostSection.hidden = active && !host;
+  ui.multiplayerJoinSection.hidden = active;
+  ui.multiplayerCreateHostBtn.textContent = active ? "New Invite Code" : "Host This Dungeon";
+  ui.multiplayerInviteRow.hidden = !host || !multiplayerSession.inviteUrl;
+  ui.multiplayerInviteLink.value = multiplayerSession.inviteUrl || "";
+  document.getElementById("multiplayer-invite-code").textContent = host ? (multiplayerSession.inviteCode || "") : "";
+  ui.multiplayerTitle.textContent = active ? multiplayerSession.name || "Dungeon Party" : "Invite Players";
+  ui.multiplayerBtn.textContent = active && !host ? "Players" : "Invite Players";
+  ui.multiplayerRefreshBtn.disabled = !active;
+  document.getElementById("room-save-options").hidden = !active || !host;
+  document.getElementById("room-close-session").hidden = !active || !host;
+  document.getElementById("room-close-session").textContent = multiplayerSession.closed ? "Reopen Dungeon" : "Close Dungeon";
+  document.getElementById("room-leave-session").hidden = !active;
+  document.getElementById("room-lock-joins").closest("label").hidden = !active || !host;
+  if (active) {
+    for (const [key, value] of Object.entries(multiplayerSession.options || {})) {
+      const input = document.getElementById(`room-option-${key}`);
+      if (!input.dataset.dirty) input.checked = value;
+    }
+    const lock = document.getElementById("room-lock-joins");
+    if (!lock.dataset.dirty) lock.checked = multiplayerSession.joins_locked === true;
   }
-  if (ui.multiplayerBtn) {
-    ui.multiplayerBtn.textContent = isInviteJoinMode && multiplayerSession.role !== "host" ? "Join Game" : "Invite Players";
+  document.getElementById("room-account-links").hidden = active ? multiplayerSession.authenticated : accountSession.authenticated;
+  const accountLink = document.getElementById("account-link");
+  accountLink.href = accountSession.authenticated ? "/account" : `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+  accountLink.textContent = accountSession.authenticated ? "Account" : "Sign In";
+  for (const link of document.querySelectorAll("[data-room-login]")) {
+    link.href = `/${link.dataset.roomLogin}?next=${encodeURIComponent(location.pathname + location.search)}`;
   }
-  if (ui.multiplayerHostSection) {
-    ui.multiplayerHostSection.hidden = Boolean(isInviteJoinMode && multiplayerSession.role !== "host");
+  ui.saveBtn.disabled = active && !host;
+  ui.generateBtn.disabled = active;
+  if (ui.wanderingNumerator) ui.wanderingNumerator.disabled = active;
+  if (ui.wanderingDenominator) ui.wanderingDenominator.disabled = active;
+  ui.multiplayerPresenceList.replaceChildren();
+  for (const player of multiplayerSession.players || []) {
+    const row = document.createElement("div");
+    row.className = "multiplayer-presence-row";
+    const label = document.createElement("span");
+    label.textContent = `${player.display_name} (${player.role}, ${player.online ? "online" : "away"})`;
+    row.append(label);
+    if (host && player.role !== "host") {
+      const kick = document.createElement("button");
+      kick.textContent = "Remove";
+      kick.addEventListener("click", () => {
+        if (confirm(`Remove ${player.display_name} from this dungeon?`)) void roomHostAction(`players/${player.id}/kick`);
+      });
+      row.append(kick);
+    }
+    ui.multiplayerPresenceList.append(row);
   }
-  if (ui.multiplayerJoinBtn) {
-    ui.multiplayerJoinBtn.textContent = isInviteJoinMode ? "Join Game" : "Join Host";
-  }
+  const banner = document.getElementById("room-state-banner");
+  banner.textContent = !active ? "" : multiplayerSession.closed ? "Dungeon closed." :
+    !multiplayerSession.can_explore ? "Host away: dungeon paused." :
+    !(multiplayerSession.owned_character_ids || []).length ? "Load or import your character to join the dungeon." :
+    !multiplayerSession.host_present ? "Host away: autonomous exploration enabled." : "";
+  banner.hidden = !banner.textContent;
+  ensureMultiplayerRefreshLoop();
 }
 
 function openMultiplayerModal() {
   ui.multiplayerModal.hidden = false;
-  const codeFromUrl = normalizeSessionCode(new URL(window.location.href).searchParams.get("session") || "");
-  setMultiplayerInviteMode(Boolean(codeFromUrl));
-  if (codeFromUrl && !multiplayerSession.inviteCode) {
-    ui.multiplayerJoinCode.value = codeFromUrl;
-    setMultiplayerStatus("Invite link found. Joining game...", "info");
-  } else if (!multiplayerSession.inviteCode) {
-    setMultiplayerStatus("Create a host link, or paste a friend's code to join their dungeon.");
-  }
   renderMultiplayerUi();
 }
-
-function closeMultiplayerModal() {
-  ui.multiplayerModal.hidden = true;
-}
+function closeMultiplayerModal() { ui.multiplayerModal.hidden = true; }
 
 function ensureMultiplayerRefreshLoop() {
-  const shouldPoll = Boolean(multiplayerSession.inviteCode && multiplayerSession.role);
-  if (!shouldPoll) {
-    if (multiplayerRefreshTimer) {
-      window.clearInterval(multiplayerRefreshTimer);
-      multiplayerRefreshTimer = null;
-    }
+  if (!isSharedRoom()) {
+    if (multiplayerRefreshTimer) clearInterval(multiplayerRefreshTimer);
+    multiplayerRefreshTimer = null;
     return;
   }
-  if (multiplayerRefreshTimer) {
-    return;
-  }
-  multiplayerRefreshTimer = window.setInterval(() => {
-    if (document.visibilityState !== "visible") {
-      return;
-    }
-    refreshMultiplayerSession({ silent: true });
-  }, 5000);
+  if (!multiplayerRefreshTimer) multiplayerRefreshTimer = setInterval(() => {
+    if (document.visibilityState === "visible") void refreshMultiplayerSession({ silent: true });
+  }, 3000);
 }
 
-function openInviteFromUrlIfPresent() {
-  const codeFromUrl = normalizeSessionCode(new URL(window.location.href).searchParams.get("session") || "");
-  if (!codeFromUrl) {
+async function openInviteFromUrlIfPresent() {
+  const params = new URL(location.href).searchParams;
+  const roomId = params.get("room");
+  const code = params.get("join");
+  if (params.has("loadRun")) {
+    const runId = Number(params.get("loadRun"));
+    try {
+      const joined = await listJoinedRooms();
+      const room = joined.results.find((item) => item.saved_run_id === runId);
+      await loadSelectedRun(room ? { ...room, room_id: room.id } : { id: runId });
+    } catch (error) { setStatus(error.message); }
     return;
   }
-  multiplayerSession = {
-    ...multiplayerSession,
-    inviteCode: codeFromUrl,
-    inviteUrl: window.location.href
-  };
-  ui.multiplayerJoinCode.value = codeFromUrl;
+  if (!roomId && !code) return;
   openMultiplayerModal();
-  if (!multiplayerAutoJoinAttempted) {
-    multiplayerAutoJoinAttempted = true;
-    joinMultiplayerHost({ automatic: true });
-  }
+  try {
+    if (roomId) {
+      applyMultiplayerSessionState(await roomRequest(roomId, "resume", {}));
+      setMultiplayerStatus("Dungeon loaded.");
+    } else {
+      ui.multiplayerJoinCode.value = normalizeSessionCode(code);
+      await joinMultiplayerHost();
+    }
+  } catch (error) { setMultiplayerStatus(error.message, "error"); }
 }
 
 async function createMultiplayerHost() {
-  if (!state) {
-    setMultiplayerStatus("Generate a dungeon before creating a host link.", "error");
-    return;
-  }
-  setMultiplayerStatus("Creating host link...");
+  setMultiplayerStatus("Creating invitation...");
   try {
-    const activeCharacter = getActiveCharacter(state);
-    const session = await createHostSession(state, {
-      hostCharacterId: activeCharacter?.id || null
-    });
-    multiplayerSession = normalizeMultiplayerSession(session, { role: "host" });
-    setMultiplayerStatus("Host link ready. Share it with your players.", "success");
-    renderMultiplayerUi();
-  } catch (error) {
-    setMultiplayerStatus(error.message, "error");
-    renderMultiplayerUi();
-  }
+    const result = isSharedRoom()
+      ? await roomRequest(multiplayerSession.id, "invite", {})
+      : await createHostSession(state, selectedRoomOptions());
+    if (result.id) applyMultiplayerSessionState(result);
+    else {
+      multiplayerSession.inviteCode = result.invite_code;
+      multiplayerSession.inviteUrl = result.invite_url;
+      renderMultiplayerUi();
+    }
+    setMultiplayerStatus("Invitation ready. It expires in 30 minutes; joined players keep their membership.");
+  } catch (error) { setMultiplayerStatus(error.message, "error"); }
 }
 
-async function joinMultiplayerHost(options = {}) {
-  const inviteValue = ui.multiplayerJoinCode.value;
-  setMultiplayerInviteMode(true);
-  setMultiplayerStatus(options.automatic ? "Joining game from invite link..." : "Joining game...");
+async function joinMultiplayerHost() {
   try {
-    const session = await joinHostSession(inviteValue);
-    applyMultiplayerSessionState(session, { message: "Joined host dungeon." });
-    const assignedCharacterId = getAssignedCharacterIdForCurrentPlayer();
-    const assignedName = getCharacterNameById(assignedCharacterId);
-    setMultiplayerStatus(assignedName ? `Joined game as ${assignedName}.` : "Joined game. Waiting for the host to assign a character.", "success");
-    renderMultiplayerUi();
-  } catch (error) {
-    const message = options.automatic && /login|required|authentication/i.test(error.message)
-      ? "Log in or register, then return to this invite link to join the game."
-      : error.message;
-    setMultiplayerStatus(message, "error");
-    renderMultiplayerUi();
-  }
+    applyMultiplayerSessionState(await joinHostSession(ui.multiplayerJoinCode.value, {
+      displayName: document.getElementById("room-display-name").value
+    }));
+    setMultiplayerStatus("Joined. Load or import your character.");
+  } catch (error) { setMultiplayerStatus(error.message, "error"); }
 }
 
 async function refreshMultiplayerSession(options = {}) {
-  if (!multiplayerSession.inviteCode) {
-    if (!options.silent) {
-      setMultiplayerStatus("No active host link to refresh.", "error");
-    }
-    return;
-  }
-  if (multiplayerRefreshInFlight) {
-    return;
-  }
+  if (!isSharedRoom() || multiplayerRefreshInFlight || sharedCommandPending || sharedEditTimers.size) return;
   multiplayerRefreshInFlight = true;
-  if (!options.silent) {
-    setMultiplayerStatus("Refreshing session...");
-  }
   try {
-    const session = multiplayerSession.role === "host" && state
-      ? await updateHostSessionState(multiplayerSession.inviteCode, state)
-      : await getHostSession(multiplayerSession.inviteCode);
-    if (multiplayerSession.role === "player") {
-      applyMultiplayerSessionState(session);
-    } else {
-      multiplayerSession = normalizeMultiplayerSession(session, multiplayerSession);
-      renderMultiplayerUi();
-    }
-    if (!options.silent) {
-      setMultiplayerStatus("Session refreshed.", "success");
-    }
+    const result = await roomRequest(multiplayerSession.id, "presence", { revision: multiplayerSession.revision });
+    applyMultiplayerSessionState(result);
+    if (!options.silent) setMultiplayerStatus("Party refreshed.");
   } catch (error) {
-    if (!options.silent) {
-      setMultiplayerStatus(error.message, "error");
-    } else {
-      console.warn("Multiplayer refresh failed.", error);
+    setMultiplayerStatus(error.message, "error");
+    if (error.status === 404) {
+      multiplayerSession.can_explore = false;
+      setStatus("Dungeon access is no longer available.");
+    } else setStatus("Connection interrupted. Reconnecting to the dungeon...");
+  } finally { multiplayerRefreshInFlight = false; }
+}
+
+async function requestRoomHostChange(action, extra = {}, method = "POST") {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await roomRequest(multiplayerSession.id, action, {
+        revision: multiplayerSession.revision, ...extra
+      }, method);
+    } catch (error) {
+      if (error.status !== 409 || attempt) throw error;
+      applyMultiplayerSessionState(await getHostSession(multiplayerSession.id));
     }
-    renderMultiplayerUi();
-  } finally {
-    multiplayerRefreshInFlight = false;
   }
 }
 
-async function assignMultiplayerDot() {
-  setMultiplayerStatus("Assigning dot...");
+async function roomHostAction(action, extra = {}, method = "POST") {
   try {
-    await assignSessionCharacter(
-      multiplayerSession.inviteCode,
-      ui.multiplayerPlayerSelect.value,
-      ui.multiplayerCharacterSelect.value,
-      { state }
-    );
-    await refreshMultiplayerSession();
-  } catch (error) {
-    setMultiplayerStatus(error.message, "error");
-  }
+    const result = await requestRoomHostChange(action, extra, method);
+    if (action === "options") for (const input of document.querySelectorAll(".room-option input")) delete input.dataset.dirty;
+    applyMultiplayerSessionState(result);
+    setMultiplayerStatus("Dungeon updated.");
+  } catch (error) { setMultiplayerStatus(error.message, "error"); await refreshMultiplayerSession({ silent: true }); }
+}
+
+async function leaveSharedRoom() {
+  if (!isSharedRoom()) return;
+  if (sharedCommandPending || sharedEditTimers.size) throw new Error("Wait for your character changes to finish before leaving.");
+  await roomRequest(multiplayerSession.id, "leave", {});
+  multiplayerSession = { players: [], assignments: [] };
+  history.replaceState(null, "", "/site/");
+  renderMultiplayerUi();
 }
 
 async function copyMultiplayerInviteLink() {
-  if (!multiplayerSession.inviteUrl) {
-    setMultiplayerStatus("No invite link is ready yet.", "error");
-    return;
-  }
   try {
     await navigator.clipboard.writeText(multiplayerSession.inviteUrl);
-    setMultiplayerStatus("Invite link copied.", "success");
-  } catch {
-    ui.multiplayerInviteLink.select();
-    setMultiplayerStatus("Copy blocked by the browser. The link is selected for manual copy.", "info");
-  }
+    setMultiplayerStatus("Invite link copied.");
+  } catch { ui.multiplayerInviteLink.select(); }
 }
 
 function hookInputEvents() {
@@ -8771,6 +8955,7 @@ function hookInputEvents() {
     const delta = moves[event.code] || moves[event.key];
     if (delta) {
       event.preventDefault();
+      if (sendSharedCommand("move", { dx: delta[0], dy: delta[1] })) return;
       if (handleCombatMovement(delta)) {
         return;
       }
@@ -8892,7 +9077,18 @@ function hookInputEvents() {
   ui.multiplayerCreateHostBtn?.addEventListener("click", createMultiplayerHost);
   ui.multiplayerJoinBtn?.addEventListener("click", joinMultiplayerHost);
   ui.multiplayerRefreshBtn?.addEventListener("click", refreshMultiplayerSession);
-  ui.multiplayerAssignBtn?.addEventListener("click", assignMultiplayerDot);
+  document.getElementById("room-save-options")?.addEventListener("click", () => roomHostAction("options", {
+    ...selectedRoomOptions(), joins_locked: document.getElementById("room-lock-joins").checked
+  }, "PATCH"));
+  for (const input of document.querySelectorAll(".room-option input")) input.addEventListener("change", () => { input.dataset.dirty = "true"; });
+  document.getElementById("room-close-session")?.addEventListener("click", () => roomHostAction(multiplayerSession.closed ? "resume" : "close"));
+  document.getElementById("room-leave-session")?.addEventListener("click", async () => {
+    try {
+      await leaveSharedRoom();
+      closeMultiplayerModal();
+      await generateAndRender();
+    } catch (error) { setMultiplayerStatus(error.message, "error"); }
+  });
   ui.multiplayerCopyLinkBtn?.addEventListener("click", copyMultiplayerInviteLink);
   ui.multiplayerClose?.addEventListener("click", closeMultiplayerModal);
   ui.multiplayerModal?.addEventListener("click", (event) => {
@@ -8922,6 +9118,7 @@ function hookInputEvents() {
   });
 
   ui.torchOutBtn?.addEventListener("click", () => {
+    if (sendSharedCommand("snuff")) return;
     const active = getActiveCharacter(state);
     if (active?.lightSource === "lantern") {
       extinguishActiveLantern();
@@ -8966,6 +9163,7 @@ function hookInputEvents() {
   });
 
   ui.pickLockBtn.addEventListener("click", () => {
+    if (sendSharedCommand("pick_lock")) return;
     const context = getCharacterActionContext("pick");
     const result = attemptLockedDoor(state, "pick", context.modifier, {
       doubleRoll: context.doubleRoll,
@@ -8986,6 +9184,7 @@ function hookInputEvents() {
   });
 
   ui.breakDoorBtn.addEventListener("click", () => {
+    if (sendSharedCommand("break_door")) return;
     const context = getCharacterActionContext("break");
     const result = attemptLockedDoor(state, "break", context.modifier, {
       doubleRoll: context.doubleRoll,
@@ -9091,6 +9290,7 @@ function hookMapViewportInteractions() {
     const { x, y } = getTileFromPointer({ clientX: clickX, clientY: clickY });
     const clickedCharacter = getCharacterAtTile(x, y);
     if (clickedCharacter) {
+      if (!ownsCharacter(clickedCharacter)) { openCharacterSheet(clickedCharacter); return; }
       activateCharacter(clickedCharacter);
       markUserActivity();
       setStatus(`Selected ${clickedCharacter.name}.`);
@@ -9099,6 +9299,11 @@ function hookMapViewportInteractions() {
       return;
     }
     const clickedMonster = getVisibleMonsterAtTile(x, y);
+    if (isSharedRoom()) {
+      if (clickedMonster) attackClickedMonster(clickedMonster);
+      else sendSharedCommand("interact", { x, y });
+      return;
+    }
     const result = clickedMonster ? attackClickedMonster(clickedMonster) : clickEntity(state, x, y);
     let sighting = null;
     if (!clickedMonster) {
@@ -9166,6 +9371,7 @@ function hookMapViewportInteractions() {
     if (!character || character.id === state.activeCharacterId) {
       return;
     }
+    if (sendSharedCommand("guard", {}, character)) return;
     character.guarding = !character.guarding;
     markUserActivity();
     setStatus(character.guarding ? `${character.name} is guarding.` : `${character.name} stops guarding.`);
@@ -9184,6 +9390,7 @@ function hookMapViewportInteractions() {
 }
 
 async function generateAndRender() {
+  if (isSharedRoom()) return;
   const seed = Number(ui.seedInput.value || createRandomDungeonSeed());
   ui.seedInput.value = `${seed}`;
   const level = Number(ui.levelInput.value || 1);
@@ -9231,7 +9438,7 @@ async function generateAndRender() {
 
 function startClock() {
   window.setInterval(() => {
-    if (!state) {
+    if (!state || isSharedRoom()) {
       return;
     }
     const result = syncElapsedTime(state);
@@ -9256,6 +9463,7 @@ function startClock() {
 }
 
 async function initialize() {
+  accountSession = await getAccountSession().catch(() => ({ authenticated: false }));
   try {
     setStatus("Loading hand-drawn renderer assets...");
     await preloadRendererAssets();
@@ -9278,4 +9486,258 @@ async function initialize() {
   openInviteFromUrlIfPresent();
 }
 
-initialize();
+let serverContentReady = null;
+
+export async function executeGameCommand(rawState, command) {
+  if (!SERVER_RUNTIME) throw new Error("Game commands are processed by the server.");
+  if (!rawState || !Array.isArray(rawState.tiles) || !Array.isArray(rawState.characters)) {
+    throw new Error("The dungeon state is invalid.");
+  }
+  if (!serverContentReady) {
+    serverContentReady = Promise.all([loadShadowdarkContent(), loadRulesData(), ensureSpellLibraryLoaded()])
+      .then(([content, rules]) => { shadowdarkContent = content; rulesData = rules; });
+  }
+  await serverContentReady;
+  state = hydrateDungeonState(rawState);
+  serverMonsterTurns = null;
+  lastDamageRoll = null;
+  diceHistory = [];
+  ui.statusText.textContent = "";
+  state.combat.autoRunning = false;
+  state.run = state.run || {};
+  const character = state.characters.find((item) => item.id === command.character_id);
+  const utilityCommands = new Set(["normalize", "import", "bury", "dismiss", "edit_character", "tick"]);
+  if (!utilityCommands.has(command.type)) {
+    if (!character || !isCharacterAbleToAct(character)) throw new Error("This character cannot act.");
+    if (isCombatActive() && !isCurrentCharacterTurn(character)) throw new Error("It is not this character's turn.");
+  }
+  if (character) {
+    setActiveCharacter(state, character.id);
+    syncPlayerToActiveCharacter();
+  }
+  const actionCommands = new Set(["search", "disarm", "get", "leave", "interact", "pick_lock", "break_door", "spell", "light", "drop_gear", "pickup", "collect", "persuade"]);
+  if (isCombatActive() && actionCommands.has(command.type) && !consumeCharacterCombatAction(character)) {
+    throw new Error("This character has already acted this turn.");
+  }
+  switch (command.type) {
+    case "normalize":
+      break;
+    case "move": {
+      const dx = command.dx;
+      const dy = command.dy;
+      if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) > 1 || Math.abs(dy) > 1 || (!dx && !dy)) {
+        throw new Error("Choose an adjacent tile.");
+      }
+      if (!handleCombatMovement([dx, dy])) {
+        const result = movePlayer(state, dx, dy);
+        if (result.moved) {
+          syncActiveCharacterToPlayer();
+          recomputeVisibility(state);
+          processMonsterVisibilityChange();
+        }
+        setStatus(result);
+      }
+      break;
+    }
+    case "attack": {
+      const monster = getMonsterById(command.monster_id);
+      if (!monster || !canCharacterSeeMonster(character, monster)) throw new Error("That monster is not visible.");
+      const attacks = getRenderableAttacks(character);
+      const index = command.attack_index ?? 0;
+      if (!Number.isInteger(index) || index < 0 || index >= attacks.length) throw new Error("Unknown attack.");
+      const text = attacks[index];
+      const parsed = parseAttackText(text);
+      resolveCharacterAttackAgainstMonster(character, getCombatAttackFromParsedAttack(parsed, text), monster);
+      break;
+    }
+    case "end_turn": endCurrentTurn(); break;
+    case "search": performSearch(); break;
+    case "stealth": performStealth(); break;
+    case "get": performGet(); break;
+    case "leave": performLeave(); break;
+    case "disarm": {
+      if (!command.entity_id) { performDisarm(); break; }
+      const trap = getRoomTraps(state).find((entry) => entry.id === command.entity_id);
+      if (!trap) throw new Error("That trap is not available here.");
+      const context = getCharacterActionContext("disarm");
+      setStatus(disarmTrap(state, trap.id, context.modifier, { doubleRoll: context.doubleRoll }));
+      break;
+    }
+    case "interact": {
+      if (!Number.isInteger(command.x) || !Number.isInteger(command.y)) throw new Error("Invalid tile.");
+      setStatus(clickEntity(state, command.x, command.y));
+      processMonsterVisibilityChange();
+      break;
+    }
+    case "pick_lock":
+    case "break_door": {
+      const action = command.type === "pick_lock" ? "pick" : "break";
+      const context = getCharacterActionContext(action);
+      setStatus(attemptLockedDoor(state, action, context.modifier, { doubleRoll: context.doubleRoll, disadvantage: context.disadvantage }));
+      break;
+    }
+    case "spell": {
+      const spell = findSpellRecord(command.spell_name);
+      if (!spell || !getCharacterKnownSpellNames(character).some((name) => getSpellKey(name) === getSpellKey(spell)) || isCharacterSpellFailed(character, spell)) {
+        throw new Error("This spell is not available to the character.");
+      }
+      performSpellCast(character, spell);
+      break;
+    }
+    case "light":
+      if (!["torch", "lantern"].includes(command.source)) throw new Error("Invalid light source.");
+      if (getLightAttemptFailure(command.source)) throw new Error(getLightAttemptFailure(command.source));
+      applyLightRequest(command.source, { extinguishOld: false });
+      break;
+    case "snuff":
+      if (character.lightSource === "lantern") extinguishActiveLantern();
+      else snuffActiveTorch();
+      setStatus(`${character.name} extinguishes their light.`);
+      break;
+    case "guard":
+      character.guarding = !character.guarding;
+      setStatus(`${character.name} ${character.guarding ? "is guarding" : "stops guarding"}.`);
+      break;
+    case "drop_gear":
+      if (!Number.isInteger(command.gear_index) || !character.gear?.[command.gear_index]) throw new Error("Unknown item.");
+      setStatus(dropCharacterGear(character, command.gear_index));
+      break;
+    case "pickup": {
+      const item = getRoomLoot(state).find((entry) => entry.id === command.entity_id);
+      if (!item) throw new Error("That item is not available here.");
+      setStatus(item.subtype === "dropped-equipment" ? pickupDroppedEquipment(item) : collectLoot(state, item.id));
+      break;
+    }
+    case "collect": setStatus(collectRoomLoot(state)); break;
+    case "money":
+      if (!["gold", "silver", "copper"].includes(command.key) || !Number.isInteger(command.amount) || command.amount < 0 || command.amount > getCharacterMoney(character, command.key) || getCharacterMoney(character, command.key) - command.amount > 10000) throw new Error("Drop at most 10,000 owned coins at a time.");
+      updateCharacterMoneyField(character, command.key, command.amount);
+      setStatus(`${character.name} drops coins.`);
+      break;
+    case "coin_adjust":
+    case "coin_amount": {
+      const loot = getRoomLoot(state).find((entry) => entry.id === command.entity_id && entry.coinBreakdown);
+      if (!loot) throw new Error("That coin pile is not available here.");
+      if (command.type === "coin_adjust") {
+        if (!["up", "down"].includes(command.direction)) throw new Error("Invalid coin movement.");
+        adjustCoinFeature(loot, command.direction);
+      } else {
+        if (!Number.isInteger(command.amount) || command.amount < 0 || command.amount > 10000) throw new Error("Invalid coin amount.");
+        setCoinFeatureAmount(loot, command.amount);
+      }
+      setStatus(`${character.name} rearranges the coin pile.`);
+      break;
+    }
+    case "roll": {
+      let label;
+      if (typeof command.expression === "string") {
+        const expression = normalizeDamageExpression(command.expression);
+        const dice = [...expression.matchAll(/(\d*)d(\d+)/g)];
+        if (expression.length > 80 || !/^\d+d\d+(?:[+\-](?:\d+d\d+|\d+))*(?:x\d+)?$/.test(expression)
+          || [...expression.matchAll(/\d+/g)].some((match) => Number(match[0]) > 100)
+          || dice.some((match) => Number(match[2]) < 2 || Number(match[1] || 1) < 1)
+          || dice.reduce((sum, match) => sum + Number(match[1] || 1), 0) > 100) throw new Error("Invalid dice expression.");
+        lastDamageRoll = rollDamageExpression(expression);
+        label = expression;
+      } else {
+        if (![4, 6, 8, 10, 12, 20, 100].includes(command.sides) || !Number.isInteger(command.count) || command.count < 1 || command.count > 99 || !Number.isInteger(command.modifier) || Math.abs(command.modifier) > 99) throw new Error("Invalid dice roll.");
+        lastDamageRoll = rollManualDie(command.sides, command.count, command.modifier);
+        label = `${command.count}d${command.sides}${formatSignedModifier(command.modifier)}`;
+      }
+      setStatus(`${character.name} rolls ${label}: ${lastDamageRoll.total}.`);
+      pushCombatLog(ui.statusText.textContent);
+      break;
+    }
+    case "persuade": {
+      const monster = getMonsterById(command.monster_id);
+      if (!monster || !canCharacterSeeMonster(character, monster) || !monsterAllowsDiplomacy(monster)) throw new Error("That monster cannot be approached.");
+      persuadeMonster(monster);
+      break;
+    }
+    case "import": {
+      const imported = extractShadowdarkCharacters(JSON.stringify(command.character_json));
+      if (imported.length !== 1 || state.characters.length >= MAX_SESSION_CHARACTERS) throw new Error("Import one character; the dungeon holds at most 16.");
+      const added = imported[0];
+      added.id = command.new_character_id;
+      added.raw = added.raw || {};
+      delete added.raw.owner_member_id;
+      added.partyAssetShareCopper = 0;
+      added.raw.partyAssetShareCopper = 0;
+      placeCharactersNearStartingStairs([added]);
+      state.characters.push(added);
+      initializeImportedCharacterLight(added, state.characters.length - 1);
+      queueCharactersForNextCombatRound([added]);
+      setStatus(`${added.name} joins the dungeon.`);
+      break;
+    }
+    case "bury":
+    case "dismiss":
+      if (!character) throw new Error("Unknown character.");
+      if (command.type === "bury" && !isCharacterDead(character)) throw new Error("Only dead characters can be buried.");
+      if (command.type === "dismiss" && !isCharacterInStartingRoom(character)) throw new Error("Living characters can only be dismissed in the starting room.");
+      state.characters = state.characters.filter((item) => item.id !== character.id);
+      state.combat.turnOrder = state.combat.turnOrder.filter((entry) => entry.id !== character.id);
+      state.combat.playerOrderIds = state.combat.playerOrderIds.filter((id) => id !== character.id);
+      state.combat.pendingPlayerIds = state.combat.pendingPlayerIds.filter((id) => id !== character.id);
+      state.combat.turnIndex = Math.min(state.combat.turnIndex, Math.max(0, state.combat.turnOrder.length - 1));
+      removeDeadCharactersFromCombat();
+      setStatus(`${character.name} has been ${command.type === "bury" ? "buried" : "dismissed"}.`);
+      break;
+    case "edit_character": {
+      if (!character || !command.character_json || Array.isArray(command.character_json)) throw new Error("Invalid character edit.");
+      const editable = ["name", "ancestry", "className", "level", "alignment", "background", "deity", "title", "stats", "hp", "maxHitPoints", "armorClass", "gear", "gold", "silver", "copper", "xp", "XP", "talents", "spells", "attacks", "raw", "colorId", "color", "ammo"];
+      const protectedRaw = { id: character.id, dead: character.dead, slain: character.slain, dyingRounds: character.dyingRounds };
+      for (const key of editable) {
+        if (Object.hasOwn(command.character_json, key)) character[key] = structuredClone(command.character_json[key]);
+      }
+      character.raw = { ...(character.raw || {}), ...protectedRaw };
+      if (isCharacterDead(character)) character.hp = 0;
+      refreshCharacterViews(character);
+      setStatus(`${character.name}'s sheet was updated.`);
+      break;
+    }
+    case "tick": {
+      if (getCurrentCombatEntry()?.type === "monster") startCurrentCombatTurn();
+      const elapsed = Math.max(0, Math.min(15000, Number(command.elapsed_ms) || 0));
+      state.timers.lastTickAt = Date.now() - elapsed;
+      const result = syncElapsedTime(state);
+      if (result.crossedWanderingChecks) {
+        monsterTable = await loadMonsterTableForLevel(state.level);
+        processWanderingChecks(result.crossedWanderingChecks);
+      }
+      if (result.expired) setStatus(expireActiveLightFromTimer());
+      lastDyingAutoTickAt = Date.now() - elapsed;
+      processOutOfCombatDyingTick();
+      break;
+    }
+    default: throw new Error("Unknown game command.");
+  }
+  normalizeCharacterState(state);
+  syncAllCharacterEquipmentDerivedStats();
+  if (command.type !== "edit_character" && command.type !== "normalize" && command.type !== "import") {
+    recomputeVisibility(state);
+    processMonsterVisibilityChange();
+  }
+  if (command.type !== "normalize" && command.type !== "import" && command.type !== "edit_character") {
+    for (let count = 0; count < 32; count += 1) {
+      if (serverMonsterTurns) {
+        const pending = serverMonsterTurns;
+        await pending;
+        if (serverMonsterTurns === pending) serverMonsterTurns = null;
+      }
+      const entry = getCurrentCombatEntry();
+      const absentTurn = entry?.type === "character" && Array.isArray(command.online_character_ids) &&
+        command.online_character_ids.length > 0 && !command.online_character_ids.includes(entry.id);
+      if (!shouldAutoEndCurrentCharacterTurn() && !absentTurn) break;
+      if (absentTurn) pushCombatLog(`${getCharacterNameById(entry.id) || "Character"} waits while their player is away.`);
+      advanceCombatTurn();
+    }
+  }
+  const message = ui.statusText.textContent || "";
+  state.activity = Array.isArray(state.activity) ? state.activity.slice(-39) : [];
+  if (message) state.activity.push({ message: message.slice(0, 2000), characterId: character?.id || null, time: Date.now() });
+  state.combat.autoRunning = false;
+  return { state_json: serializeDungeonState(state), message, dice: lastDamageRoll };
+}
+
+if (!SERVER_RUNTIME) initialize();

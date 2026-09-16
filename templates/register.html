@@ -22,8 +22,8 @@
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control form-control-lg" id="password" name="password" required minlength="6">
-                <div class="form-text">At least 6 characters.</div>
+                <input type="password" class="form-control form-control-lg" id="password" name="password" required minlength="{{ config.PASSWORD_MIN_LENGTH }}" maxlength="{{ config.PASSWORD_MAX_LENGTH }}" autocomplete="new-password">
+                <div class="form-text">At least {{ config.PASSWORD_MIN_LENGTH }} characters. Long passphrases are supported.</div>
             </div>
             <div class="d-grid gap-3">
                 <button type="submit" class="btn btn-primary btn-lg">Create account</button>

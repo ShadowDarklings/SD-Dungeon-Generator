@@ -2160,7 +2160,7 @@ function drawCharacters(state, ctx) {
     Number.isFinite(Number(character.y))
   ));
   if (!characters.length) {
-    drawPlayer(state, ctx);
+    if (!state.sharedRoom) drawPlayer(state, ctx);
     return;
   }
   for (const character of characters) {

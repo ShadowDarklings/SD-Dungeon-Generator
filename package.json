@@ -1,0 +1,14 @@
+{
+  "name": "shadowspawner-game-runtime",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/js/*.test.mjs"
+  },
+  "dependencies": {
+    "jsdom": "30.0.1"
+  }
+}

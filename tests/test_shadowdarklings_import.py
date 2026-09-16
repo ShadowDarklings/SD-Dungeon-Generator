@@ -49,7 +49,7 @@ def test_shadowdarklings_import_requires_login(monkeypatch):
     flask_app.config["TESTING"] = True
     SQLModel.metadata.create_all(engine)
     with flask_app.test_client() as anon:
-        response = anon.post("/api/shadowdarklings/import")
+        response = anon.post("/api/shadowdarklings/import", json={})
     assert response.status_code == 401
     assert response.get_json()["error"] == "login_required"
 
@@ -65,7 +65,7 @@ def test_shadowdarklings_import_allows_explicit_local_dev_bypass(monkeypatch):
     )
 
     with flask_app.test_client() as anon:
-        response = anon.post("/api/shadowdarklings/import")
+        response = anon.post("/api/shadowdarklings/import", json={})
 
     assert response.status_code == 200
     assert response.get_json()["character_json"] == '{"name":"Local Dev","className":"Fighter"}'
@@ -79,7 +79,7 @@ def test_shadowdarklings_import_endpoint_returns_copied_json(client, monkeypatch
         lambda base_classes_only=False: '{"name":"Glazkhar","className":"Basilisk Warrior"}'
     )
 
-    response = client.post("/api/shadowdarklings/import")
+    response = client.post("/api/shadowdarklings/import", json={})
 
     assert response.status_code == 200
     data = response.get_json()
@@ -92,7 +92,7 @@ def test_shadowdarklings_import_disabled_when_feature_flag_is_off(client):
     """Contract §2: when the feature flag is off, the endpoint returns 503 feature_disabled."""
     flask_app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = False
     try:
-        response = client.post("/api/shadowdarklings/import")
+        response = client.post("/api/shadowdarklings/import", json={})
         assert response.status_code == 503
         assert response.get_json()["error"] == "feature_disabled"
     finally:

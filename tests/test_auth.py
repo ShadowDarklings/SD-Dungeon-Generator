@@ -89,6 +89,54 @@ def test_register_creates_user_in_database(client):
         assert user.password_hash != "password123"  # password was hashed
 
 
+def test_register_allows_minimum_and_long_passwords(client):
+    """Users can choose a 6-character password, while long passphrases still work."""
+    client.post("/register", data={"username": "minpass", "password": "123456"})
+    client.post("/logout")
+
+    long_password = "correct horse battery staple " * 16
+    client.post("/register", data={"username": "longpass", "password": long_password})
+
+    with Session(engine) as db:
+        min_user = db.exec(select(User).where(User.username == "minpass")).first()
+        long_user = db.exec(select(User).where(User.username == "longpass")).first()
+        assert min_user is not None
+        assert long_user is not None
+        assert long_user.password_hash != long_password
+
+
+def test_register_rejects_password_under_minimum(client):
+    response = client.post(
+        "/register",
+        data={"username": "tooshort", "password": "12345"},
+        follow_redirects=True,
+    )
+    assert b"Password must be at least 6 characters" in response.data
+
+    with Session(engine) as db:
+        user = db.exec(select(User).where(User.username == "tooshort")).first()
+        assert user is None
+
+
+def test_register_rejects_extremely_large_password(client):
+    """Server-side password length cap prevents expensive oversized hashes."""
+    response = client.post(
+        "/register",
+        data={"username": "hugepass", "password": "x" * (app.config.get("PASSWORD_MAX_LENGTH", 1024) + 1)},
+        follow_redirects=True,
+    )
+    assert b"Password is too long" in response.data
+
+
+def test_register_page_sets_password_bounds(client):
+    response = client.get("/register")
+    assert response.status_code == 200
+    assert b'minlength="6"' in response.data
+    assert b'maxlength="1024"' in response.data
+    assert b"At least 6 characters" in response.data
+    assert b"Long passphrases are supported" in response.data
+
+
 def test_register_rejects_duplicate_username(client):
     """A second register with the same username flashes 'already taken'."""
     client.post("/register", data={"username": "bob", "password": "password123"})
@@ -155,3 +203,23 @@ def test_login_remember_me_sets_remember_cookie(client):
         c.startswith("remember_token=") and len(c.split("=", 1)[1].split(";")[0]) > 1
         for c in cookies
     )
+
+
+def test_security_headers_are_added_to_flask_responses(client):
+    response = client.get("/")
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Referrer-Policy"] == "strict-origin"
+    assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
+    assert "object-src 'none'" in response.headers["Content-Security-Policy"]
+    assert "microphone=()" in response.headers["Permissions-Policy"]
+
+
+def test_hsts_is_added_when_secure_cookies_are_enabled(client):
+    original = app.config["SESSION_COOKIE_SECURE"]
+    app.config["SESSION_COOKIE_SECURE"] = True
+    try:
+        response = client.get("/")
+        assert "max-age=31536000" in response.headers["Strict-Transport-Security"]
+    finally:
+        app.config["SESSION_COOKIE_SECURE"] = original

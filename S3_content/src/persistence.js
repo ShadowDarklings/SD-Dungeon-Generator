@@ -1,5 +1,5 @@
+import { apiFetch } from "./api.js";
 import { normalizeCharacterState } from "./characters.js";
-import { TEST_CHARACTER } from "./test-character.js";
 
 const MAX_SAVE_NAME_LENGTH = 15;
 const MAX_SAVED_RUNS = 10;
@@ -60,6 +60,7 @@ function normalizeExploredLightPolygons(value) {
 function normalizeRunMeta(raw = {}) {
   return {
     id: raw.id ?? null,
+    revision: raw.revision ?? null,
     name: typeof raw.name === "string" ? raw.name.slice(0, MAX_SAVE_NAME_LENGTH) : "",
     dirty: raw.dirty === true,
     lastSavedAt: raw.lastSavedAt ?? null,
@@ -217,16 +218,12 @@ async function parseJsonResponse(response) {
   return data;
 }
 
-function isLocalPreviewHost() {
-  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-}
-
 function isStaticS3WebsiteHost() {
   return window.location.hostname.endsWith(".s3-website-us-west-2.amazonaws.com");
 }
 
 export async function listRuns() {
-  const response = await fetch(`/api/runs?limit=${MAX_SAVED_RUNS}`, {
+  const response = await apiFetch(`/api/runs?limit=${MAX_SAVED_RUNS}`, {
     credentials: "same-origin"
   });
   const data = await parseJsonResponse(response);
@@ -234,12 +231,13 @@ export async function listRuns() {
 }
 
 export async function loadRun(runId) {
-  const response = await fetch(`/api/runs/${runId}`, {
+  const response = await apiFetch(`/api/runs/${runId}`, {
     credentials: "same-origin"
   });
   const data = await parseJsonResponse(response);
   const state = hydrateDungeonState(data.state_json);
   state.run.id = data.id;
+  state.run.revision = data.revision;
   state.run.lastSavedAt = data.updated_at || data.created_at || null;
   return {
     ...data,
@@ -249,18 +247,7 @@ export async function loadRun(runId) {
 }
 
 export async function listRunsWithNames() {
-  const summaries = await listRuns();
-  const detailed = await Promise.allSettled(summaries.map((run) => loadRun(run.id)));
-  return detailed.map((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value;
-    }
-    const fallback = summaries[index];
-    return {
-      ...fallback,
-      name: `Level ${fallback.level} - Seed ${fallback.seed}`
-    };
-  });
+  return listRuns();
 }
 
 export async function createRun(name, state) {
@@ -272,7 +259,7 @@ export async function createRun(name, state) {
       name: saveName
     }
   });
-  const response = await fetch("/api/runs", {
+  const response = await apiFetch("/api/runs", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
@@ -285,7 +272,7 @@ export async function createRun(name, state) {
   return parseJsonResponse(response);
 }
 
-export async function updateRun(runId, name, state) {
+export async function updateRun(runId, name, state, revision = state.run?.revision) {
   const saveName = normalizeSaveName(name);
   const stateJson = serializeDungeonState({
     ...state,
@@ -295,11 +282,12 @@ export async function updateRun(runId, name, state) {
       name: saveName
     }
   });
-  const response = await fetch(`/api/runs/${runId}`, {
+  const response = await apiFetch(`/api/runs/${runId}`, {
     method: "PUT",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      revision,
       seed: state.seed,
       level: state.level,
       state_json: stateJson
@@ -309,7 +297,7 @@ export async function updateRun(runId, name, state) {
 }
 
 export async function createSavedCharacter(name, character) {
-  const response = await fetch("/api/characters", {
+  const response = await apiFetch("/api/characters", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
@@ -322,7 +310,7 @@ export async function createSavedCharacter(name, character) {
 }
 
 export async function listSavedCharacters() {
-  const response = await fetch(`/api/characters?limit=${MAX_SAVED_CHARACTERS}`, {
+  const response = await apiFetch(`/api/characters?limit=${MAX_SAVED_CHARACTERS}`, {
     credentials: "same-origin"
   });
   const data = await parseJsonResponse(response);
@@ -330,7 +318,7 @@ export async function listSavedCharacters() {
 }
 
 export async function loadSavedCharacter(characterId) {
-  const response = await fetch(`/api/characters/${characterId}`, {
+  const response = await apiFetch(`/api/characters/${characterId}`, {
     credentials: "same-origin"
   });
   return parseJsonResponse(response);
@@ -338,22 +326,20 @@ export async function loadSavedCharacter(characterId) {
 
 export async function importShadowdarklingsCharacter(options = {}) {
   try {
-    const response = await fetch("/api/shadowdarklings/import", {
+    const response = await apiFetch("/api/shadowdarklings/import", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        base_classes_only: options.baseClassesOnly === true
+        base_classes_only: options.baseClassesOnly === true,
+        room_id: options.roomId || null
       })
     });
     const data = await parseJsonResponse(response);
     return typeof data.character_json === "string" ? data.character_json : "";
   } catch (error) {
-    if (isLocalPreviewHost()) {
-      return JSON.stringify(TEST_CHARACTER);
-    }
     if (isStaticS3WebsiteHost()) {
-      throw new Error("Character import requires the EC2 app backend. Use https://44-252-95-80.sslip.io/site/ for ShadowDarklings imports.");
+      throw new Error("Character import requires the app backend at https://ctreeder.com/site/.");
     }
     throw error;
   }

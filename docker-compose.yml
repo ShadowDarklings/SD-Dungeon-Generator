@@ -1,23 +1,7 @@
-# docker-compose.yml — SD Dungeon Generator production stack
-#
-# Three-container setup: nginx (TLS termination) → app (gunicorn) → db (Postgres)
-# Adapted from Study Guide §6 for our project.
-#
-# Run with:
-#   mkdir -p nginx/certs
-#   openssl req -x509 -newkey rsa:2048 -nodes \
-#     -keyout nginx/certs/key.pem -out nginx/certs/cert.pem \
-#     -days 365 -subj "/CN=localhost"
-#   docker compose up --build
-#
-# Then visit: https://localhost
-
 services:
   nginx:
-    image: nginx:1.27-alpine
-    ports:
-      - "443:443"
-      - "80:80"
+    image: nginx:stable-alpine
+    ports: ["443:443", "80:80"]
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
@@ -29,54 +13,81 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - gunicorn-socket:/tmp
+  migrate:
+    build: .
+    command: ["python", "scripts/migrate.py"]
     environment:
-      DATABASE_URL: postgresql://app:app@db:5432/app
-      FLASK_ENV: production
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
-      GUNICORN_THREADS: ${GUNICORN_THREADS:-2}
-      SHADOWDARKLINGS_IMPORT_ENABLED: ${SHADOWDARKLINGS_IMPORT_ENABLED:-0}
-    env_file:
-      - path: .env
-        required: true
+      DATABASE_URL: postgresql://sd_owner:${DB_OWNER_PASSWORD:?Set DB_OWNER_PASSWORD}@db:5432/app
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+      OAUTH_CLIENT_ID: disabled-for-migration
+      OAUTH_CLIENT_SECRET: disabled-for-migration
+      SD_SKIP_DB_BOOTSTRAP: "1"
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    volumes:
+      - gunicorn-socket:/tmp
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the sd_app role}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:?Set OAUTH_CLIENT_ID}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:?Set OAUTH_CLIENT_SECRET}
+      PUBLIC_BASE_URL: https://ctreeder.com
+      FLASK_ENV: production
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-2}
+      SHADOWDARKLINGS_IMPORT_ENABLED: ${SHADOWDARKLINGS_IMPORT_ENABLED:-0}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import requests,sys; sys.exit(0 if requests.get('http://127.0.0.1:8000/healthz', timeout=5).ok else 1)\"",
-        ]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://127.0.0.1:8000/healthz', timeout=5).raise_for_status()"]
+      interval: 15s
+      timeout: 6s
       retries: 5
-      start_period: 20s
+      start_period: 30s
     restart: unless-stopped
 
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
+      POSTGRES_USER: sd_owner
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?Set DB_OWNER_PASSWORD}
       POSTGRES_DB: app
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db-role.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app"]
-      interval: 2s
-      timeout: 2s
+      test: ["CMD-SHELL", "pg_isready -U sd_owner -d app"]
+      interval: 3s
+      timeout: 3s
       retries: 10
     restart: unless-stopped
-    # NOTE: db has NO 'ports:' — only reachable from other services on the
-    # docker network, never from the host or public internet. This is the
-    # trust boundary (see CONTRACTS.md §15.8).
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
-  gunicorn-socket:   # shared between nginx and app for the unix socket
-  pgdata:            # persists the database across container restarts
+  gunicorn-socket:
+  pgdata:
+  redisdata:

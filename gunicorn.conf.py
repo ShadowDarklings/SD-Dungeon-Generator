@@ -17,6 +17,7 @@ max_requests_jitter = int(os.environ.get("GUNICORN_MAX_REQUESTS_JITTER", "50"))
 
 # Production logging setup (stdout/stderr captured by Docker)
 accesslog = "-"
+access_log_format = '%(h)s %(m)s %(U)s %(s)s %(L)s'
 errorlog = "-"
 loglevel = "info"
 
