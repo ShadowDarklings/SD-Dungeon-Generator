@@ -204,6 +204,27 @@ body {
   margin: 4px 0;
 }
 
+.save-load-controls .toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  margin: 4px 0;
+  padding: 0.4em 0.8ch;
+  border: 1px solid #000;
+  border-radius: 4px;
+  background: #fff;
+  color: #000;
+  font: 700 13.3333px/normal Arial, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+}
+
+.save-load-controls .toolbar-button:visited {
+  color: #000;
+}
+
 .dungeon-config-row {
   display: flex;
   flex-wrap: nowrap;
@@ -2644,12 +2665,13 @@ body {
 }
 .room-option {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   margin: 12px 0;
   white-space: normal;
 }
 .room-option input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; }
+.room-option.is-disabled { opacity: .5; }
 #multiplayer-invite-code { font: bold 24px monospace; }
 body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 .layout { flex: 1; min-height: 0; height: auto; }
@@ -2658,6 +2680,9 @@ body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 .character-card[draggable="true"] { cursor: grab; }
 .character-card.is-readonly input, .character-card.is-readonly button { opacity: .65; }
 .multiplayer-presence-row { gap: 12px; flex-wrap: wrap; }
+.multiplayer-presence-row > span:first-child { min-width: 145px; }
+.multiplayer-presence-row select { width: min(280px, 100%); margin: 0; }
+.multiplayer-player-controls { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; justify-content: flex-end; }
 .multiplayer-modal .modal-actions { flex-wrap: wrap; }
 .room-option[hidden] { display: none; }
 .multiplayer-modal { border-radius: 8px; background: #28282a; }

@@ -77,7 +77,10 @@ def test_multiplayer_controls_and_modal_structure_exist():
     assert response.status_code == 200
     soup = BeautifulSoup(response.data, "html.parser")
 
-    assert soup.select_one("#multiplayer-btn") is not None
+    multiplayer_button = soup.select_one("#multiplayer-btn")
+    assert multiplayer_button is not None
+    assert multiplayer_button.get_text(strip=True) == "Multiplayer"
+    assert "toolbar-button" in soup.select_one("#account-link").get("class", [])
 
     modal = soup.select_one("#multiplayer-modal")
     assert modal is not None
@@ -91,6 +94,7 @@ def test_multiplayer_controls_and_modal_structure_exist():
     assert modal.select_one("#multiplayer-presence-list") is not None
     assert modal.select_one("[data-testid='multiplayer-presence-list']") is not None
     assert modal.select_one("#room-option-autonomous_exploration") is not None
+    assert modal.select_one("#room-option-players_can_import") is not None
     assert modal.select_one("#room-option-extra_characters_without_host") is not None
     assert modal.select_one("#room-option-bury_others") is not None
     assert modal.select_one("#multiplayer-assign-btn") is None

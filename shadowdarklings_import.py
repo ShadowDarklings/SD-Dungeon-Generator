@@ -76,6 +76,9 @@ def browser_import(base_classes_only):
             context.set_default_timeout(8000)
             def allow_source(route):
                 target = urlsplit(route.request.url)
+                if route.request.resource_type in {"font", "image", "media"}:
+                    route.abort()
+                    return
                 if target.scheme == "https" and target.hostname in ALLOWED_HOSTS and target.port in {None, 443}:
                     route.continue_()
                 else:
@@ -97,7 +100,14 @@ def browser_import(base_classes_only):
             json_button = page.get_by_role("button", name="JSON")
             json_button.wait_for(state="visible", timeout=30000)
             json_button.click()
-            page.wait_for_timeout(750)
+            page.wait_for_function("""async () => {
+                try {
+                    const value = (await navigator.clipboard.readText()).trim();
+                    return value.startsWith('{') && value.endsWith('}');
+                } catch (_) {
+                    return false;
+                }
+            }""", timeout=3000)
             result = page.evaluate("Promise.race([navigator.clipboard.readText(), new Promise((_, reject) => setTimeout(() => reject(new Error('Clipboard timeout')), 3000))])")
             result = str(result).strip()
             if len(result.encode("utf-8")) > MAX_IMPORT_BYTES or not isinstance(json.loads(result), dict):

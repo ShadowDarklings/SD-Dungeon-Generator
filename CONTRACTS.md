@@ -276,13 +276,13 @@ All JSON responses use this error envelope when a request fails:
 | Field | Contract |
 |---|---|
 | Purpose | Generate a random Shadowdark character by driving the live shadowdarklings.net site (§3c) and return its exported JSON to the client. |
-| Auth | **Required.** The endpoint launches a server-side headless browser; anonymous access would be a trivial resource-exhaustion vector. 401 `login_required` for anonymous callers. **Dev-only bypass (PR #23):** setting `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1` permits anonymous calls for local frontend testing (see AGENTS.md). This variable must never be set in production — it is not in `docker-compose.yml` or `.env.example` defaults, and the production feature gate (Environments row) blocks the endpoint regardless. Note: when the feature is disabled, anonymous callers receive 503 `feature_disabled` rather than 401 (the feature gate is checked first). |
-| Request | Optional JSON body: `{ "base_classes_only": boolean }` (default `false`). When `true`, the optional ShadowDarklings source switches (§3c) are disabled before generating. Missing/invalid body is treated as `{}`. |
+| Auth | A signed-in account or active member of the supplied room is required. Active room guests are authorized by their HttpOnly guest identity; the server verifies current membership and host import permissions before launching Chromium. Unaffiliated anonymous callers receive 401 `login_required`. **Dev-only bypass (PR #23):** setting `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1` permits unaffiliated anonymous calls for local frontend testing (see AGENTS.md) and must never be set in production. When the feature is disabled, callers receive 503 `feature_disabled` before authorization is evaluated. |
+| Request | JSON object: `{ "base_classes_only": boolean, "room_id": string }`. `base_classes_only` defaults to `false`; when true, optional ShadowDarklings source switches (§3c) are disabled before generating. `room_id` is required for guest imports and causes room membership, player import permission and per-player character limits to be checked before browser work begins. A missing, malformed or non-object JSON body returns the standard 400 `invalid_json` envelope. |
 | Success | HTTP 200 JSON: `{ "source": "shadowdarklings", "character_json": "<exported JSON string>", "generated_at": "<ISO timestamp>" }`. |
-| Errors | 401 `login_required`; 503 `feature_disabled` when the feature is off (see Environments); 503 `shadowdarklings_service_unavailable` when the upstream site or browser automation fails (revised from 502 `shadowdarklings_import_failed` in PR #19 — 503 better reflects a transient upstream outage; clients distinguish the two 503s by `error` code). |
+| Errors | 400 `invalid_json`; 401 `login_required`; 403 `player_import_disabled` or `import_limit`; 404 `not_found` for an invalid or inaccessible room; 503 `feature_disabled` when the feature is off (see Environments); 503 `shadowdarklings_service_unavailable` when the upstream site or browser automation fails. |
 | CSRF | Exempt (JSON API, protected by `SameSite=Lax`; see §9.3). |
 | Environments | Enabled by default outside production. Production deployments must explicitly set `SHADOWDARKLINGS_IMPORT_ENABLED=1`; otherwise the endpoint returns 503 `feature_disabled`. The production image ships Playwright Chromium so EC2 full-site deployments can enable importer support. |
-| Known limitation | Synchronous and slow (real browser per request). One request at a time per user is the intended usage; no queueing exists. |
+| Known limitation | Synchronous and comparatively expensive (real browser per request). Requests are rate limited and the worker is globally single-flight; excess concurrent imports fail without queueing. |
 
 ## 3. External API Contracts
 
@@ -369,7 +369,7 @@ contract what our code does, not what the site will do.
 | `PUT /api/runs/<run_id>` | 401 or 302 | Can update own run | 404, not 403 |
 | `DELETE /api/runs/<run_id>` | 401 or 302 | Can delete own run | 404, not 403 |
 | `GET /api/random-tables` | Read allowed | Read allowed | Read allowed |
-| `POST /api/shadowdarklings/import` | 401 | Allowed | Allowed (not ownership-scoped) |
+| `POST /api/shadowdarklings/import` | 401 unless an active room guest | Allowed | Allowed subject to room membership and host import options |
 | `GET /login/github` | Initiates OAuth flow | Initiates OAuth flow (re-auth) | — |
 | `GET /auth/github/callback` | Processes callback | Processes callback | — |
 | `GET /test/login/<username>` | 404 (unless `TESTING`) | 404 (unless `TESTING`) | — |

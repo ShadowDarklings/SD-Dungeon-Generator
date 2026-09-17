@@ -20,6 +20,7 @@ def character(name="Host", identifier="host-char"):
 
 def dungeon():
     return {"seed": 123, "level": 1, "map": {"width": 7, "height": 7},
+            "generation": {"entranceRoomId": "r1"},
             "tiles": [{"x": x, "y": y, "type": "floor", "roomId": "r1"} for y in range(7) for x in range(7)],
             "rooms": [{"id": "r1", "x": 0, "y": 0, "width": 7, "height": 7}],
             "entities": [{"id": "stairs", "type": "stairs", "subtype": "up", "x": 2, "y": 2, "roomId": "r1"}],
@@ -74,7 +75,7 @@ def command(client, room, action, **args):
 
 def test_guest_owns_import_and_cannot_invite_or_control_host(clients):
     host, guest, _ = clients
-    room = create(host)
+    room = create(host, players_can_import=True)
     assert len(room["invite_code"]) == 4 and room["invite_code"].isalnum()
     member = join(guest, room)
     assert member["owned_character_ids"] == []
@@ -92,9 +93,98 @@ def test_guest_owns_import_and_cannot_invite_or_control_host(clients):
     assert post(guest, f"/api/rooms/{room['id']}/characters/{owned}/save", {}).status_code == 401
 
 
-def test_host_absence_options_and_returning_membership(clients):
+def test_host_controls_player_imports_and_character_assignments(clients):
+    host, guest, player = clients
+    room = create(host)
+    guest_view = join(guest, room)
+    player_view = join(player, room)
+    denied = command(guest, room, "import", character_json=character("Guest"))
+    assert denied.status_code == 403
+    assert denied.json["error"] == "player_import_disabled"
+    current = guest.get(f"/api/rooms/{room['id']}").json
+    assert post(guest, f"/api/rooms/{room['id']}/assignments", {
+        "revision": current["revision"], "player_id": guest_view["current_player_id"],
+        "character_id": "host-char"}, "patch").status_code == 404
+
+    current = host.get(f"/api/rooms/{room['id']}").json
+    assigned = post(host, f"/api/rooms/{room['id']}/assignments", {
+        "revision": current["revision"], "player_id": guest_view["current_player_id"],
+        "character_id": "host-char"}, "patch")
+    assert assigned.status_code == 200, assigned.json
+    assert assigned.json["ownership"]["host-char"] == guest_view["current_player_id"]
+    assert assigned.json["assignments"][guest_view["current_player_id"]] == "host-char"
+    assert command(guest, room, "move", character_id="host-char", dx=1, dy=0).status_code == 200
+
+    current = host.get(f"/api/rooms/{room['id']}").json
+    transferred = post(host, f"/api/rooms/{room['id']}/assignments", {
+        "revision": current["revision"], "player_id": player_view["current_player_id"],
+        "character_id": "host-char"}, "patch")
+    assert transferred.status_code == 200, transferred.json
+    assert transferred.json["owned_character_ids"] == []
+    assert transferred.json["assignments"][guest_view["current_player_id"]] is None
+    assert transferred.json["ownership"]["host-char"] == player_view["current_player_id"]
+    assert command(guest, room, "move", character_id="host-char", dx=1, dy=0).status_code == 403
+    assert command(player, room, "move", character_id="host-char", dx=1, dy=0).status_code == 200
+
+
+def test_player_single_character_limit_resets_after_dismissal(clients):
+    host, guest, _ = clients
+    room = create(host, players_can_import=True)
+    guest_view = join(guest, room)
+    imported = command(guest, room, "import", character_json=character("First"))
+    assert imported.status_code == 200, imported.json
+    character_id = imported.json["owned_character_ids"][0]
+    second = command(guest, room, "import", character_json=character("Second"))
+    assert second.status_code == 403
+    assert second.json["error"] == "import_limit"
+    assert command(guest, room, "dismiss", character_id=character_id).status_code == 200
+    replacement = command(guest, room, "import", character_json=character("Replacement"))
+    assert replacement.status_code == 200, replacement.json
+
+    replacement_id = replacement.json["owned_character_ids"][0]
+    current = host.get(f"/api/rooms/{room['id']}").json
+    reassigned = post(host, f"/api/rooms/{room['id']}/assignments", {
+        "revision": current["revision"], "player_id": guest_view["current_player_id"],
+        "character_id": "host-char"}, "patch")
+    assert reassigned.status_code == 200, reassigned.json
+    assert reassigned.json["ownership"]["host-char"] == guest_view["current_player_id"]
+    assert reassigned.json["ownership"][replacement_id] == reassigned.json["current_player_id"]
+    assert command(guest, room, "move", character_id=replacement_id, dx=1, dy=0).status_code == 403
+
+
+def test_guest_shadowdarklings_generation_obeys_room_import_permission(clients, monkeypatch):
     host, guest, _ = clients
     room = create(host)
+    join(guest, room)
+    called = []
+    monkeypatch.setattr("app.fetch_shadowdarklings_character_json", lambda base_classes_only=False: called.append(True) or '{"name":"Guest"}')
+    previous = app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED")
+    app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = True
+    try:
+        malformed = post(guest, "/api/shadowdarklings/import", [])
+        assert malformed.status_code == 400
+        assert malformed.is_json and malformed.json["error"] == "invalid_json"
+        assert called == []
+
+        denied = post(guest, "/api/shadowdarklings/import", {"room_id": room["id"]})
+        assert denied.status_code == 403
+        assert denied.is_json and denied.json["error"] == "player_import_disabled"
+        assert called == []
+
+        current = host.get(f"/api/rooms/{room['id']}").json
+        enabled = post(host, f"/api/rooms/{room['id']}/options", {
+            "revision": current["revision"], "players_can_import": True}, "patch")
+        assert enabled.status_code == 200
+        imported = post(guest, "/api/shadowdarklings/import", {"room_id": room["id"]})
+        assert imported.status_code == 200, imported.json
+        assert imported.is_json and called == [True]
+    finally:
+        app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = previous
+
+
+def test_host_absence_options_and_returning_membership(clients):
+    host, guest, _ = clients
+    room = create(host, players_can_import=True)
     join(guest, room)
     imported = command(guest, room, "import", character_json=character("Guest")).json
     owned = imported["owned_character_ids"][0]
@@ -115,7 +205,7 @@ def test_host_absence_options_and_returning_membership(clients):
 
 def test_burial_and_sixteen_character_cap(clients):
     host, guest, _ = clients
-    room = create(host)
+    room = create(host, players_can_import=True, extra_characters_without_host=True)
     join(guest, room)
     with Session(engine) as db:
         saved = db.get(GameRoom, room["id"])
@@ -134,7 +224,7 @@ def test_burial_and_sixteen_character_cap(clients):
 
 def test_revision_idempotency_csrf_and_private_saved_characters(clients):
     host, guest, player = clients
-    room = create(host)
+    room = create(host, players_can_import=True)
     join(guest, room)
     join(player, room)
     payload = {"revision": room["revision"], "request_id": uuid.uuid4().hex,
@@ -155,7 +245,7 @@ def test_revision_idempotency_csrf_and_private_saved_characters(clients):
 
 def test_named_host_save_preserves_roster_and_personal_characters(clients):
     host, _, player = clients
-    room = create(host)
+    room = create(host, players_can_import=True)
     join(player, room)
     imported = command(player, room, "import", character_json=character("Player")).json
     owned = imported["owned_character_ids"][0]

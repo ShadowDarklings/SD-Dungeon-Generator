@@ -264,7 +264,13 @@ def migrate_existing_database() -> None:
     """
     additions = {"users": {"session_version": "INTEGER NOT NULL DEFAULT 0"},
         "saved_runs": {"revision": "INTEGER NOT NULL DEFAULT 1", "deleted_at": "TIMESTAMP"},
-        "saved_characters": {"revision": "INTEGER NOT NULL DEFAULT 1", "deleted_at": "TIMESTAMP"}}
+        "saved_characters": {"revision": "INTEGER NOT NULL DEFAULT 1", "deleted_at": "TIMESTAMP"},
+        "game_rooms": {
+            # Existing rooms keep their prior import behavior. Newly created rooms
+            # explicitly send the model default (False).
+            "players_can_import": "BOOLEAN NOT NULL DEFAULT TRUE",
+            "primary_assignments_json": "JSON NOT NULL DEFAULT '{}'",
+        }}
     inspector = inspect(engine)
     with engine.begin() as conn:
         for table_name, columns in additions.items():
@@ -775,9 +781,8 @@ def healthz():
 @app.route("/api/shadowdarklings/import", methods=["POST"])
 @rate_limit("10 per hour")
 def import_shadowdarklings_character():
-    # login_required: this endpoint launches a headless browser server-side —
-    # anonymous access would be a trivial resource-exhaustion (DoS) vector.
-    #
+    # Browser work is available only to accounts or verified active room guests;
+    # room permissions are checked before launching the expensive worker.
     # Production-capable feature (CONTRACTS.md section 2): keep it explicit
     # because it runs browser automation against an upstream site.
     if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", False):
@@ -787,11 +792,23 @@ def import_shadowdarklings_character():
         }, 503
     allow_anon_dev_import = os.getenv("ALLOW_ANON_SHADOWDARKLINGS_IMPORT") == "1"
     from rooms import find_member
-    request_data = request.get_json(silent=True) or {}
+    request_data = request.get_json(silent=True)
+    if not isinstance(request_data, dict):
+        request_data = {}
     room_id = request_data.get("room_id")
-    room = get_db_session().get(GameRoom, room_id) if isinstance(room_id, str) else None
-    member = find_member(get_db_session(), room) if room else None
+    db = get_db_session()
+    room = db.get(GameRoom, room_id) if isinstance(room_id, str) else None
+    member = find_member(db, room) if room else None
     room_guest = bool(member and member.status == "active" and room.closed_at is None)
+    if isinstance(room_id, str):
+        if not room_guest:
+            return {"error": "not_found", "message": "Dungeon not found."}, 404
+        if member.role != "host":
+            if not room.players_can_import:
+                return {"error": "player_import_disabled", "message": "The host is assigning characters for this dungeon."}, 403
+            owned = {character_id for character_id, owner_id in (room.ownership_json or {}).items() if owner_id == member.id}
+            if owned and not room.extra_characters_without_host:
+                return {"error": "import_limit", "message": "You already control a character in this dungeon."}, 403
     if not current_user.is_authenticated and not allow_anon_dev_import and not room_guest:
         return {"error": "login_required", "message": "Authentication required."}, 401
 

@@ -6153,7 +6153,6 @@ function updateCharactersUi() {
 }
 
 function openCharacterSheet(character) {
-  if (isSharedRoom() && multiplayerSession.role !== "host" && !multiplayerSession.owned_character_ids?.length) return;
   if (!ui.characterSheetModal || !ui.characterSheetContent) {
     return;
   }
@@ -6570,9 +6569,20 @@ async function importShadowdarklingsCharacterOneClick() {
     return;
   }
 
+  if (!canUseRoomCharacterImport()) {
+    const message = multiplayerSession.options?.players_can_import
+      ? "You already control a character in this dungeon."
+      : "The host is assigning characters for this dungeon.";
+    ui.charactersEmpty.hidden = false;
+    ui.charactersEmpty.textContent = message;
+    setStatus(message);
+    return;
+  }
+
   const importButton = ui.importCharacterBtn;
   const previousLabel = importButton?.textContent || "Import from ShadowDarklings";
   if (importButton) {
+    importButton.dataset.busy = "true";
     importButton.disabled = true;
     importButton.textContent = "Importing...";
   }
@@ -6619,7 +6629,8 @@ async function importShadowdarklingsCharacterOneClick() {
     setStatus(ui.charactersEmpty.textContent);
   } finally {
     if (importButton) {
-      importButton.disabled = false;
+      delete importButton.dataset.busy;
+      importButton.disabled = !canUseRoomCharacterImport();
       importButton.textContent = previousLabel;
     }
   }
@@ -8045,6 +8056,7 @@ function updatePanels() {
   updateTrapActionUi();
   updateCombatUi();
   renderMultiplayerUi();
+  applyRoomInteractionPermissions();
 }
 
 function maybeShowFullyLooted() {
@@ -8353,6 +8365,7 @@ function renderSavedCharactersList() {
 async function loadSelectedCharacter(savedCharacter) {
   ui.saveLoadStatus.textContent = "Loading character...";
   try {
+    if (!canUseRoomCharacterImport()) throw new Error("The host is assigning characters for this dungeon.");
     if (state.characters.length >= MAX_SESSION_CHARACTERS) throw new Error("The dungeon already contains 16 characters.");
     if (isSharedRoom()) {
       await executeSharedCommand({ type: "import", saved_character_id: savedCharacter.id });
@@ -8454,6 +8467,10 @@ function renderSavedRunsList() {
 
 async function openSaveLoadModal(mode) {
   if (mode === "save" && isSharedRoom() && multiplayerSession.role !== "host") return;
+  if (mode === "load-character" && !canUseRoomCharacterImport()) {
+    setStatus("The host is assigning characters for this dungeon.");
+    return;
+  }
   saveDialog = {
     mode,
     runs: [],
@@ -8579,6 +8596,27 @@ function canBuryCharacter(character) {
     (ownsCharacter(character) || multiplayerSession.role === "host" || multiplayerSession.options?.bury_others));
 }
 
+function canUseRoomCharacterImport() {
+  if (!isSharedRoom() || multiplayerSession.role === "host") return true;
+  if (!multiplayerSession.options?.players_can_import) return false;
+  return multiplayerSession.options?.extra_characters_without_host === true ||
+    !(multiplayerSession.owned_character_ids || []).length;
+}
+
+function applyRoomInteractionPermissions() {
+  if (!state) return;
+  const blocked = isSharedRoom() && !canControlCharacter(getExplicitActiveCharacter(state));
+  for (const control of [ui.lightTorchBtn, ui.lightLanternBtn, ui.castLightBtn, ui.torchOutBtn, ui.searchBtn,
+    ui.stealthBtn, ui.pickLockBtn, ui.breakDoorBtn, ui.endTurnBtn]) {
+    if (control) control.disabled = blocked;
+  }
+  for (const root of [ui.roomLootPanel, ui.monsterPanel, ui.trapPanel, ui.combatPanel]) {
+    if (blocked) {
+      for (const control of root?.querySelectorAll("button, input, select, textarea") || []) control.disabled = true;
+    }
+  }
+}
+
 function roomOrderKey() {
   return `sd-character-order:${multiplayerSession.id || "solo"}:${multiplayerSession.current_player_id || "local"}`;
 }
@@ -8637,6 +8675,7 @@ async function executeSharedCommand(command, expectedRevision = null) {
 
 function sendSharedCommand(type, values = {}, character = getActiveCharacter(state)) {
   if (!isSharedRoom() || applyingSharedState) return false;
+  if (type === "roll" && !ownsCharacter(character)) return false;
   if (!(type === "bury" ? canBuryCharacter(character) : canControlCharacter(character))) {
     setStatus(!ownsCharacter(character) ? "Choose one of your own characters." : "The dungeon is paused while the host is away.");
     return true;
@@ -8671,6 +8710,7 @@ function redrawFromHydratedState(message = "") {
 function applyMultiplayerSessionState(payload, options = {}) {
   if (payload.id && multiplayerSession.id === payload.id && payload.revision < multiplayerSession.revision) return;
   const previousOwned = multiplayerSession.owned_character_ids || [];
+  const previousCanExplore = multiplayerSession.can_explore;
   const activeId = state?.activeCharacterId;
   const oldRoom = multiplayerSession.id;
   if (oldRoom !== payload.id) for (const input of document.querySelectorAll(".room-option input")) delete input.dataset.dirty;
@@ -8702,6 +8742,9 @@ function applyMultiplayerSessionState(payload, options = {}) {
     } finally { applyingSharedState = false; }
   }
   if (multiplayerSession.id) history.replaceState(null, "", `/site/?room=${encodeURIComponent(multiplayerSession.id)}`);
+  if (!payload.state_json && previousCanExplore !== multiplayerSession.can_explore && state) {
+    updatePanels();
+  }
   renderMultiplayerUi();
 }
 
@@ -8711,8 +8754,20 @@ function setMultiplayerStatus(message, tone = "") {
 }
 
 function selectedRoomOptions() {
-  return Object.fromEntries(["autonomous_exploration", "extra_characters_without_host", "bury_others"].map((key) =>
+  const options = Object.fromEntries(["autonomous_exploration", "players_can_import", "extra_characters_without_host", "bury_others"].map((key) =>
     [key, document.getElementById(`room-option-${key}`)?.checked === true]));
+  if (!options.players_can_import) options.extra_characters_without_host = false;
+  return options;
+}
+
+function syncMultipleCharacterOption() {
+  const importInput = document.getElementById("room-option-players_can_import");
+  const multipleInput = document.getElementById("room-option-extra_characters_without_host");
+  const enabled = importInput?.checked === true;
+  if (!multipleInput) return;
+  multipleInput.disabled = !enabled;
+  if (!enabled) multipleInput.checked = false;
+  document.getElementById("room-option-multiple-row")?.classList.toggle("is-disabled", !enabled);
 }
 
 function renderMultiplayerUi() {
@@ -8725,8 +8780,8 @@ function renderMultiplayerUi() {
   ui.multiplayerInviteRow.hidden = !host || !multiplayerSession.inviteUrl;
   ui.multiplayerInviteLink.value = multiplayerSession.inviteUrl || "";
   document.getElementById("multiplayer-invite-code").textContent = host ? (multiplayerSession.inviteCode || "") : "";
-  ui.multiplayerTitle.textContent = active ? multiplayerSession.name || "Dungeon Party" : "Invite Players";
-  ui.multiplayerBtn.textContent = active && !host ? "Players" : "Invite Players";
+  ui.multiplayerTitle.textContent = active ? multiplayerSession.name || "Dungeon Party" : "Multiplayer";
+  ui.multiplayerBtn.textContent = "Multiplayer";
   ui.multiplayerRefreshBtn.disabled = !active;
   document.getElementById("room-save-options").hidden = !active || !host;
   document.getElementById("room-close-session").hidden = !active || !host;
@@ -8741,6 +8796,7 @@ function renderMultiplayerUi() {
     const lock = document.getElementById("room-lock-joins");
     if (!lock.dataset.dirty) lock.checked = multiplayerSession.joins_locked === true;
   }
+  syncMultipleCharacterOption();
   document.getElementById("room-account-links").hidden = active ? multiplayerSession.authenticated : accountSession.authenticated;
   const accountLink = document.getElementById("account-link");
   accountLink.href = accountSession.authenticated ? "/account" : `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
@@ -8750,29 +8806,73 @@ function renderMultiplayerUi() {
   }
   ui.saveBtn.disabled = active && !host;
   ui.generateBtn.disabled = active;
+  const importAllowed = canUseRoomCharacterImport();
+  if (ui.importCharacterBtn && ui.importCharacterBtn.dataset.busy !== "true") ui.importCharacterBtn.disabled = !importAllowed;
+  if (ui.baseClassesOnlyToggle) ui.baseClassesOnlyToggle.disabled = !importAllowed;
+  if (ui.loadCharacterBtn) ui.loadCharacterBtn.disabled = active && (!multiplayerSession.authenticated || !importAllowed);
   if (ui.wanderingNumerator) ui.wanderingNumerator.disabled = active;
   if (ui.wanderingDenominator) ui.wanderingDenominator.disabled = active;
   ui.multiplayerPresenceList.replaceChildren();
-  for (const player of multiplayerSession.players || []) {
+  const players = multiplayerSession.players || [];
+  const assignments = multiplayerSession.assignments || {};
+  const ownership = multiplayerSession.ownership || {};
+  const characters = state?.characters || [];
+  const playerNames = new Map(players.map((player) => [player.id, player.display_name]));
+  const roomHost = players.find((player) => player.role === "host");
+  for (const player of players) {
     const row = document.createElement("div");
     row.className = "multiplayer-presence-row";
     const label = document.createElement("span");
     label.textContent = `${player.display_name} (${player.role}, ${player.online ? "online" : "away"})`;
     row.append(label);
-    if (host && player.role !== "host") {
-      const kick = document.createElement("button");
-      kick.textContent = "Remove";
-      kick.addEventListener("click", () => {
-        if (confirm(`Remove ${player.display_name} from this dungeon?`)) void roomHostAction(`players/${player.id}/kick`);
+    if (host) {
+      const controls = document.createElement("div");
+      controls.className = "multiplayer-player-controls";
+      const select = document.createElement("select");
+      select.setAttribute("aria-label", `Character assigned to ${player.display_name}`);
+      const none = document.createElement("option");
+      none.value = "";
+      none.textContent = "(none)";
+      select.append(none);
+      for (const character of characters) {
+        const option = document.createElement("option");
+        option.value = character.id;
+        const ownerId = ownership[character.id];
+        const isUnassigned = Boolean(roomHost && ownerId === roomHost.id && assignments[roomHost.id] !== character.id);
+        const ownerLabel = ownerId && ownerId !== player.id ? playerNames.get(ownerId) : "";
+        option.textContent = `${character.name || "Character"}${isUnassigned ? " (unassigned)" : ownerLabel ? ` (${ownerLabel})` : ""}`;
+        select.append(option);
+      }
+      select.value = assignments[player.id] || "";
+      select.disabled = characters.length === 0;
+      select.addEventListener("change", () => {
+        select.disabled = true;
+        void roomHostAction("assignments", { player_id: player.id, character_id: select.value || null }, "PATCH");
       });
-      row.append(kick);
+      controls.append(select);
+      if (player.role !== "host") {
+        const kick = document.createElement("button");
+        kick.textContent = "Remove";
+        kick.addEventListener("click", () => {
+          if (confirm(`Remove ${player.display_name} from this dungeon?`)) void roomHostAction(`players/${player.id}/kick`);
+        });
+        controls.append(kick);
+      }
+      row.append(controls);
+    } else {
+      const assigned = characters.find((character) => character.id === assignments[player.id]);
+      const assignment = document.createElement("span");
+      assignment.className = "multiplayer-presence-meta";
+      assignment.textContent = assigned?.name || "No character assigned";
+      row.append(assignment);
     }
     ui.multiplayerPresenceList.append(row);
   }
   const banner = document.getElementById("room-state-banner");
   banner.textContent = !active ? "" : multiplayerSession.closed ? "Dungeon closed." :
     !multiplayerSession.can_explore ? "Host away: dungeon paused." :
-    !(multiplayerSession.owned_character_ids || []).length ? "Load or import your character to join the dungeon." :
+    !(multiplayerSession.owned_character_ids || []).length ?
+      (importAllowed ? "Load or import your character to join the dungeon." : "Waiting for the host to assign your character.") :
     !multiplayerSession.host_present ? "Host away: autonomous exploration enabled." : "";
   banner.hidden = !banner.textContent;
   ensureMultiplayerRefreshLoop();
@@ -9080,7 +9180,10 @@ function hookInputEvents() {
   document.getElementById("room-save-options")?.addEventListener("click", () => roomHostAction("options", {
     ...selectedRoomOptions(), joins_locked: document.getElementById("room-lock-joins").checked
   }, "PATCH"));
-  for (const input of document.querySelectorAll(".room-option input")) input.addEventListener("change", () => { input.dataset.dirty = "true"; });
+  for (const input of document.querySelectorAll(".room-option input")) input.addEventListener("change", () => {
+    input.dataset.dirty = "true";
+    if (input.id === "room-option-players_can_import") syncMultipleCharacterOption();
+  });
   document.getElementById("room-close-session")?.addEventListener("click", () => roomHostAction(multiplayerSession.closed ? "resume" : "close"));
   document.getElementById("room-leave-session")?.addEventListener("click", async () => {
     try {

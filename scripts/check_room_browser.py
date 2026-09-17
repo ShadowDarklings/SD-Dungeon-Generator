@@ -1,5 +1,6 @@
 """Two independent browser contexts against the isolated local preview."""
 import json
+import os
 from pathlib import Path
 import uuid
 import re
@@ -8,7 +9,7 @@ from playwright.sync_api import sync_playwright, expect
 root = Path(__file__).resolve().parents[1]
 out = root / "browser-checks"
 out.mkdir(exist_ok=True)
-base = "http://127.0.0.1:5057"
+base = os.environ.get("SD_BROWSER_BASE", "http://127.0.0.1:5057").rstrip("/")
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
@@ -29,6 +30,7 @@ with sync_playwright() as p:
     expect(host.locator("#status-text")).to_contain_text("Generated", timeout=90000)
     host.locator("#import-character-btn").click()
     host.locator(".character-card").first.wait_for()
+    host_character_id = host.locator(".character-card").first.get_attribute("data-character-id")
     host.locator("#multiplayer-btn").click()
     host.locator("#multiplayer-create-host-btn").click()
     host.wait_for_url("**/site/?room=*")
@@ -40,7 +42,36 @@ with sync_playwright() as p:
     assert guest.locator("#multiplayer-host-section").is_hidden()
     guest.locator("#multiplayer-close").click()
     guest.locator(".character-card .character-mini-name").first.click()
-    assert guest.locator("#character-sheet-modal").is_hidden()
+    assert guest.locator("#character-sheet-modal").is_visible()
+    assert guest.locator("#character-sheet-content .sd-rename-button").is_disabled()
+    guest.locator("#character-sheet-close").click()
+    expect(guest.locator("#import-character-btn")).to_be_disabled()
+    expect(guest.locator("#search-btn")).to_be_disabled()
+    expect(guest.locator("#zoom-in-btn")).to_be_enabled()
+    expect(guest.locator(".manual-die-button").first).to_be_enabled()
+    guest.locator(".manual-die-button").first.click()
+    expect(guest.locator("#damage-result")).not_to_have_text("none")
+
+    host.locator("#multiplayer-refresh-btn").click()
+    expect(host.locator(".multiplayer-presence-row")).to_have_count(2)
+    host.locator(".multiplayer-presence-row").filter(has_text="Adventurer").locator("select").select_option(host_character_id)
+    expect(host.locator("#multiplayer-status")).to_contain_text("updated")
+    guest.reload()
+    expect(guest.locator(".character-card")).to_have_count(1)
+    guest.locator("#multiplayer-close").click()
+    guest.locator(".character-card .character-mini-name").first.click()
+    expect(guest.locator("#character-sheet-content .sd-rename-button")).to_be_enabled()
+    guest.locator("#character-sheet-close").click()
+
+    host.locator(".multiplayer-presence-row").filter(has_text="(host,").locator("select").select_option(host_character_id)
+    expect(host.locator("#multiplayer-status")).to_contain_text("updated")
+    host.locator("#room-option-players_can_import").check()
+    host.locator("#room-save-options").click()
+    expect(host.locator("#multiplayer-status")).to_contain_text("updated")
+    guest.reload()
+    expect(guest.locator(".character-card")).to_have_count(1)
+    guest.locator("#multiplayer-close").click()
+    expect(guest.locator("#import-character-btn")).to_be_enabled()
     guest.locator("#import-character-btn").click()
     expect(guest.locator(".character-card")).to_have_count(2)
     guest.screenshot(path=str(out / "room-guest-mobile.png"), full_page=True)
@@ -100,14 +131,14 @@ with sync_playwright() as p:
     guest.locator(f'.character-card[data-character-id="{own}"] .character-mini-name').click()
     expect(guest.locator("#character-sheet-content .sd-rename-button")).to_be_disabled()
     guest.locator("#character-sheet-close").click()
-    guest.locator("#import-character-btn").click()
-    expect(guest.locator("#status-text")).to_contain_text("host", timeout=10000)
+    expect(guest.locator("#import-character-btn")).to_be_disabled()
     expect(guest.locator(".character-card")).to_have_count(2)
     guest.screenshot(path=str(out / "room-paused-mobile.png"), full_page=True)
     host.goto(room_url)
     expect(host.locator(".character-card")).to_have_count(2)
     for key in ("autonomous_exploration", "extra_characters_without_host", "bury_others"):
         assert not host.locator("#room-option-" + key).is_checked()
+    assert host.locator("#room-option-players_can_import").is_checked()
     host.locator("#room-option-autonomous_exploration").check()
     host.locator("#room-option-extra_characters_without_host").check()
     host.locator("#room-save-options").click()

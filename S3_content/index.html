@@ -17,8 +17,8 @@
           <div class="save-load-controls" aria-label="Saved runs">
             <button id="save-btn" type="button">Save</button>
             <button id="load-btn" type="button">Load</button>
-            <button id="multiplayer-btn" type="button">Invite Players</button>
-            <a id="account-link" href="/account">Account</a>
+            <button id="multiplayer-btn" type="button">Multiplayer</button>
+            <a id="account-link" class="toolbar-button" href="/account" role="button">Account</a>
           </div>
           <div class="dungeon-config-row">
             <label>
@@ -174,14 +174,15 @@
     <p id="room-state-banner" role="status" hidden></p>
     <div id="multiplayer-modal" class="modal-backdrop" hidden>
       <section class="modal-card multiplayer-modal" role="dialog" aria-modal="true" aria-labelledby="multiplayer-title">
-        <h2 id="multiplayer-title">Invite Players</h2>
+        <h2 id="multiplayer-title">Multiplayer</h2>
         <p id="multiplayer-status" class="modal-status">Create a host link, or paste a friend's code to join their dungeon.</p>
 
         <section id="multiplayer-host-section" class="multiplayer-section" aria-labelledby="multiplayer-host-heading">
           <h3 id="multiplayer-host-heading">Host This Dungeon</h3>
-          <label class="room-option" title="Players can explore the dungeon even if the host isn't present."><input id="room-option-autonomous_exploration" type="checkbox" /> Invited player autonomous exploring?</label>
-          <label class="room-option"><input id="room-option-extra_characters_without_host" type="checkbox" /> Allow players to import more than 1 character if the host isn't present?</label>
-          <label class="room-option"><input id="room-option-bury_others" type="checkbox" /> Allow players to bury dead characters they don't own?</label>
+          <label class="room-option"><span title="Players can explore the dungeon even if the host isn't present.">Invited player autonomous exploring?</span><input id="room-option-autonomous_exploration" type="checkbox" /></label>
+          <label class="room-option"><span title="If unchecked host imports or loads characters and assigns them to players.">Players can import/load</span><input id="room-option-players_can_import" type="checkbox" /></label>
+          <label id="room-option-multiple-row" class="room-option"><span>Allow players to import/load multiple characters?</span><input id="room-option-extra_characters_without_host" type="checkbox" /></label>
+          <label class="room-option"><span>Allow players to bury dead characters they don't own?</span><input id="room-option-bury_others" type="checkbox" /></label>
           <label class="room-option" hidden><input id="room-lock-joins" type="checkbox" /> Lock new invitations</label>
           <button id="room-save-options" type="button" hidden>Save Permissions</button>
           <button id="multiplayer-create-host-btn" type="button">Create Host Link</button>

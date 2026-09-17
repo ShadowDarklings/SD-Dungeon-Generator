@@ -65,7 +65,7 @@ def test_recovery_codes_are_single_use_and_revoke_old_sessions(clients):
 def test_guest_character_claim_on_login_and_account_export(clients):
     from test_rooms import command
     host, guest, _ = clients
-    room = create(host)
+    room = create(host, players_can_import=True)
     join(guest, room)
     imported = command(guest, room, "import", character_json=character("Guest"))
     member_id = imported.json["current_player_id"]

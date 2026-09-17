@@ -32,7 +32,7 @@ CHARACTER_COMMANDS = {
     "drop_gear", "pickup", "collect", "persuade", "edit_character", "dismiss", "bury",
     "roll", "money", "coin_adjust", "coin_amount",
 }
-OPTION_KEYS = ("autonomous_exploration", "extra_characters_without_host", "bury_others")
+OPTION_KEYS = ("autonomous_exploration", "players_can_import", "extra_characters_without_host", "bury_others")
 
 
 def aware(value):
@@ -73,6 +73,24 @@ def room_presence(db, room):
     return members, any(member.role == "host" and member.id in online for member in members), online
 
 
+def primary_assignments(room, members):
+    """Return one UI-facing primary character per member without changing ownership."""
+    ownership = room.ownership_json or {}
+    character_ids = [item.get("id") for item in room.state_json.get("characters", []) if isinstance(item.get("id"), str)]
+    stored = room.primary_assignments_json or {}
+    result = {}
+    for member in members:
+        selected = stored.get(member.id) if member.id in stored else None
+        if selected is not None and selected in character_ids and ownership.get(selected) == member.id:
+            result[member.id] = selected
+            continue
+        if member.id in stored and stored[member.id] is None:
+            result[member.id] = None
+            continue
+        result[member.id] = next((character_id for character_id in character_ids if ownership.get(character_id) == member.id), None)
+    return result
+
+
 def room_view(db, room, member, *, include_state=True):
     members, host_present, online = room_presence(db, room)
     ownership = room.ownership_json or {}
@@ -87,6 +105,7 @@ def room_view(db, room, member, *, include_state=True):
         "can_explore": room.closed_at is None and (member.role == "host" or host_present or room.autonomous_exploration),
         "players": [{"id": item.id, "display_name": item.display_name, "role": item.role, "online": item.id in online} for item in members],
         "ownership": ownership,
+        "assignments": primary_assignments(room, members),
         "owned_character_ids": [key for key, owner in ownership.items() if owner == member.id],
         "error": None,
     }
@@ -160,6 +179,11 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
                     db.add(guest)
                 elif guest.status == "active" and existing.status == "active":
                     room.ownership_json = {char: existing.id if owner == guest.id else owner for char, owner in room.ownership_json.items()}
+                    assignments = dict(room.primary_assignments_json or {})
+                    if existing.id not in assignments and guest.id in assignments:
+                        assignments[existing.id] = assignments[guest.id]
+                    assignments.pop(guest.id, None)
+                    room.primary_assignments_json = assignments
                     room.revision += 1
                     guest.status = "left"
                     guest.guest_hash = None
@@ -210,6 +234,9 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
         options = data.get("options", {})
         if not isinstance(options, dict) or any(key in options and type(options[key]) is not bool for key in OPTION_KEYS):
             raise ValueError("Room options must be yes or no.")
+        normalized_options = {key: options.get(key, False) for key in OPTION_KEYS}
+        if not normalized_options["players_can_import"]:
+            normalized_options["extra_characters_without_host"] = False
         with Session(engine) as db:
             db.exec(update(User).where(User.id == current_user.id).values(session_version=User.session_version))
             rooms = db.exec(select(GameRoom).where(GameRoom.host_user_id == current_user.id, GameRoom.closed_at == None)).all()
@@ -223,13 +250,14 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             if sum(room.closed_at is None for room in rooms) >= MAX_ROOMS:
                 return {"error": "room_limit", "message": "Close an open dungeon before hosting another."}, 409
             normalized = game_runtime.apply(state, {"type": "normalize"})["state_json"]
-            room = GameRoom(host_user_id=current_user.id, name=name.strip(), state_json=normalized, **{key: options.get(key, False) for key in OPTION_KEYS})
+            room = GameRoom(host_user_id=current_user.id, name=name.strip(), state_json=normalized, **normalized_options)
             db.add(room)
             db.flush()
             host = RoomMember(room_id=room.id, user_id=current_user.id, display_name=(current_user.display_name or current_user.username)[:80], role="host")
             db.add(host)
             db.flush()
             room.ownership_json = {character["id"]: host.id for character in normalized["characters"]}
+            room.primary_assignments_json = {host.id: normalized["characters"][0]["id"] if normalized["characters"] else None}
             invitation = create_invite(db, room)
             db.add(room)
             if not storage_available(db, current_user.id, SavedRun, SavedCharacter):
@@ -343,14 +371,17 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             if action != "import" and member.role != "host" and not (host_present or room.autonomous_exploration):
                 return {"error": "host_absent", "message": "The host is away. Character loading, saving and viewing remain available."}, 403
             ownership = dict(room.ownership_json)
+            assignments = dict(room.primary_assignments_json or {})
             own_ids = {key for key, owner in ownership.items() if owner == member.id}
             trusted = deepcopy(command)
             trusted["online_character_ids"] = [char for char, owner in ownership.items() if owner in online or owner == member.id]
             if action == "import":
                 if len(room.state_json.get("characters", [])) >= 16:
                     return {"error": "character_limit", "message": "This dungeon already contains 16 characters."}, 409
-                if member.role != "host" and not host_present and own_ids and not room.extra_characters_without_host:
-                    return {"error": "import_limit", "message": "The host must be present before you add another character."}, 403
+                if member.role != "host" and not room.players_can_import:
+                    return {"error": "player_import_disabled", "message": "The host is assigning characters for this dungeon."}, 403
+                if member.role != "host" and own_ids and not room.extra_characters_without_host:
+                    return {"error": "import_limit", "message": "You already control a character in this dungeon."}, 403
                 if "saved_character_id" in command:
                     if type(command["saved_character_id"]) is not int:
                         raise ValueError("Invalid saved character ID.")
@@ -363,6 +394,7 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
                 validate_json(trusted.get("character_json"), max_bytes=128 * 1024)
                 trusted["new_character_id"] = uuid.uuid4().hex
                 ownership[trusted["new_character_id"]] = member.id
+                assignments[member.id] = trusted["new_character_id"]
             else:
                 character_id = command.get("character_id")
                 if not isinstance(character_id, str) or character_id not in ownership:
@@ -372,10 +404,15 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
                 if action == "edit_character":
                     validate_json(command.get("character_json"), max_bytes=128 * 1024)
                 if action in {"bury", "dismiss"}:
+                    removed_owner = ownership.get(character_id)
                     ownership.pop(character_id, None)
+                    if removed_owner and assignments.get(removed_owner) == character_id:
+                        assignments[removed_owner] = next((item.get("id") for item in room.state_json.get("characters", [])
+                            if item.get("id") != character_id and ownership.get(item.get("id")) == removed_owner), None)
             result = game_runtime.apply(room.state_json, trusted)
             room.state_json = validate_state(result["state_json"], require_map=True)
             room.ownership_json = ownership
+            room.primary_assignments_json = assignments
             room.revision += 1
             room.updated_at = utcnow()
             member.last_seen_at = utcnow()
@@ -418,10 +455,63 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
                     if type(data[key]) is not bool:
                         raise ValueError("Room options must be yes or no.")
                     setattr(room, key, data[key])
+            if not room.players_can_import:
+                room.extra_characters_without_host = False
             room.revision += 1
             db.add(room)
             db.commit()
             return room_view(db, room, member)
+
+    @app.patch("/api/rooms/<room_id>/assignments")
+    @rate_limit("30 per minute")
+    @checked
+    def room_assign_character(room_id):
+        data = body()
+        player_id = data.get("player_id")
+        character_id = data.get("character_id")
+        if not isinstance(player_id, str) or (character_id is not None and not isinstance(character_id, str)):
+            raise ValueError("Choose a player and character.")
+        with Session(engine) as db:
+            room, host = member_room(db, room_id, host=True)
+            if not room or room.closed_at:
+                return not_found
+            if not check_revision(data, room):
+                return conflict()
+            target = db.get(RoomMember, player_id)
+            if not target or target.room_id != room.id or target.status != "active":
+                return not_found
+            character_ids = [item.get("id") for item in room.state_json.get("characters", [])]
+            if character_id is not None and character_id not in character_ids:
+                return not_found
+
+            ownership = dict(room.ownership_json or {})
+            assignments = dict(room.primary_assignments_json or {})
+            previous_owner = ownership.get(character_id) if character_id else None
+
+            if character_id is None:
+                if target.role != "host":
+                    for owned_id, owner_id in list(ownership.items()):
+                        if owner_id == target.id:
+                            ownership[owned_id] = host.id
+                assignments[target.id] = None
+            else:
+                if target.role != "host" and not room.extra_characters_without_host:
+                    for owned_id, owner_id in list(ownership.items()):
+                        if owner_id == target.id and owned_id != character_id:
+                            ownership[owned_id] = host.id
+                ownership[character_id] = target.id
+                assignments[target.id] = character_id
+                if previous_owner and previous_owner != target.id and assignments.get(previous_owner) == character_id:
+                    assignments[previous_owner] = next((candidate_id for candidate_id in character_ids
+                        if ownership.get(candidate_id) == previous_owner), None)
+
+            room.ownership_json = ownership
+            room.primary_assignments_json = assignments
+            room.revision += 1
+            room.updated_at = utcnow()
+            db.add(room)
+            db.commit()
+            return {**room_view(db, room, host), "message": "Character assignment updated."}
 
     @app.post("/api/rooms/<room_id>/leave")
     @checked
@@ -486,6 +576,11 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             if not room or not target or target.room_id != room.id or target.role == "host":
                 return not_found
             target.status = "kicked"
+            room.ownership_json = {character_id: host.id if owner_id == target.id else owner_id
+                for character_id, owner_id in (room.ownership_json or {}).items()}
+            assignments = dict(room.primary_assignments_json or {})
+            assignments.pop(target.id, None)
+            room.primary_assignments_json = assignments
             room.revision += 1
             db.add(target)
             db.add(room)

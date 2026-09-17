@@ -1,7 +1,7 @@
 # Host-Owned Dungeons: Operations and Release Gate
 
-This change is implemented in source, not deployed by the coding task. Local
-SQLite/browser tests do not establish production PostgreSQL, TLS, OAuth,
+This is the operations and release checklist for multiplayer changes. Local
+SQLite/browser tests alone do not establish production PostgreSQL, TLS, OAuth,
 Shadowdarklings availability, or backup restore readiness.
 
 ## Architecture and Trust
@@ -31,6 +31,11 @@ Shadowdarklings availability, or backup restore readiness.
   tools. Do not put account emails or private notes in game state.
 - Character sheets are intentionally editable by their owners. This is a
   cooperative tabletop game, not cheat-proof competitive progression.
+- Hosts choose whether players may import/load characters. When disabled, the
+  host imports or loads dungeon characters and assigns one to each player;
+  assignment transfers exclusive control. The multiple-character option is
+  available only when player import/load is enabled. Unassigned players remain
+  read-only but can pan, zoom and use the manual dice roller.
 
 ## Data and Recovery
 
@@ -155,4 +160,5 @@ a recovery test. Repeat restore drills after schema changes and periodically.
   two actual devices and a slow/disconnected connection. Verify no unexpected
   token movement or duplicated action after retry.
 - Complete an encrypted off-host backup and a disposable restore drill.
-  These deployment checks have not been performed by the local coding task.
+  Record which deployment checks were completed for each release; passing local
+  tests must not be treated as evidence for skipped production checks.
