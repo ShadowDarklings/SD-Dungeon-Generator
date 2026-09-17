@@ -327,18 +327,29 @@ export async function loadSavedCharacter(characterId) {
 
 export async function importShadowdarklingsCharacter(options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SHADOWDARKLINGS_IMPORT_TIMEOUT_MS);
+  let timeout;
+  const deadline = new Promise((_, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      const error = new Error("Character import took too long. Please try again.");
+      error.name = "AbortError";
+      reject(error);
+    }, SHADOWDARKLINGS_IMPORT_TIMEOUT_MS);
+  });
   try {
-    const response = await apiFetch("/api/shadowdarklings/import", {
-      method: "POST",
-      credentials: "same-origin",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        base_classes_only: options.baseClassesOnly === true,
-        room_id: options.roomId || null
-      })
-    });
+    const response = await Promise.race([
+      apiFetch("/api/shadowdarklings/import", {
+        method: "POST",
+        credentials: "same-origin",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base_classes_only: options.baseClassesOnly === true,
+          room_id: options.roomId || null
+        })
+      }),
+      deadline
+    ]);
     const data = await parseJsonResponse(
       response,
       "The character import server timed out. Please try again."

@@ -38,7 +38,29 @@ def test_import_timeout_stops_its_worker(monkeypatch):
             raise subprocess.TimeoutExpired("import-worker", timeout)
     process = Process()
     monkeypatch.setattr(importer.subprocess, "Popen", lambda *args, **kwargs: process)
-    monkeypatch.setattr(importer, "stop_import_process", lambda target: stopped.append(target))
+    monkeypatch.setattr(importer, "stop_import_process", lambda target, **kwargs: stopped.append(target))
     with pytest.raises(RuntimeError, match="timed out"):
         importer.fetch_shadowdarklings_character_json()
     assert process in stopped
+
+
+def test_failed_linux_worker_cleans_its_remaining_process_group(monkeypatch):
+    killed = []
+
+    class Process:
+        pid = 321
+        returncode = 1
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout):
+            return self.returncode
+
+    monkeypatch.setattr(importer.os, "name", "posix")
+    monkeypatch.setattr(importer.os, "killpg", lambda pid, sig: killed.append((pid, sig)), raising=False)
+    monkeypatch.setattr(importer.signal, "SIGKILL", 9, raising=False)
+
+    importer.stop_import_process(Process(), force_tree=True)
+
+    assert killed == [(321, 9)]

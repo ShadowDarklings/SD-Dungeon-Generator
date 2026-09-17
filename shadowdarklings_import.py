@@ -28,8 +28,9 @@ IMPORT_PROCESS_TIMEOUT_SECONDS = 30
 IMPORT_WORKER_HARD_TIMEOUT_SECONDS = 35
 
 
-def stop_import_process(process):
-    if process.poll() is not None:
+def stop_import_process(process, *, force_tree=False):
+    is_running = process.poll() is None
+    if not is_running and not (force_tree and os.name != "nt"):
         return
     if os.name == "nt":
         taskkill = Path(os.environ["SYSTEMROOT"]) / "System32" / "taskkill.exe"
@@ -93,7 +94,7 @@ def fetch_shadowdarklings_character_json(base_classes_only=False):
     except (ValueError, UnicodeError) as exc:
         raise RuntimeError("Shadowdarklings returned an invalid character.") from exc
     finally:
-        stop_import_process(process)
+        stop_import_process(process, force_tree=getattr(process, "returncode", None) not in {None, 0})
         process.stdout.close()
         process.stderr.close()
 
