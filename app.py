@@ -11,6 +11,7 @@ import json
 import re
 import random
 import secrets
+import time
 import requests
 from urllib.parse import urlsplit
 from datetime import datetime, timezone, timedelta
@@ -34,6 +35,8 @@ from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
 from room_models import GameRoom, RoomMember, RoomInvite, RoomCommand, SaveCheckpoint
 from validation import validate_json, validate_state
 from storage_limits import storage_available, STORAGE_FULL
+from import_capacity import ImportBusyError, import_slot
+from shadowdarklings_import import fetch_shadowdarklings_character_json
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -812,20 +815,32 @@ def import_shadowdarklings_character():
     if not current_user.is_authenticated and not allow_anon_dev_import and not room_guest:
         return {"error": "login_required", "message": "Authentication required."}, 401
 
+    import_started_at = time.monotonic()
     try:
         data = request_data
         base_classes_only = bool(data.get("base_classes_only", False))
-        from import_capacity import import_slot
         with import_slot():
             character_json = fetch_shadowdarklings_character_json(base_classes_only=base_classes_only)
         validate_json(json.loads(character_json), max_bytes=128 * 1024)
+    except ImportBusyError:
+        return {
+            "error": "shadowdarklings_import_busy",
+            "message": "Another character import is already running. Please try again in a moment."
+        }, 503, {"Retry-After": "5"}
     except Exception as exc:
+        app.logger.warning(
+            "ShadowDarklings import failed after %.2fs (%s): %s",
+            time.monotonic() - import_started_at,
+            type(exc).__name__,
+            exc,
+        )
         # Hardened production failover to 503 Service Unavailable per contract architecture
         return {
             "error": "shadowdarklings_service_unavailable",
             "message": "The upstream Shadowdarklings API is currently unreachable or timed out. Please try again later."
         }, 503
 
+    app.logger.info("ShadowDarklings import completed in %.2fs", time.monotonic() - import_started_at)
     return {
         "source": "shadowdarklings",
         "character_json": character_json,
@@ -891,9 +906,6 @@ def populate_child_tables(db, run, state):
         db.add(loot)
         
     db.commit()
-
-
-from shadowdarklings_import import fetch_shadowdarklings_character_json
 
 
 # ---------------------------------------------------------------------------

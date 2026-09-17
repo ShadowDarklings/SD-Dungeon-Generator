@@ -32,6 +32,10 @@ services:
     build: .
     volumes:
       - gunicorn-socket:/tmp
+    # Keep a failed browser import inside the app container's resource budget
+    # so Postgres, Nginx, and SSH remain available for recovery.
+    mem_limit: ${APP_MEMORY_LIMIT:-640m}
+    pids_limit: ${APP_PIDS_LIMIT:-128}
     # Chromium's sandbox needs this capability on Ubuntu hosts that restrict
     # unprivileged user namespaces through AppArmor.
     cap_add:

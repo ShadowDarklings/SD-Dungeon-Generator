@@ -9,10 +9,11 @@ def test_import_worker_does_not_inherit_application_secrets(monkeypatch):
     class Process:
         returncode = 0
         stdout = io.BytesIO()
+        stderr = io.BytesIO()
         def __init__(self, command, **options):
             observed.update(command=command, **options)
         def communicate(self, timeout):
-            assert timeout == 60
+            assert timeout == 30
             return b'{"name":"Example"}', None
         def poll(self):
             return 0
@@ -24,6 +25,7 @@ def test_import_worker_does_not_inherit_application_secrets(monkeypatch):
     assert importer.fetch_shadowdarklings_character_json(True) == '{"name":"Example"}'
     assert not {"DATABASE_URL", "SECRET_KEY", "OAUTH_CLIENT_SECRET"}.intersection(observed["env"])
     assert observed["env"]["SD_IMPORT_SANDBOX"] == "1"
+    assert observed["env"]["SD_IMPORT_ISOLATED_PROCESS"] == "1"
     assert "--base-only" in observed["command"]
 
 
@@ -31,6 +33,7 @@ def test_import_timeout_stops_its_worker(monkeypatch):
     stopped = []
     class Process:
         stdout = io.BytesIO()
+        stderr = io.BytesIO()
         def communicate(self, timeout):
             raise subprocess.TimeoutExpired("import-worker", timeout)
     process = Process()

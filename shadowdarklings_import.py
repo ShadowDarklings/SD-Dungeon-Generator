@@ -5,6 +5,7 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import threading
 from urllib.parse import urlsplit
 
 CREATE_URL = "https://shadowdarklings.net/create"
@@ -23,6 +24,8 @@ SOURCE_IDS = {
 ALLOWED_HOSTS = {"shadowdarklings.net", "www.shadowdarklings.net", "fonts.googleapis.com",
     "fonts.gstatic.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com"}
 MAX_IMPORT_BYTES = 128 * 1024
+IMPORT_PROCESS_TIMEOUT_SECONDS = 30
+IMPORT_WORKER_HARD_TIMEOUT_SECONDS = 35
 
 
 def stop_import_process(process):
@@ -30,39 +33,69 @@ def stop_import_process(process):
         return
     if os.name == "nt":
         taskkill = Path(os.environ["SYSTEMROOT"]) / "System32" / "taskkill.exe"
-        subprocess.run([str(taskkill), "/PID", str(process.pid), "/T", "/F"],
-            capture_output=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+        try:
+            subprocess.run([str(taskkill), "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True, timeout=5, creationflags=subprocess.CREATE_NO_WINDOW)
+        except (OSError, subprocess.TimeoutExpired):
+            process.kill()
     else:
-        os.killpg(process.pid, signal.SIGKILL)
-    process.wait(timeout=10)
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+
+
+def start_worker_deadline():
+    """Kill the isolated worker group even if its Gunicorn parent disappears."""
+    if os.name == "nt" or os.environ.get("SD_IMPORT_ISOLATED_PROCESS") != "1":
+        return None
+
+    def stop_worker_group():
+        try:
+            os.killpg(os.getpgrp(), signal.SIGKILL)
+        except OSError:
+            os._exit(1)
+
+    timer = threading.Timer(IMPORT_WORKER_HARD_TIMEOUT_SECONDS, stop_worker_group)
+    timer.daemon = True
+    timer.start()
+    return timer
 
 
 def fetch_shadowdarklings_character_json(base_classes_only=False):
     allowed_environment = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "HOME", "LANG", "PLAYWRIGHT_BROWSERS_PATH"}
     environment = {key: value for key, value in os.environ.items() if key.upper() in allowed_environment}
     environment["SD_IMPORT_SANDBOX"] = "1" if os.environ.get("FLASK_ENV") == "production" else "0"
+    environment["SD_IMPORT_ISOLATED_PROCESS"] = "1"
     command = [sys.executable, str(Path(__file__).resolve()), "--worker"]
     if base_classes_only:
         command.append("--base-only")
     options = {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
     process = subprocess.Popen(command, env=environment, stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, **options)
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options)
     try:
-        output, _ = process.communicate(timeout=60)
+        output, error_output = process.communicate(timeout=IMPORT_PROCESS_TIMEOUT_SECONDS)
         if process.returncode or len(output) > MAX_IMPORT_BYTES:
-            raise RuntimeError("Shadowdarklings import is temporarily unavailable.")
+            detail = (error_output or b"").decode("utf-8", errors="replace").strip()[-1000:]
+            suffix = f" Worker reported: {detail}" if detail else ""
+            raise RuntimeError(f"Shadowdarklings import is temporarily unavailable.{suffix}")
         result = output.decode("utf-8").strip()
         if not isinstance(json.loads(result), dict):
             raise RuntimeError("Shadowdarklings returned an invalid character.")
         return result
     except subprocess.TimeoutExpired as exc:
-        stop_import_process(process)
         raise RuntimeError("Shadowdarklings import timed out. Please try again later.") from exc
     except (ValueError, UnicodeError) as exc:
         raise RuntimeError("Shadowdarklings returned an invalid character.") from exc
     finally:
         stop_import_process(process)
         process.stdout.close()
+        process.stderr.close()
 
 
 def browser_import(base_classes_only):
@@ -118,7 +151,13 @@ def browser_import(base_classes_only):
 
 
 if __name__ == "__main__" and "--worker" in sys.argv:
+    deadline = start_worker_deadline()
     try:
         sys.stdout.buffer.write(browser_import("--base-only" in sys.argv).encode("utf-8"))
-    except Exception:
+    except Exception as exc:
+        detail = " ".join(str(exc).split())[:1000]
+        print(f"{type(exc).__name__}: {detail}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        if deadline is not None:
+            deadline.cancel()

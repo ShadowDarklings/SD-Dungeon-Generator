@@ -4,6 +4,7 @@ import { normalizeCharacterState } from "./characters.js";
 const MAX_SAVE_NAME_LENGTH = 15;
 const MAX_SAVED_RUNS = 10;
 const MAX_SAVED_CHARACTERS = 50;
+const SHADOWDARKLINGS_IMPORT_TIMEOUT_MS = 40000;
 
 function clonePlain(value) {
   return JSON.parse(JSON.stringify(value));
@@ -206,10 +207,10 @@ export function hydrateDungeonState(raw) {
   return state;
 }
 
-async function parseJsonResponse(response) {
+async function parseJsonResponse(response, nonJsonMessage = "Server returned a non-JSON response.") {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
-    throw new Error(response.redirected ? "Login required before using saved runs." : "Server returned a non-JSON response.");
+    throw new Error(response.redirected ? "Login required before using saved runs." : nonJsonMessage);
   }
   const data = await response.json();
   if (!response.ok) {
@@ -325,23 +326,34 @@ export async function loadSavedCharacter(characterId) {
 }
 
 export async function importShadowdarklingsCharacter(options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SHADOWDARKLINGS_IMPORT_TIMEOUT_MS);
   try {
     const response = await apiFetch("/api/shadowdarklings/import", {
       method: "POST",
       credentials: "same-origin",
+      signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         base_classes_only: options.baseClassesOnly === true,
         room_id: options.roomId || null
       })
     });
-    const data = await parseJsonResponse(response);
+    const data = await parseJsonResponse(
+      response,
+      "The character import server timed out. Please try again."
+    );
     return typeof data.character_json === "string" ? data.character_json : "";
   } catch (error) {
     if (isStaticS3WebsiteHost()) {
       throw new Error("Character import requires the app backend at https://ctreeder.com/site/.");
     }
+    if (error?.name === "AbortError") {
+      throw new Error("Character import took too long. Please try again.");
+    }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

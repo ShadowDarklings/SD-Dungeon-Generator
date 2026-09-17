@@ -7,6 +7,7 @@ anonymous access would be a resource-exhaustion (DoS) vector.
 """
 
 import os
+from contextlib import contextmanager
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -17,6 +18,7 @@ import pytest
 from sqlmodel import SQLModel, Session
 
 from app import app as flask_app, engine, User
+from import_capacity import ImportBusyError
 
 
 @pytest.fixture
@@ -97,3 +99,30 @@ def test_shadowdarklings_import_disabled_when_feature_flag_is_off(client):
         assert response.get_json()["error"] == "feature_disabled"
     finally:
         flask_app.config["SHADOWDARKLINGS_IMPORT_ENABLED"] = True
+
+
+def test_shadowdarklings_import_busy_returns_json(client, monkeypatch):
+    @contextmanager
+    def busy_slot():
+        raise ImportBusyError("busy")
+        yield
+
+    monkeypatch.setattr("app.import_slot", busy_slot)
+    response = client.post("/api/shadowdarklings/import", json={})
+
+    assert response.status_code == 503
+    assert response.is_json
+    assert response.get_json()["error"] == "shadowdarklings_import_busy"
+    assert response.headers["Retry-After"] == "5"
+
+
+def test_shadowdarklings_import_failure_returns_json(client, monkeypatch):
+    def fail_import(base_classes_only=False):
+        raise RuntimeError("timed out")
+
+    monkeypatch.setattr("app.fetch_shadowdarklings_character_json", fail_import)
+    response = client.post("/api/shadowdarklings/import", json={})
+
+    assert response.status_code == 503
+    assert response.is_json
+    assert response.get_json()["error"] == "shadowdarklings_service_unavailable"
