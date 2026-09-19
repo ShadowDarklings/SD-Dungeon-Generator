@@ -36,14 +36,16 @@ test('four-character invitations accept codes or current invite links', () => {
 test('character imports replace proxy HTML errors with a useful message', async () => {
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
+  let importBody = null;
   globalThis.window = { location: { hostname: 'ctreeder.com' } };
-  globalThis.fetch = async (path) => {
+  globalThis.fetch = async (path, options = {}) => {
     if (path === '/api/session') {
       return new Response(JSON.stringify({ csrf_token: 'test-token' }), {
         status: 200,
         headers: { 'content-type': 'application/json' }
       });
     }
+    importBody = JSON.parse(options.body);
     return new Response('<html>Bad gateway</html>', {
       status: 502,
       headers: { 'content-type': 'text/html' }
@@ -52,9 +54,10 @@ test('character imports replace proxy HTML errors with a useful message', async 
 
   try {
     await assert.rejects(
-      importShadowdarklingsCharacter(),
+      importShadowdarklingsCharacter({ roomId: 'room-123' }),
       /character import server timed out/i
     );
+    assert.equal(importBody.room_id, 'room-123');
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;

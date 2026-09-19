@@ -342,6 +342,28 @@ def test_invite_expiration_lock_and_kick_do_not_grant_reentry(clients):
     assert post(guest, f"/api/rooms/{room['id']}/resume", {}).status_code == 404
 
 
+def test_replacement_invite_keeps_previous_code_valid_for_five_minutes(clients):
+    from datetime import timedelta
+    from room_models import RoomInvite
+    from rooms import INVITE_LIFETIME
+
+    host, guest, player = clients
+    room = create(host)
+    first_code = room["invite_code"]
+    replacement = post(host, f"/api/rooms/{room['id']}/invite", {})
+    assert replacement.status_code == 200, replacement.json
+    assert INVITE_LIFETIME == timedelta(minutes=5)
+
+    with Session(engine) as db:
+        invites = db.exec(select(RoomInvite).where(RoomInvite.room_id == room["id"])).all()
+        assert len(invites) == 2
+
+    first_join = post(guest, "/api/rooms/join", {"code": first_code})
+    replacement_join = post(player, "/api/rooms/join", {"code": replacement.json["invite_code"]})
+    assert first_join.status_code == 200, first_join.json
+    assert replacement_join.status_code == 200, replacement_join.json
+
+
 def test_guest_cookie_survives_session_cookie_expiry(clients):
     host, guest, _ = clients
     room = create(host)

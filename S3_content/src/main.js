@@ -9254,7 +9254,7 @@ async function createMultiplayerHost() {
       multiplayerSession.inviteUrl = result.invite_url;
       renderMultiplayerUi();
     }
-    setMultiplayerStatus("Invitation ready. It expires in 30 minutes; joined players keep their membership.");
+    setMultiplayerStatus("Invitation ready. This code remains valid for 5 minutes; joined players stay connected.");
   } catch (error) { setMultiplayerStatus(error.message, "error"); }
 }
 
@@ -9263,7 +9263,11 @@ async function joinMultiplayerHost() {
     applyMultiplayerSessionState(await joinHostSession(ui.multiplayerJoinCode.value, {
       displayName: document.getElementById("room-display-name").value
     }));
-    setMultiplayerStatus("Joined. Load or import your character.");
+    setMultiplayerStatus(multiplayerSession.authenticated
+      ? "Joined. Load or import your character."
+      : multiplayerSession.options?.players_can_import
+        ? "Joined as a guest. Import your character; no account is required."
+        : "Joined as a guest. No account is required; the host will assign your character.");
   } catch (error) { setMultiplayerStatus(error.message, "error"); }
 }
 

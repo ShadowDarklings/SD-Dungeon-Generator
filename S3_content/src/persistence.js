@@ -250,10 +250,14 @@ export function hydrateDungeonState(raw) {
   return state;
 }
 
-async function parseJsonResponse(response, nonJsonMessage = "Server returned a non-JSON response.") {
+async function parseJsonResponse(
+  response,
+  nonJsonMessage = "Server returned a non-JSON response.",
+  redirectedMessage = "Login required before using saved runs."
+) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
-    throw new Error(response.redirected ? "Login required before using saved runs." : nonJsonMessage);
+    throw new Error(response.redirected ? redirectedMessage : nonJsonMessage);
   }
   const data = await response.json();
   if (!response.ok) {
@@ -395,7 +399,8 @@ export async function importShadowdarklingsCharacter(options = {}) {
     ]);
     const data = await parseJsonResponse(
       response,
-      "The character import server timed out. Please try again."
+      "The character import server timed out. Please try again.",
+      "Your guest dungeon session could not be verified. Rejoin with the 4-character code; no account is required."
     );
     return typeof data.character_json === "string" ? data.character_json : "";
   } catch (error) {

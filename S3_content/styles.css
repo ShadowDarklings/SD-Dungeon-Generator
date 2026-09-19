@@ -1637,17 +1637,22 @@ body {
 #character-sheet-close {
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   margin: 0;
   padding: 0;
   border: 2px solid #111;
-  border-radius: 50%;
-  background: #111;
-  color: #000;
+  border-radius: 0;
+  background: #fff;
+  color: #111;
   font: 700 1rem/1 Arial, sans-serif;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+#character-sheet-close:hover,
+#character-sheet-close:focus-visible {
+  background: #eee;
 }
 
 .character-sheet-content {

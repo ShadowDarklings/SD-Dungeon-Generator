@@ -100,3 +100,15 @@ def test_multiplayer_controls_and_modal_structure_exist():
     assert modal.select_one("#multiplayer-assign-btn") is None
     assert modal.select_one("#multiplayer-refresh-btn") is not None
     assert modal.select_one("#multiplayer-close") is not None
+    assert "Accounts are optional" in modal.select_one("#room-account-links").get_text(" ", strip=True)
+
+
+def test_character_sheet_uses_an_obvious_close_button():
+    with build_client() as client:
+        response = client.get("/site/")
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.data, "html.parser")
+    close = soup.select_one("#character-sheet-close")
+    assert close is not None
+    assert close.get_text(strip=True) == "X"
+    assert close.get("aria-label") == "Close character sheet"

@@ -2,8 +2,8 @@
 Owner: Backend Role (Megan)
 Contract: ShadowDarklings import endpoint returns character JSON payload.
 
-The endpoint is login-gated: it launches a headless browser server-side, so
-anonymous access would be a resource-exhaustion (DoS) vector.
+The endpoint accepts signed-in users and verified active room guests. Anonymous
+requests outside a room remain blocked because imports launch browser work.
 """
 
 import os

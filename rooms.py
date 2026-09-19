@@ -21,7 +21,7 @@ from storage_limits import storage_available, STORAGE_FULL
 
 CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 HOST_LEASE = timedelta(seconds=45)
-INVITE_LIFETIME = timedelta(minutes=30)
+INVITE_LIFETIME = timedelta(minutes=5)
 MAX_ROOMS = 5
 MAX_MEMBERS = 16
 MAX_SAVES = 10
@@ -181,8 +181,9 @@ def lock_room(db, room_id):
     return db.exec(select(GameRoom).where(GameRoom.id == room_id).with_for_update()).first()
 
 
-def create_invite(db, room):
-    db.exec(delete(RoomInvite).where(RoomInvite.room_id == room.id))
+def create_invite(db, room, *, revoke_existing=False):
+    if revoke_existing:
+        db.exec(delete(RoomInvite).where(RoomInvite.room_id == room.id))
     now = utcnow()
     db.exec(delete(RoomInvite).where(RoomInvite.expires_at < now))
     for _ in range(32):
@@ -646,7 +647,7 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             room.revision += 1
             db.add(target)
             db.add(room)
-            invite = create_invite(db, room)
+            invite = create_invite(db, room, revoke_existing=True)
             db.commit()
             return {**room_view(db, room, host), **invite}
 
