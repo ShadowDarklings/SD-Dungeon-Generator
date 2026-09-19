@@ -273,6 +273,9 @@ def migrate_existing_database() -> None:
             # explicitly send the model default (False).
             "players_can_import": "BOOLEAN NOT NULL DEFAULT TRUE",
             "primary_assignments_json": "JSON NOT NULL DEFAULT '{}'",
+        },
+        "room_members": {
+            "visibility_json": "JSON NOT NULL DEFAULT '{}'",
         }}
     inspector = inspect(engine)
     with engine.begin() as conn:

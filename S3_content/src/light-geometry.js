@@ -134,15 +134,50 @@ function addLightSource(sources, seen, x, y, radius) {
   sources.push(source);
 }
 
+function lightReachesViewer(state, source, viewers) {
+  if (!viewers.length) {
+    return false;
+  }
+  const polygon = computeLightPolygon(state, source);
+  return viewers.some((character) => isPointInPolygon([
+    (Number(character.visualX ?? character.x) + 0.5) * TILE_SIZE_PX,
+    (Number(character.visualY ?? character.y) + 0.5) * TILE_SIZE_PX
+  ], polygon));
+}
+
 export function collectLightSources(state) {
   const sources = [];
   const seen = new Set();
+  const viewerIds = state.viewerCharacterIds instanceof Set ? state.viewerCharacterIds : null;
+  const viewers = viewerIds
+    ? (state.characters || []).filter((character) => (
+      viewerIds.has(character.id) &&
+      character.dead !== true &&
+      character.slain !== true &&
+      Number.isFinite(Number(character.x)) &&
+      Number.isFinite(Number(character.y))
+    ))
+    : [];
   for (const character of state.characters || []) {
     if (Number(character?.lightRadius) > 0) {
-      addLightSource(sources, seen, character.x, character.y, character.lightRadius);
+      const source = {
+        x: Number(character.visualX ?? character.x),
+        y: Number(character.visualY ?? character.y),
+        radius: Number(character.lightRadius)
+      };
+      if (viewerIds && !viewerIds.has(character.id) && !lightReachesViewer(state, source, viewers)) {
+        continue;
+      }
+      addLightSource(
+        sources,
+        seen,
+        source.x,
+        source.y,
+        character.lightRadius
+      );
     }
   }
-  if (state.player?.torchLit) {
+  if (state.player?.torchLit && state.sharedRoom !== true) {
     addLightSource(sources, seen, state.player.x, state.player.y, state.player.lightRadius);
   }
   for (const entity of state.entities || []) {
@@ -152,6 +187,10 @@ export function collectLightSources(state) {
       entity.visible !== false &&
       Number(entity.lightRadius) > 0
     ) {
+      const source = { x: entity.x, y: entity.y, radius: entity.lightRadius };
+      if (viewerIds && !lightReachesViewer(state, source, viewers)) {
+        continue;
+      }
       addLightSource(sources, seen, entity.x, entity.y, entity.lightRadius);
     }
   }

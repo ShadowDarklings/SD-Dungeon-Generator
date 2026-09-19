@@ -27,7 +27,7 @@ MAX_MEMBERS = 16
 MAX_SAVES = 10
 MAX_CHECKPOINTS = 10
 CHARACTER_COMMANDS = {
-    "move", "attack", "end_turn", "search", "stealth", "get", "leave", "disarm",
+    "move", "move_batch", "attack", "end_turn", "search", "stealth", "get", "leave", "disarm",
     "interact", "pick_lock", "break_door", "spell", "light", "snuff", "guard",
     "drop_gear", "pickup", "collect", "persuade", "edit_character", "dismiss", "bury",
     "roll", "money", "coin_adjust", "coin_amount",
@@ -91,6 +91,51 @@ def primary_assignments(room, members):
     return result
 
 
+def validate_viewer_visibility(value, state):
+    if value in (None, {}):
+        return {}
+    validate_json(value, max_bytes=1024 * 1024)
+    width = int(state.get("map", {}).get("width", 0))
+    height = int(state.get("map", {}).get("height", 0))
+
+    def coordinates(key):
+        items = value.get(key, [])
+        if not isinstance(items, list) or len(items) > width * height:
+            raise ValueError("Invalid player visibility data.")
+        normalized = []
+        for item in items:
+            if not isinstance(item, str) or len(item) > 16:
+                raise ValueError("Invalid player visibility data.")
+            try:
+                x_text, y_text = item.split(",", 1)
+                x, y = int(x_text), int(y_text)
+            except (TypeError, ValueError):
+                raise ValueError("Invalid player visibility data.") from None
+            if not 0 <= x < width or not 0 <= y < height:
+                raise ValueError("Invalid player visibility data.")
+            normalized.append(f"{x},{y}")
+        return list(dict.fromkeys(normalized))
+
+    visited = value.get("visitedRoomIds", [])
+    if not isinstance(visited, list) or len(visited) > 512 or any(not isinstance(item, str) or len(item) > 120 for item in visited):
+        raise ValueError("Invalid player visibility data.")
+    doors = value.get("closedDoorExploredSides", {})
+    if not isinstance(doors, dict) or len(doors) > 4096:
+        raise ValueError("Invalid player visibility data.")
+    normalized_doors = {}
+    for door_id, sides in doors.items():
+        if not isinstance(door_id, str) or len(door_id) > 120 or not isinstance(sides, list) or any(
+                side not in {"left", "right", "top", "bottom"} for side in sides):
+            raise ValueError("Invalid player visibility data.")
+        normalized_doors[door_id] = list(dict.fromkeys(sides))
+    return {
+        "exploredEver": coordinates("exploredEver"),
+        "visitedRoomIds": list(dict.fromkeys(visited)),
+        "exploredInnerWallInteriors": coordinates("exploredInnerWallInteriors"),
+        "closedDoorExploredSides": normalized_doors,
+    }
+
+
 def room_view(db, room, member, *, include_state=True):
     members, host_present, online = room_presence(db, room)
     ownership = room.ownership_json or {}
@@ -111,6 +156,7 @@ def room_view(db, room, member, *, include_state=True):
     }
     if include_state:
         view["state_json"] = room.state_json
+        view["viewer_visibility"] = member.visibility_json or {}
     return view
 
 
@@ -213,7 +259,7 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             # Lock storage owners in a stable order before locking the room.
             for account_id in sorted(account_ids):
                 db.exec(update(User).where(User.id == account_id).values(session_version=User.session_version))
-        room = lock_room(db, room_id)
+        room = db.get(GameRoom, room_id) if request.method == "GET" else lock_room(db, room_id)
         member = find_member(db, room) if room else None
         if not member or member.status != "active" or (host and member.role != "host"):
             return None, None
@@ -253,7 +299,8 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             room = GameRoom(host_user_id=current_user.id, name=name.strip(), state_json=normalized, **normalized_options)
             db.add(room)
             db.flush()
-            host = RoomMember(room_id=room.id, user_id=current_user.id, display_name=(current_user.display_name or current_user.username)[:80], role="host")
+            host = RoomMember(room_id=room.id, user_id=current_user.id, display_name=(current_user.display_name or current_user.username)[:80], role="host",
+                visibility_json=validate_viewer_visibility(normalized.get("visibility", {}), normalized))
             db.add(host)
             db.flush()
             room.ownership_json = {character["id"]: host.id for character in normalized["characters"]}
@@ -310,7 +357,7 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
                 for room, member in records if member.role == "host" or any(row.get("id") == member.id for row in room.saved_roster_json)]}
 
     @app.get("/api/rooms/<room_id>")
-    @rate_limit("120 per minute")
+    @rate_limit("3000 per minute")
     @checked
     def get_room(room_id):
         with Session(engine) as db:
@@ -331,6 +378,8 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
                 return not_found
             now = utcnow()
             member.last_seen_at = now
+            if "viewer_visibility" in data:
+                member.visibility_json = validate_viewer_visibility(data["viewer_visibility"], room.state_json)
             db.add(member)
             db.flush()
             _, host_present, online = room_presence(db, room)
@@ -347,7 +396,7 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             return room_view(db, room, member, include_state=data.get("revision") != room.revision)
 
     @app.post("/api/rooms/<room_id>/commands")
-    @rate_limit("120 per minute")
+    @rate_limit("1200 per minute")
     @checked
     def room_command(room_id):
         data = body()
@@ -375,6 +424,17 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
             own_ids = {key for key, owner in ownership.items() if owner == member.id}
             trusted = deepcopy(command)
             trusted["online_character_ids"] = [char for char, owner in ownership.items() if owner in online or owner == member.id]
+            trusted["motion_id"] = request_id
+            trusted["motion_actor_id"] = member.id
+            if action == "move_batch":
+                moves = command.get("moves")
+                if not isinstance(moves, list) or not 1 <= len(moves) <= 8:
+                    raise ValueError("Movement batches must contain 1 to 8 steps.")
+                if any(not isinstance(move, dict) or type(move.get("dx")) is not int or type(move.get("dy")) is not int or
+                        abs(move["dx"]) > 1 or abs(move["dy"]) > 1 or (not move["dx"] and not move["dy"])
+                        for move in moves):
+                    raise ValueError("Each movement step must choose an adjacent tile.")
+                trusted["moves"] = [{"dx": move["dx"], "dy": move["dy"]} for move in moves]
             if action == "import":
                 if len(room.state_json.get("characters", [])) >= 16:
                     return {"error": "character_limit", "message": "This dungeon already contains 16 characters."}, 409
@@ -516,11 +576,13 @@ def register_room_routes(app, engine, User, SavedRun, SavedCharacter, rate_limit
     @app.post("/api/rooms/<room_id>/leave")
     @checked
     def leave_room(room_id):
-        body()
+        data = body()
         with Session(engine) as db:
             room, member = member_room(db, room_id)
             if not room:
                 return not_found
+            if "viewer_visibility" in data:
+                member.visibility_json = validate_viewer_visibility(data["viewer_visibility"], room.state_json)
             member.last_seen_at = utcnow() - HOST_LEASE * 2
             db.add(member)
             db.commit()

@@ -93,6 +93,51 @@ def test_guest_owns_import_and_cannot_invite_or_control_host(clients):
     assert post(guest, f"/api/rooms/{room['id']}/characters/{owned}/save", {}).status_code == 401
 
 
+def test_movement_batches_are_bounded_and_applied_atomically(clients):
+    host, _, _ = clients
+    room = create(host)
+    moved = command(host, room, "move_batch", character_id="host-char", moves=[
+        {"dx": 1, "dy": 0}, {"dx": 1, "dy": 0}, {"dx": 0, "dy": 1},
+    ])
+
+    assert moved.status_code == 200, moved.json
+    character_state = moved.json["state_json"]["characters"][0]
+    assert (character_state["x"], character_state["y"]) == (4, 3)
+    motion = moved.json["state_json"]["multiplayerMotions"][-1]
+    assert motion["actorId"] == moved.json["current_player_id"]
+    assert [(frame["x"], frame["y"]) for frame in motion["frames"]] == [
+        (2, 2), (3, 2), (4, 2), (4, 3)
+    ]
+
+    too_many = command(host, room, "move_batch", character_id="host-char", moves=[{"dx": 1, "dy": 0}] * 9)
+    assert too_many.status_code == 400
+    assert too_many.json["error"] == "invalid_request"
+
+
+def test_each_member_persists_separate_exploration(clients):
+    host, guest, _ = clients
+    room = create(host, players_can_import=True)
+    guest_view = join(guest, room)
+    visibility = {
+        "exploredEver": ["2,2", "3,2"],
+        "visitedRoomIds": ["r1"],
+        "exploredInnerWallInteriors": [],
+        "closedDoorExploredSides": {},
+    }
+    heartbeat = post(guest, f"/api/rooms/{room['id']}/presence", {
+        "revision": guest_view["revision"], "viewer_visibility": visibility})
+    assert heartbeat.status_code == 200, heartbeat.json
+    guest_after = guest.get(f"/api/rooms/{room['id']}").json
+    host_after = host.get(f"/api/rooms/{room['id']}").json
+    assert guest_after["viewer_visibility"]["exploredEver"] == ["2,2", "3,2"]
+    assert host_after["viewer_visibility"]["exploredEver"] != ["2,2", "3,2"]
+
+    invalid = post(guest, f"/api/rooms/{room['id']}/presence", {
+        "revision": guest_after["revision"],
+        "viewer_visibility": {**visibility, "exploredEver": ["999,999"]}})
+    assert invalid.status_code == 400
+
+
 def test_host_controls_player_imports_and_character_assignments(clients):
     host, guest, player = clients
     room = create(host)

@@ -120,6 +120,46 @@ function normalizeMoney(raw = {}) {
   };
 }
 
+function normalizeMultiplayerMotions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(-20).flatMap((motion) => {
+    if (
+      !motion ||
+      typeof motion.id !== "string" ||
+      motion.id.length < 16 ||
+      motion.id.length > 64 ||
+      typeof motion.characterId !== "string" ||
+      motion.characterId.length > 120
+    ) {
+      return [];
+    }
+    const frames = (Array.isArray(motion.frames) ? motion.frames : []).slice(0, 9).flatMap((frame) => {
+      const x = Number(frame?.x);
+      const y = Number(frame?.y);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) {
+        return [];
+      }
+      return [{
+        x,
+        y,
+        roomId: typeof frame.roomId === "string" ? frame.roomId.slice(0, 120) : null
+      }];
+    });
+    if (frames.length < 2) {
+      return [];
+    }
+    return [{
+      id: motion.id,
+      actorId: typeof motion.actorId === "string" ? motion.actorId.slice(0, 120) : null,
+      characterId: motion.characterId,
+      frames,
+      time: Number.isFinite(Number(motion.time)) ? Number(motion.time) : 0
+    }];
+  });
+}
+
 export function normalizeSaveName(name) {
   return String(name || "").trim().slice(0, MAX_SAVE_NAME_LENGTH);
 }
@@ -143,6 +183,8 @@ export function serializeDungeonState(state) {
   copy.wanderingMonsters = normalizeWandering(state.wanderingMonsters);
   copy.combat = normalizeCombat(state.combat);
   copy.partyAssets = normalizeMoney(state.partyAssets);
+  copy.multiplayerMotions = normalizeMultiplayerMotions(state.multiplayerMotions);
+  delete copy.sharedRoom;
   normalizeCharacterState(copy);
   return copy;
 }
@@ -202,6 +244,7 @@ export function hydrateDungeonState(raw) {
     wells: Array.isArray(state.decor?.wells) ? state.decor.wells : []
   };
   state.partyAssets = normalizeMoney(state.partyAssets);
+  state.multiplayerMotions = normalizeMultiplayerMotions(state.multiplayerMotions);
   normalizeCharacterState(state);
   state.inventory = normalizeInventory(state.inventory);
   return state;

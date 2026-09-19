@@ -6,6 +6,7 @@ import shadowdarklings_import as importer
 
 def test_import_worker_does_not_inherit_application_secrets(monkeypatch):
     observed = {}
+    monkeypatch.delenv("SHADOWDARKLINGS_IMPORT_URL", raising=False)
     class Process:
         returncode = 0
         stdout = io.BytesIO()
@@ -31,6 +32,7 @@ def test_import_worker_does_not_inherit_application_secrets(monkeypatch):
 
 def test_import_timeout_stops_its_worker(monkeypatch):
     stopped = []
+    monkeypatch.delenv("SHADOWDARKLINGS_IMPORT_URL", raising=False)
     class Process:
         stdout = io.BytesIO()
         stderr = io.BytesIO()
@@ -64,3 +66,25 @@ def test_failed_linux_worker_cleans_its_remaining_process_group(monkeypatch):
     importer.stop_import_process(Process(), force_tree=True)
 
     assert killed == [(321, 9)]
+
+
+def test_app_uses_private_import_service_when_configured(monkeypatch):
+    observed = {}
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"character_json": '{"name":"Remote"}'}
+
+    def post(url, **options):
+        observed.update(url=url, **options)
+        return Response()
+
+    monkeypatch.setenv("SHADOWDARKLINGS_IMPORT_URL", "http://importer:9000/import")
+    monkeypatch.setattr(importer.requests, "post", post)
+
+    assert importer.fetch_shadowdarklings_character_json() == '{"name":"Remote"}'
+    assert observed["url"] == "http://importer:9000/import"
+    assert observed["timeout"] == (2, 38)

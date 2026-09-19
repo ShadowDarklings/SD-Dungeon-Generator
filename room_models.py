@@ -46,6 +46,7 @@ class RoomMember(SQLModel, table=True):
     display_name: str = Field(default="Player", max_length=80)
     role: str = Field(default="player", max_length=10)
     status: str = Field(default="active", max_length=10)
+    visibility_json: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     joined_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
     last_seen_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 

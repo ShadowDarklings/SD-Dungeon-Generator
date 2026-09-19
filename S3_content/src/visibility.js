@@ -424,10 +424,14 @@ function ensureVisitedRoomIds(state) {
 
 function rememberOccupiedRooms(state) {
   const visitedRoomIds = ensureVisitedRoomIds(state);
-  if (state.player?.roomId) {
+  const viewerIds = state.viewerCharacterIds instanceof Set ? state.viewerCharacterIds : null;
+  if (!viewerIds && state.player?.roomId) {
     visitedRoomIds.add(state.player.roomId);
   }
   for (const character of state.characters || []) {
+    if (viewerIds && !viewerIds.has(character.id)) {
+      continue;
+    }
     if (character?.roomId) {
       visitedRoomIds.add(character.roomId);
     }

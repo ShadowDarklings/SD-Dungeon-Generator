@@ -17,13 +17,14 @@ test('repeated synchronization does not nest character raw data', () => {
 });
 
 test('room snapshots preserve visibility collections and save revisions', () => {
-  const state = { characters: [], run: { id: 4, revision: 7, name: 'Crypt' }, visibility: {
+  const state = { characters: [], sharedRoom: true, run: { id: 4, revision: 7, name: 'Crypt' }, visibility: {
     visibleNow: new Set(['1,2']), exploredEver: new Set(['1,2']), closedDoorExploredSides: new Map([['door', new Set(['north'])]])
   } };
   const roundtrip = hydrateDungeonState(serializeDungeonState(state));
   assert.equal(roundtrip.run.revision, 7);
   assert.deepEqual([...roundtrip.visibility.visibleNow], ['1,2']);
   assert.deepEqual([...roundtrip.visibility.closedDoorExploredSides.get('door')], ['north']);
+  assert.equal(roundtrip.sharedRoom, undefined);
 });
 
 test('four-character invitations accept codes or current invite links', () => {

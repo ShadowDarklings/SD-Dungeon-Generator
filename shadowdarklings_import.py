@@ -6,6 +6,7 @@ import signal
 import subprocess
 import sys
 import threading
+import requests
 from urllib.parse import urlsplit
 
 CREATE_URL = "https://shadowdarklings.net/create"
@@ -26,6 +27,8 @@ ALLOWED_HOSTS = {"shadowdarklings.net", "www.shadowdarklings.net", "fonts.google
 MAX_IMPORT_BYTES = 128 * 1024
 IMPORT_PROCESS_TIMEOUT_SECONDS = 30
 IMPORT_WORKER_HARD_TIMEOUT_SECONDS = 35
+IMPORT_SERVICE_TIMEOUT_SECONDS = 38
+IMPORT_SERVICE_HOSTS = {"importer", "127.0.0.1", "localhost"}
 
 
 def stop_import_process(process, *, force_tree=False):
@@ -68,7 +71,34 @@ def start_worker_deadline():
     return timer
 
 
-def fetch_shadowdarklings_character_json(base_classes_only=False):
+def fetch_remote_character_json(service_url, base_classes_only):
+    target = urlsplit(service_url)
+    if (target.scheme != "http" or target.hostname not in IMPORT_SERVICE_HOSTS or
+            target.username or target.password or target.query or target.fragment):
+        raise RuntimeError("The configured character import service URL is invalid.")
+    try:
+        response = requests.post(
+            service_url,
+            json={"base_classes_only": bool(base_classes_only)},
+            timeout=(2, IMPORT_SERVICE_TIMEOUT_SECONDS),
+        )
+        data = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise RuntimeError("The character import service is unavailable.") from exc
+    if response.status_code != 200 or not isinstance(data, dict):
+        raise RuntimeError("The character import service could not generate a character.")
+    result = data.get("character_json")
+    if not isinstance(result, str) or len(result.encode("utf-8")) > MAX_IMPORT_BYTES:
+        raise RuntimeError("The character import service returned an invalid character.")
+    try:
+        if not isinstance(json.loads(result), dict):
+            raise ValueError
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("The character import service returned an invalid character.") from exc
+    return result
+
+
+def run_shadowdarklings_import_worker(base_classes_only=False):
     allowed_environment = {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "HOME", "LANG", "PLAYWRIGHT_BROWSERS_PATH"}
     environment = {key: value for key, value in os.environ.items() if key.upper() in allowed_environment}
     environment["SD_IMPORT_SANDBOX"] = "1" if os.environ.get("FLASK_ENV") == "production" else "0"
@@ -97,6 +127,13 @@ def fetch_shadowdarklings_character_json(base_classes_only=False):
         stop_import_process(process, force_tree=getattr(process, "returncode", None) not in {None, 0})
         process.stdout.close()
         process.stderr.close()
+
+
+def fetch_shadowdarklings_character_json(base_classes_only=False):
+    service_url = os.environ.get("SHADOWDARKLINGS_IMPORT_URL", "").strip()
+    if service_url:
+        return fetch_remote_character_json(service_url, base_classes_only)
+    return run_shadowdarklings_import_worker(base_classes_only)
 
 
 def browser_import(base_classes_only):

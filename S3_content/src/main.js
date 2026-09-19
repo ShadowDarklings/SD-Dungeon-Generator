@@ -54,6 +54,7 @@ import {
   setCharacterHp
 } from "./characters.js";
 import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression } from "./damage.js";
+import { collectLightSources } from "./light-geometry.js";
 import { preloadRendererAssets, renderDungeon } from "./render.js";
 import { loadSpellLibrary, normalizeSpellLookupKey } from "./spells.js";
 import {
@@ -226,6 +227,7 @@ let multiplayerSession = {
   stateJson: null
 };
 let multiplayerRefreshTimer = null;
+let multiplayerHeartbeatTimer = null;
 let multiplayerRefreshInFlight = false;
 let multiplayerAutoJoinAttempted = false;
 let accountSession = { authenticated: false };
@@ -828,11 +830,13 @@ function processWanderingChecks(count) {
   }
 }
 
-function render() {
+function render(options = {}) {
   if (SERVER_RUNTIME) return;
   renderDungeon(state, layers, {
-    forceBlackout: forceBlackoutWhenTorchOut && !hasAnyVisibleLightSource()
+    forceBlackout: forceBlackoutWhenTorchOut && !hasAnyVisibleLightSource(),
+    motionOnly: options.motionOnly === true
   });
+  if (options.motionOnly === true) return;
   if (ui.connectivityText) {
     ui.connectivityText.textContent = state.generation.connectivityValid ? "valid" : "invalid";
   }
@@ -2490,7 +2494,8 @@ async function runAutoMonsterTurns() {
   updatePanels();
 }
 
-function handleCombatMovement(delta) {
+function handleCombatMovement(delta, options = {}) {
+  const renderResult = options.render !== false;
   if (!isCombatActive()) {
     return false;
   }
@@ -2521,15 +2526,38 @@ function handleCombatMovement(delta) {
       setStatus(result);
       scheduleAutoEndTurnIfNeeded();
     }
-    render();
-    updatePanels();
+    if (renderResult) {
+      render();
+      updatePanels();
+    }
     return true;
   }
   markUserActivity();
   setStatus(result);
-  render();
-  updatePanels();
+  if (renderResult) {
+    render();
+    updatePanels();
+  }
   return true;
+}
+
+function applyLocalMovement(delta, options = {}) {
+  const renderResult = options.render !== false;
+  if (handleCombatMovement(delta, options)) return;
+  syncPlayerToActiveCharacter();
+  const result = movePlayer(state, delta[0], delta[1]);
+  let sighting = null;
+  if (result.moved) {
+    syncActiveCharacterToPlayer();
+    recomputeVisibility(state);
+    sighting = processMonsterVisibilityChange();
+  }
+  markUserActivity();
+  if (!sighting?.combatStarted && !sighting?.combatEnded) setStatus(result);
+  if (renderResult) {
+    render();
+    updatePanels();
+  }
 }
 
 function createBackstabButton(character, attack) {
@@ -3509,21 +3537,7 @@ function revealActiveLantern() {
 }
 
 function hasAnyVisibleLightSource() {
-  if (!state) {
-    return false;
-  }
-  if ((state.characters || []).some((character) => Number(character?.lightRadius) > 0)) {
-    return true;
-  }
-  if (state.player?.torchLit === true) {
-    return true;
-  }
-  return (state.entities || []).some((entity) => (
-    entity.subtype === "dropped-equipment" &&
-    entity.collected !== true &&
-    entity.visible !== false &&
-    Number(entity.lightRadius) > 0
-  ));
+  return Boolean(state && collectLightSources(state).length);
 }
 
 function expireActiveLightFromTimer() {
@@ -8642,34 +8656,292 @@ function reorderLocalCharacter(source, destination) {
 
 let sharedCommandQueue = Promise.resolve();
 let sharedCommandPending = 0;
+let sharedCommandGeneration = 0;
 let applyingSharedState = false;
 const sharedEditTimers = new Map();
+const pendingSharedMoves = [];
+const sharedMoveBuffer = [];
+const SHARED_MOVE_BATCH_SIZE = 8;
+const MAX_PENDING_SHARED_MOVES = 32;
+const SHARED_MOVE_FLUSH_DELAY_MS = 35;
+const SHARED_MOVE_MIN_INTERVAL_MS = 200;
+let sharedMoveFlushTimer = null;
+let sharedMoveBatchesOutstanding = 0;
+let lastSharedMoveBatchAt = 0;
+let sharedMotionGeneration = 0;
+const seenSharedMotionIds = new Set();
+const sharedCharacterVisualPositions = new Map();
+const sharedMotionQueues = new Map();
 
-async function executeSharedCommand(command, expectedRevision = null) {
-  sharedCommandPending += 1;
-  const task = sharedCommandQueue.then(async () => {
-    const id = multiplayerSession.id;
-    const requestId = crypto.randomUUID();
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const result = await roomRequest(id, "commands", {
-          revision: expectedRevision ?? multiplayerSession.revision, request_id: requestId, command
-        });
-        applyMultiplayerSessionState(result, { message: result.message });
-        if (result.dice?.kind === "check") showCheckResult(result.dice.result, result.dice.actionLabel, { message: result.message });
-        else if (result.dice) applyDamageResultToPanel(result.dice, result.message);
-        return result;
-      } catch (error) {
-        if (error.status === 409 && attempt === 0 && command.type !== "edit_character") {
-          applyMultiplayerSessionState(await getHostSession(id));
-          continue;
-        }
-        applyMultiplayerSessionState(await getHostSession(id).catch(() => multiplayerSession));
-        throw error;
-      }
+function createSharedViewerVisibility(base, saved = {}) {
+  const closedDoorExploredSides = new Map(Object.entries(saved.closedDoorExploredSides || {}).map(
+    ([doorId, sides]) => [doorId, new Set(Array.isArray(sides) ? sides : [])]
+  ));
+  return {
+    ...(base || {}),
+    visibleNow: new Set(),
+    exploredEver: new Set(Array.isArray(saved.exploredEver) ? saved.exploredEver : []),
+    exploredBeforeNow: new Set(Array.isArray(saved.exploredEver) ? saved.exploredEver : []),
+    exploredLightPolygons: [],
+    exploredLightPolygonsBeforeNow: [],
+    exploredLightPolygonKeys: new Set(),
+    visitedRoomIds: new Set(Array.isArray(saved.visitedRoomIds) ? saved.visitedRoomIds : []),
+    exploredInnerWallInteriors: new Set(
+      Array.isArray(saved.exploredInnerWallInteriors) ? saved.exploredInnerWallInteriors : []
+    ),
+    closedDoorVisibleSides: new Map(),
+    closedDoorExploredSides
+  };
+}
+
+function attachSharedViewerScope(currentState, characterIds) {
+  Object.defineProperty(currentState, "viewerCharacterIds", {
+    configurable: true,
+    writable: true,
+    value: new Set(characterIds || [])
+  });
+}
+
+function serializeSharedViewerVisibility() {
+  const visibility = state?.visibility;
+  if (!visibility) return {};
+  return {
+    exploredEver: Array.from(visibility.exploredEver || []),
+    visitedRoomIds: Array.from(visibility.visitedRoomIds || []),
+    exploredInnerWallInteriors: Array.from(visibility.exploredInnerWallInteriors || []),
+    closedDoorExploredSides: Object.fromEntries(
+      [...(visibility.closedDoorExploredSides || new Map()).entries()].map(([doorId, sides]) => [
+        doorId,
+        Array.from(sides || [])
+      ])
+    )
+  };
+}
+
+function rememberSharedMotionId(id) {
+  seenSharedMotionIds.add(id);
+  while (seenSharedMotionIds.size > 80) {
+    seenSharedMotionIds.delete(seenSharedMotionIds.values().next().value);
+  }
+}
+
+function resetSharedMotionPlayback(motions = []) {
+  sharedMotionGeneration += 1;
+  seenSharedMotionIds.clear();
+  for (const motion of motions) rememberSharedMotionId(motion.id);
+  for (const character of state?.characters || []) {
+    delete character.visualX;
+    delete character.visualY;
+  }
+  sharedCharacterVisualPositions.clear();
+  sharedMotionQueues.clear();
+}
+
+function displayedCharacterPositions() {
+  return new Map((state?.characters || []).map((character) => {
+    const visual = sharedCharacterVisualPositions.get(character.id);
+    return [character.id, visual || {
+      x: Number(character.visualX ?? character.x),
+      y: Number(character.visualY ?? character.y)
+    }];
+  }));
+}
+
+function setSharedCharacterVisualPosition(characterId, position) {
+  const x = Number(position?.x);
+  const y = Number(position?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  sharedCharacterVisualPositions.set(characterId, { x, y });
+  const character = state?.characters?.find((item) => item.id === characterId);
+  if (!character) return;
+  Object.defineProperty(character, "visualX", { configurable: true, writable: true, value: x });
+  Object.defineProperty(character, "visualY", { configurable: true, writable: true, value: y });
+}
+
+function applySharedCharacterVisualPositions() {
+  for (const [characterId, position] of sharedCharacterVisualPositions) {
+    setSharedCharacterVisualPosition(characterId, position);
+  }
+}
+
+function clearSharedCharacterVisualPosition(characterId) {
+  sharedCharacterVisualPositions.delete(characterId);
+  const character = state?.characters?.find((item) => item.id === characterId);
+  if (!character) return;
+  delete character.visualX;
+  delete character.visualY;
+}
+
+function nextAnimationFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+async function animateSharedMotion(motion, generation) {
+  const frames = motion.frames || [];
+  if (frames.length < 2) return;
+  const characterId = motion.characterId;
+  let current = sharedCharacterVisualPositions.get(characterId) || frames[0];
+  const destinations = [];
+  if (Number(current.x) !== Number(frames[0].x) || Number(current.y) !== Number(frames[0].y)) {
+    destinations.push(frames[0]);
+  }
+  destinations.push(...frames.slice(1));
+  const stepDurationMs = Math.max(28, Math.min(100, 220 / Math.max(1, destinations.length)));
+  for (const destination of destinations) {
+    const start = sharedCharacterVisualPositions.get(characterId) || current;
+    const startedAt = performance.now();
+    while (true) {
+      const now = await nextAnimationFrame();
+      if (generation !== sharedMotionGeneration || !isSharedRoom()) return;
+      const progress = Math.min(1, (now - startedAt) / stepDurationMs);
+      const eased = progress * (2 - progress);
+      setSharedCharacterVisualPosition(characterId, {
+        x: Number(start.x) + (Number(destination.x) - Number(start.x)) * eased,
+        y: Number(start.y) + (Number(destination.y) - Number(start.y)) * eased
+      });
+      if (progress >= 1) recomputeVisibility(state);
+      render({ motionOnly: true });
+      if (progress >= 1) break;
+    }
+    current = destination;
+  }
+}
+
+function queueSharedMotionAnimation(motion) {
+  const characterId = motion.characterId;
+  const generation = sharedMotionGeneration;
+  const previous = sharedMotionQueues.get(characterId) || Promise.resolve();
+  const task = previous.catch(() => {}).then(() => animateSharedMotion(motion, generation));
+  sharedMotionQueues.set(characterId, task);
+  void task.then(() => {
+    if (sharedMotionQueues.get(characterId) !== task) return;
+    sharedMotionQueues.delete(characterId);
+    if (generation !== sharedMotionGeneration) return;
+    clearSharedCharacterVisualPosition(characterId);
+    if (state && isSharedRoom()) {
+      recomputeVisibility(state);
+      render({ motionOnly: true });
     }
   });
-  sharedCommandQueue = task.catch((error) => setStatus(error.message)).finally(() => { sharedCommandPending -= 1; });
+}
+
+function removePendingSharedMoves(ids) {
+  if (!ids?.length) return;
+  const removed = new Set(ids);
+  for (let index = pendingSharedMoves.length - 1; index >= 0; index -= 1) {
+    if (removed.has(pendingSharedMoves[index].id)) pendingSharedMoves.splice(index, 1);
+  }
+}
+
+function replayPendingSharedMoves() {
+  if (!state || !pendingSharedMoves.length) return;
+  const selectedId = state.activeCharacterId;
+  for (const move of pendingSharedMoves) {
+    const character = state.characters.find((item) => item.id === move.characterId);
+    if (!character || !ownsCharacter(character)) continue;
+    setActiveCharacter(state, character.id);
+    syncPlayerToActiveCharacter();
+    applyLocalMovement([move.dx, move.dy], { render: false });
+  }
+  const selected = state.characters.find((item) => item.id === selectedId);
+  const fallback = state.characters.find((item) => ownsCharacter(item));
+  if (selected || fallback) setActiveCharacter(state, (selected || fallback).id);
+  syncPlayerToActiveCharacter();
+  recomputeVisibility(state);
+}
+
+function scheduleSharedMoveFlush() {
+  if (sharedMoveFlushTimer || !sharedMoveBuffer.length || sharedMoveBatchesOutstanding) return;
+  const elapsed = Date.now() - lastSharedMoveBatchAt;
+  const delayMs = Math.max(SHARED_MOVE_FLUSH_DELAY_MS, SHARED_MOVE_MIN_INTERVAL_MS - elapsed);
+  sharedMoveFlushTimer = setTimeout(() => {
+    sharedMoveFlushTimer = null;
+    flushSharedMoveBuffer();
+  }, delayMs);
+}
+
+function flushSharedMoveBuffer(forceAll = false) {
+  if (sharedMoveFlushTimer) clearTimeout(sharedMoveFlushTimer);
+  sharedMoveFlushTimer = null;
+  if (!sharedMoveBuffer.length || (sharedMoveBatchesOutstanding && !forceAll)) return;
+  do {
+    const first = sharedMoveBuffer[0];
+    const batch = [];
+    while (sharedMoveBuffer.length && batch.length < SHARED_MOVE_BATCH_SIZE &&
+        sharedMoveBuffer[0].characterId === first.characterId) {
+      batch.push(sharedMoveBuffer.shift());
+    }
+    lastSharedMoveBatchAt = Date.now();
+    sharedMoveBatchesOutstanding += 1;
+    void executeSharedCommand({
+      type: "move_batch",
+      character_id: first.characterId,
+      moves: batch.map(({ dx, dy }) => ({ dx, dy }))
+    }, null, { optimisticMoveIds: batch.map((move) => move.id) })
+      .catch(() => {})
+      .finally(() => {
+        sharedMoveBatchesOutstanding = Math.max(0, sharedMoveBatchesOutstanding - 1);
+        scheduleSharedMoveFlush();
+      });
+  } while (forceAll && sharedMoveBuffer.length);
+}
+
+function queueSharedMove(values, character) {
+  if (pendingSharedMoves.length >= MAX_PENDING_SHARED_MOVES) {
+    setStatus("Movement is catching up with the dungeon server.");
+    return;
+  }
+  const move = {
+    id: crypto.randomUUID(),
+    characterId: character.id,
+    dx: values.dx,
+    dy: values.dy
+  };
+  pendingSharedMoves.push(move);
+  sharedMoveBuffer.push(move);
+  applyLocalMovement([move.dx, move.dy]);
+  scheduleSharedMoveFlush();
+}
+
+async function executeSharedCommand(command, expectedRevision = null, options = {}) {
+  const id = multiplayerSession.id;
+  const generation = sharedCommandGeneration;
+  const optimisticMoveIds = options.optimisticMoveIds || [];
+  const requestId = crypto.randomUUID();
+  sharedCommandPending += 1;
+  const task = sharedCommandQueue.then(async () => {
+    if (generation !== sharedCommandGeneration || multiplayerSession.id !== id) return { cancelled: true };
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const result = await roomRequest(id, "commands", {
+            revision: expectedRevision ?? multiplayerSession.revision, request_id: requestId, command
+          });
+          if (generation !== sharedCommandGeneration || multiplayerSession.id !== id) return { cancelled: true };
+          removePendingSharedMoves(optimisticMoveIds);
+          applyMultiplayerSessionState(result, { message: result.message });
+          if (result.dice?.kind === "check") showCheckResult(result.dice.result, result.dice.actionLabel, { message: result.message });
+          else if (result.dice) applyDamageResultToPanel(result.dice, result.message);
+          return result;
+        } catch (error) {
+          if (error.status === 409 && attempt === 0 && command.type !== "edit_character") {
+            applyMultiplayerSessionState(await getHostSession(id));
+            continue;
+          }
+          throw error;
+        }
+      }
+    } catch (error) {
+      removePendingSharedMoves(optimisticMoveIds);
+      if (generation === sharedCommandGeneration && multiplayerSession.id === id) {
+        applyMultiplayerSessionState(await getHostSession(id).catch(() => multiplayerSession));
+      }
+      throw error;
+    }
+  });
+  sharedCommandQueue = task.catch((error) => {
+    if (error.code !== "request_cancelled") setStatus(error.message);
+  }).finally(() => { sharedCommandPending = Math.max(0, sharedCommandPending - 1); });
   return task;
 }
 
@@ -8680,6 +8952,11 @@ function sendSharedCommand(type, values = {}, character = getActiveCharacter(sta
     setStatus(!ownsCharacter(character) ? "Choose one of your own characters." : "The dungeon is paused while the host is away.");
     return true;
   }
+  if (type === "move") {
+    queueSharedMove(values, character);
+    return true;
+  }
+  flushSharedMoveBuffer(true);
   if (type === "edit_character") {
     clearTimeout(sharedEditTimers.get(character.id));
     const revision = multiplayerSession.revision;
@@ -8711,8 +8988,12 @@ function applyMultiplayerSessionState(payload, options = {}) {
   if (payload.id && multiplayerSession.id === payload.id && payload.revision < multiplayerSession.revision) return;
   const previousOwned = multiplayerSession.owned_character_ids || [];
   const previousCanExplore = multiplayerSession.can_explore;
+  const previousPositions = displayedCharacterPositions();
   const activeId = state?.activeCharacterId;
   const oldRoom = multiplayerSession.id;
+  const previousViewerVisibility = oldRoom === payload.id && state?.sharedRoom === true
+    ? state.visibility
+    : null;
   if (oldRoom !== payload.id) for (const input of document.querySelectorAll(".room-option input")) delete input.dataset.dirty;
   multiplayerSession = { ...(oldRoom === payload.id ? multiplayerSession : {}), ...payload };
   if (payload.id && oldRoom !== payload.id) history.replaceState(null, "", `/site/?room=${encodeURIComponent(payload.id)}`);
@@ -8723,12 +9004,47 @@ function applyMultiplayerSessionState(payload, options = {}) {
   if (payload.state_json) {
     applyingSharedState = true;
     try {
-      state = hydrateDungeonState(payload.state_json);
+      const nextState = hydrateDungeonState(payload.state_json);
+      const motions = nextState.multiplayerMotions || [];
+      const remoteMotions = [];
+      if (oldRoom !== payload.id) {
+        resetSharedMotionPlayback(motions);
+      } else {
+        const owned = new Set(multiplayerSession.owned_character_ids || []);
+        for (const motion of motions) {
+          if (seenSharedMotionIds.has(motion.id)) continue;
+          rememberSharedMotionId(motion.id);
+          const initiatedHere = motion.actorId
+            ? motion.actorId === multiplayerSession.current_player_id
+            : owned.has(motion.characterId);
+          if (!initiatedHere) remoteMotions.push(motion);
+        }
+      }
+      state = nextState;
       state.sharedRoom = true;
       const owned = multiplayerSession.owned_character_ids || [];
+      state.visibility = previousViewerVisibility || createSharedViewerVisibility(
+        nextState.visibility,
+        payload.viewer_visibility || {}
+      );
+      attachSharedViewerScope(state, owned);
       state.activeCharacterId = newOwned.at(-1) || (owned.includes(activeId) ? activeId : owned[0]) || null;
       if (state.activeCharacterId) syncPlayerToActiveCharacter();
+      const initialized = new Set();
+      for (const motion of remoteMotions) {
+        if (initialized.has(motion.characterId) || sharedMotionQueues.has(motion.characterId) ||
+            sharedCharacterVisualPositions.has(motion.characterId)) continue;
+        initialized.add(motion.characterId);
+        setSharedCharacterVisualPosition(
+          motion.characterId,
+          previousPositions.get(motion.characterId) || motion.frames[0]
+        );
+      }
+      applySharedCharacterVisualPositions();
+      recomputeVisibility(state);
+      replayPendingSharedMoves();
       redrawFromHydratedState(options.message || payload.state_json.activity?.at(-1)?.message || "");
+      for (const motion of remoteMotions) queueSharedMotionAnimation(motion);
       if (oldRoom !== payload.id || newOwned.length) {
         const focus = state.characters.find((item) => item.id === state.activeCharacterId) || state.player;
         const center = getMapViewCenter(ui.mapHost.parentElement);
@@ -8745,7 +9061,7 @@ function applyMultiplayerSessionState(payload, options = {}) {
   if (!payload.state_json && previousCanExplore !== multiplayerSession.can_explore && state) {
     updatePanels();
   }
-  renderMultiplayerUi();
+  if (!options.silentMetadata || payload.state_json || previousCanExplore !== multiplayerSession.can_explore) renderMultiplayerUi();
 }
 
 function setMultiplayerStatus(message, tone = "") {
@@ -8887,12 +9203,17 @@ function closeMultiplayerModal() { ui.multiplayerModal.hidden = true; }
 function ensureMultiplayerRefreshLoop() {
   if (!isSharedRoom()) {
     if (multiplayerRefreshTimer) clearInterval(multiplayerRefreshTimer);
+    if (multiplayerHeartbeatTimer) clearInterval(multiplayerHeartbeatTimer);
     multiplayerRefreshTimer = null;
+    multiplayerHeartbeatTimer = null;
     return;
   }
   if (!multiplayerRefreshTimer) multiplayerRefreshTimer = setInterval(() => {
     if (document.visibilityState === "visible") void refreshMultiplayerSession({ silent: true });
-  }, 3000);
+  }, 500);
+  if (!multiplayerHeartbeatTimer) multiplayerHeartbeatTimer = setInterval(() => {
+    if (document.visibilityState === "visible") void refreshMultiplayerSession({ silent: true, heartbeat: true });
+  }, 5000);
 }
 
 async function openInviteFromUrlIfPresent() {
@@ -8947,11 +9268,16 @@ async function joinMultiplayerHost() {
 }
 
 async function refreshMultiplayerSession(options = {}) {
-  if (!isSharedRoom() || multiplayerRefreshInFlight || sharedCommandPending || sharedEditTimers.size) return;
+  if (!isSharedRoom() || multiplayerRefreshInFlight || sharedEditTimers.size || (sharedCommandPending && !options.heartbeat)) return;
   multiplayerRefreshInFlight = true;
   try {
-    const result = await roomRequest(multiplayerSession.id, "presence", { revision: multiplayerSession.revision });
-    applyMultiplayerSessionState(result);
+    const result = options.heartbeat
+      ? await roomRequest(multiplayerSession.id, "presence", {
+        revision: multiplayerSession.revision,
+        viewer_visibility: serializeSharedViewerVisibility()
+      })
+      : await getHostSession(multiplayerSession.id, multiplayerSession.revision);
+    applyMultiplayerSessionState(result, { silentMetadata: !options.heartbeat });
     if (!options.silent) setMultiplayerStatus("Party refreshed.");
   } catch (error) {
     setMultiplayerStatus(error.message, "error");
@@ -8986,11 +9312,29 @@ async function roomHostAction(action, extra = {}, method = "POST") {
 
 async function leaveSharedRoom() {
   if (!isSharedRoom()) return;
-  if (sharedCommandPending || sharedEditTimers.size) throw new Error("Wait for your character changes to finish before leaving.");
-  await roomRequest(multiplayerSession.id, "leave", {});
+  const roomId = multiplayerSession.id;
+  const viewerVisibility = serializeSharedViewerVisibility();
+  sharedCommandGeneration += 1;
+  if (sharedMoveFlushTimer) clearTimeout(sharedMoveFlushTimer);
+  sharedMoveFlushTimer = null;
+  pendingSharedMoves.splice(0);
+  sharedMoveBuffer.splice(0);
+  sharedMoveBatchesOutstanding = 0;
+  for (const timer of sharedEditTimers.values()) clearTimeout(timer);
+  sharedEditTimers.clear();
+  sharedCommandQueue = Promise.resolve();
+  sharedCommandPending = 0;
+  resetSharedMotionPlayback();
   multiplayerSession = { players: [], assignments: [] };
+  if (state) {
+    state.sharedRoom = false;
+    render({ motionOnly: true });
+  }
   history.replaceState(null, "", "/site/");
   renderMultiplayerUi();
+  void roomRequest(roomId, "leave", { viewer_visibility: viewerVisibility }, "POST", {
+    timeoutMs: 3000
+  }).catch(() => {});
 }
 
 async function copyMultiplayerInviteLink() {
@@ -9056,23 +9400,7 @@ function hookInputEvents() {
     if (delta) {
       event.preventDefault();
       if (sendSharedCommand("move", { dx: delta[0], dy: delta[1] })) return;
-      if (handleCombatMovement(delta)) {
-        return;
-      }
-      syncPlayerToActiveCharacter();
-      const result = movePlayer(state, delta[0], delta[1]);
-      let sighting = null;
-      if (result.moved) {
-        syncActiveCharacterToPlayer();
-        recomputeVisibility(state);
-        sighting = processMonsterVisibilityChange();
-      }
-      markUserActivity();
-      if (!sighting?.combatStarted && !sighting?.combatEnded) {
-        setStatus(result);
-      }
-      render();
-      updatePanels();
+      applyLocalMovement(delta);
       return;
     }
     if (event.key === "s" || event.key === "S") {
@@ -9609,6 +9937,7 @@ export async function executeGameCommand(rawState, command) {
   state.combat.autoRunning = false;
   state.run = state.run || {};
   const character = state.characters.find((item) => item.id === command.character_id);
+  let movementFrames = null;
   const utilityCommands = new Set(["normalize", "import", "bury", "dismiss", "edit_character", "tick"]);
   if (!utilityCommands.has(command.type)) {
     if (!character || !isCharacterAbleToAct(character)) throw new Error("This character cannot act.");
@@ -9625,20 +9954,39 @@ export async function executeGameCommand(rawState, command) {
   switch (command.type) {
     case "normalize":
       break;
-    case "move": {
-      const dx = command.dx;
-      const dy = command.dy;
-      if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) > 1 || Math.abs(dy) > 1 || (!dx && !dy)) {
-        throw new Error("Choose an adjacent tile.");
-      }
-      if (!handleCombatMovement([dx, dy])) {
-        const result = movePlayer(state, dx, dy);
-        if (result.moved) {
-          syncActiveCharacterToPlayer();
-          recomputeVisibility(state);
-          processMonsterVisibilityChange();
+    case "move":
+    case "move_batch": {
+      const moves = command.type === "move_batch" ? command.moves : [{ dx: command.dx, dy: command.dy }];
+      if (!Array.isArray(moves) || !moves.length || moves.length > 8) throw new Error("Choose 1 to 8 movement steps.");
+      movementFrames = [{
+        x: Number(character.x),
+        y: Number(character.y),
+        roomId: character.roomId ?? getTileAt(Number(character.x), Number(character.y))?.roomId ?? null
+      }];
+      for (const move of moves) {
+        const dx = move?.dx;
+        const dy = move?.dy;
+        if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) > 1 || Math.abs(dy) > 1 || (!dx && !dy)) {
+          throw new Error("Choose an adjacent tile.");
         }
-        setStatus(result);
+        if (!isCharacterAbleToAct(character) || (isCombatActive() && !isCurrentCharacterTurn(character))) break;
+        if (!handleCombatMovement([dx, dy])) {
+          const result = movePlayer(state, dx, dy);
+          if (result.moved) {
+            syncActiveCharacterToPlayer();
+            recomputeVisibility(state);
+            processMonsterVisibilityChange();
+          }
+          setStatus(result);
+        }
+        const previous = movementFrames.at(-1);
+        if (Number(character.x) !== previous.x || Number(character.y) !== previous.y) {
+          movementFrames.push({
+            x: Number(character.x),
+            y: Number(character.y),
+            roomId: character.roomId ?? getTileAt(Number(character.x), Number(character.y))?.roomId ?? null
+          });
+        }
       }
       break;
     }
@@ -9814,6 +10162,16 @@ export async function executeGameCommand(rawState, command) {
       break;
     }
     default: throw new Error("Unknown game command.");
+  }
+  if (movementFrames?.length > 1 && typeof command.motion_id === "string") {
+    state.multiplayerMotions = Array.isArray(state.multiplayerMotions) ? state.multiplayerMotions.slice(-19) : [];
+    state.multiplayerMotions.push({
+      id: command.motion_id,
+      actorId: typeof command.motion_actor_id === "string" ? command.motion_actor_id : null,
+      characterId: character.id,
+      frames: movementFrames,
+      time: Date.now()
+    });
   }
   normalizeCharacterState(state);
   syncAllCharacterEquipmentDerivedStats();

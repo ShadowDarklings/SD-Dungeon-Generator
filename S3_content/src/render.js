@@ -2110,8 +2110,8 @@ function drawPlayer(state, ctx) {
 }
 
 function drawCharacterDot(character, ctx, isActive) {
-  const cx = character.x * TILE_SIZE_PX + TILE_SIZE_PX / 2;
-  const cy = character.y * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+  const cx = (character.visualX ?? character.x) * TILE_SIZE_PX + TILE_SIZE_PX / 2;
+  const cy = (character.visualY ?? character.y) * TILE_SIZE_PX + TILE_SIZE_PX / 2;
   const radius = TILE_SIZE_PX * 0.27;
   ctx.fillStyle = character.colorValue || "#174a9c";
   ctx.beginPath();
@@ -2706,20 +2706,22 @@ export function renderDungeon(state, layers, options = {}) {
   const { backgroundCtx, topologyCtx, objectsCtx, fogCtx } = layers;
   const now = options.now ?? performance.now();
 
-  if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
-    drawHandDrawnBackground(backgroundCtx, widthPx, heightPx);
-  } else {
-    drawBackground(backgroundCtx, widthPx, heightPx);
+  if (options.motionOnly !== true) {
+    if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
+      drawHandDrawnBackground(backgroundCtx, widthPx, heightPx);
+    } else {
+      drawBackground(backgroundCtx, widthPx, heightPx);
+    }
+    topologyCtx.clearRect(0, 0, widthPx, heightPx);
+    if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
+      drawHandDrawnTopology(state, topologyCtx);
+    } else {
+      drawTopology(state, topologyCtx);
+    }
+    objectsCtx.clearRect(0, 0, widthPx, heightPx);
+    objectsCtx.__doorNow = now;
+    drawObjects(state, objectsCtx, { darkness: options.forceBlackout === true });
   }
-  topologyCtx.clearRect(0, 0, widthPx, heightPx);
-  if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
-    drawHandDrawnTopology(state, topologyCtx);
-  } else {
-    drawTopology(state, topologyCtx);
-  }
-  objectsCtx.clearRect(0, 0, widthPx, heightPx);
-  objectsCtx.__doorNow = now;
-  drawObjects(state, objectsCtx, { darkness: options.forceBlackout === true });
   fogCtx.clearRect(0, 0, widthPx, heightPx);
   drawFog(state, fogCtx, widthPx, heightPx, options.forceBlackout === true);
   drawCharacters(state, fogCtx);

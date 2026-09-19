@@ -24,6 +24,21 @@ def test_movement_is_applied_to_the_command_character():
         game_runtime.apply(dungeon(), {"type": "move", "character_id": "host-char", "dx": 20, "dy": 0})
 
 
+def test_movement_batch_applies_each_step_in_order():
+    result = game_runtime.apply(dungeon(), {"type": "move_batch", "character_id": "host-char",
+        "motion_id": "movement-request-0001", "motion_actor_id": "host-member", "moves": [
+        {"dx": 1, "dy": 0}, {"dx": 1, "dy": 0}, {"dx": 0, "dy": 1},
+    ]})
+
+    assert (result["state_json"]["characters"][0]["x"], result["state_json"]["characters"][0]["y"]) == (4, 3)
+    motion = result["state_json"]["multiplayerMotions"][-1]
+    assert motion["id"] == "movement-request-0001"
+    assert motion["actorId"] == "host-member"
+    assert [(frame["x"], frame["y"]) for frame in motion["frames"]] == [
+        (2, 2), (3, 2), (4, 2), (4, 3)
+    ]
+
+
 def test_combat_attack_uses_action_and_monster_turn_completes():
     state = fight()
     attack = game_runtime.apply(state, {"type": "attack", "character_id": "host-char", "monster_id": "m1", "attack_index": 0})
