@@ -1635,18 +1635,19 @@ body {
 }
 
 #character-sheet-close {
+  appearance: none;
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 30px;
   margin: 0;
   padding: 0;
-  border: 2px solid #111;
+  border: 1px solid #767676;
   border-radius: 0;
   background: #fff;
   color: #111;
-  font: 700 1rem/1 Arial, sans-serif;
-  text-transform: uppercase;
+  box-shadow: none;
+  font: 400 24px/1 "Segoe UI Symbol", "Segoe UI", sans-serif;
   cursor: pointer;
 }
 

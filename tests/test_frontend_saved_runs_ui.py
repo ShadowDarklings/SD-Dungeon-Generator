@@ -110,5 +110,5 @@ def test_character_sheet_uses_an_obvious_close_button():
     soup = BeautifulSoup(response.data, "html.parser")
     close = soup.select_one("#character-sheet-close")
     assert close is not None
-    assert close.get_text(strip=True) == "X"
+    assert close.get_text(strip=True) == "\u00d7"
     assert close.get("aria-label") == "Close character sheet"
