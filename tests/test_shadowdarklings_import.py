@@ -17,7 +17,7 @@ os.environ.setdefault("OAUTH_CLIENT_SECRET", "test-client-secret")
 import pytest
 from sqlmodel import SQLModel, Session
 
-from app import app as flask_app, engine, User
+from app import app as flask_app, engine, User, get_db_session
 from import_capacity import ImportBusyError
 
 
@@ -88,6 +88,16 @@ def test_shadowdarklings_import_endpoint_returns_copied_json(client, monkeypatch
     assert data["source"] == "shadowdarklings"
     assert data["character_json"] == '{"name":"Glazkhar","className":"Basilisk Warrior"}'
     assert data["generated_at"]
+
+
+def test_shadowdarklings_import_releases_database_before_upstream_work(client, monkeypatch):
+    def import_character(base_classes_only=False):
+        assert not get_db_session().in_transaction()
+        return '{"name":"Connection released"}'
+
+    monkeypatch.setattr("app.fetch_shadowdarklings_character_json", import_character)
+    response = client.post("/api/shadowdarklings/import", json={})
+    assert response.status_code == 200
 
 
 def test_shadowdarklings_import_disabled_when_feature_flag_is_off(client):

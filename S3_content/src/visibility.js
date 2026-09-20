@@ -379,7 +379,6 @@ function appendExploredLightPolygon(state, polygon) {
   if (normalized.length < 3) {
     return;
   }
-  state.visibility.exploredLightPolygons = normalizeLightPolygons(state.visibility.exploredLightPolygons);
   state.visibility.exploredLightPolygonKeys = state.visibility.exploredLightPolygonKeys instanceof Set
     ? state.visibility.exploredLightPolygonKeys
     : new Set(state.visibility.exploredLightPolygons.map(getLightPolygonKey));
@@ -469,7 +468,8 @@ export function recomputeVisibility(state) {
   }
   state.visibility.exploredBeforeNow = exploredBeforeNow;
   state.visibility.exploredLightPolygons = exploredLightPolygons;
-  state.visibility.exploredLightPolygonsBeforeNow = exploredLightPolygons.map(cloneLightPolygon);
+  // Polygon coordinates are immutable; only the history list grows below.
+  state.visibility.exploredLightPolygonsBeforeNow = exploredLightPolygons.slice();
   state.visibility.exploredLightPolygonKeys = new Set(exploredLightPolygons.map(getLightPolygonKey));
   state.visibility.visibleNow.clear();
   state.visibility.closedDoorExploredSides = cloneDoorSideMap(state.visibility.closedDoorExploredSides);
@@ -488,7 +488,13 @@ export function recomputeVisibility(state) {
   }
 
   for (const tile of state.tiles) {
-    if (tile?.meta?.neverExplore === true) {
+    if (tile?.meta?.neverExplore === true || tile.type === TILE_TYPES.WALL || tile.type === TILE_TYPES.VOID) {
+      continue;
+    }
+    if (!lightSources.some((source) => (
+      Math.abs(tile.x - source.x) <= Number(source.radius) + 1 &&
+      Math.abs(tile.y - source.y) <= Number(source.radius) + 1
+    ))) {
       continue;
     }
     if (isClosedSecretDoorTile(state, tile)) {

@@ -107,11 +107,12 @@ Shadowdarklings availability, or backup restore readiness.
   with the installed Chromium and upstream site. Guest imports require an
   active joined room. Never enable `ALLOW_ANON_SHADOWDARKLINGS_IMPORT` in
   production. The import path is rate limited and globally single-flight;
-  it runs in a separate process with a 60-second timeout, filtered environment,
+  it runs in the private importer container with a 30-second process deadline,
+  a 35-second hard process-group deadline and a 38-second app-to-service timeout, filtered environment,
   restricted browser host list, no downloads/service workers, and Chromium's
   sandbox required in production. Verify the host's user-namespace/seccomp
   configuration supports Chromium sandboxing; on Ubuntu hosts that restrict
-  unprivileged user namespaces through AppArmor, the app container needs
+  unprivileged user namespaces through AppArmor, the importer container needs
   `SYS_ADMIN` so Chromium can start its sandbox. Do not disable Chromium's
   sandbox to work around deployment errors. Apply an outbound firewall policy
   to prevent access to private networks/cloud metadata as defense in depth.

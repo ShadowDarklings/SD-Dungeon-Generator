@@ -2,8 +2,12 @@ let sessionPromise;
 
 export function getAccountSession(refresh = false) {
   if (refresh || !sessionPromise) {
-    sessionPromise = fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' })
-      .then(readApiResponse).catch((error) => { sessionPromise = null; throw error; });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    sessionPromise = fetch('/api/session', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
+      .then(readApiResponse)
+      .catch((error) => { sessionPromise = null; throw error; })
+      .finally(() => clearTimeout(timeout));
   }
   return sessionPromise;
 }

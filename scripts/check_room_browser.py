@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import uuid
 import re
+from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 
 root = Path(__file__).resolve().parents[1]
@@ -17,8 +18,15 @@ with sync_playwright() as p:
     guest_context = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
     host, guest = host_context.new_page(), guest_context.new_page()
     errors = []
+    def report_failed_response(response):
+        if "/api/" in response.url and (response.status >= 400 or
+                "application/json" not in response.headers.get("content-type", "")):
+            print("API response:", response.request.method, urlsplit(response.url).path,
+                  response.status, response.text()[:500], flush=True)
+
     for page in (host, guest):
         page.on("pageerror", lambda error: (errors.append(str(error)), print("Browser error:", error, flush=True)))
+        page.on("response", report_failed_response)
         page.route("**/api/shadowdarklings/import", lambda route: route.fulfill(json={"character_json": json.dumps({
             "name": "Browser Hero", "class": "Fighter", "stats": {key: 12 for key in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]},
             "hp": 8, "maxHitPoints": 8, "armorClass": 12, "level": 1, "gear": [{"name": "Torch", "quantity": 3}], "attacks": ["Sword: +2, 1d6, close"]})}))

@@ -818,6 +818,8 @@ def import_shadowdarklings_character():
     if not current_user.is_authenticated and not allow_anon_dev_import and not room_guest:
         return {"error": "login_required", "message": "Authentication required."}, 401
 
+    # Authorization is complete; do not hold a database connection during browser I/O.
+    db.close()
     import_started_at = time.monotonic()
     try:
         data = request_data

@@ -230,12 +230,41 @@ const rendererAssets = {
   }
 };
 const organicShellUnderlayCache = new Map();
+const terrainFrames = new WeakMap();
+const imageLoads = new Map();
+const imageLoadQueue = [];
+let activeImageLoads = 0;
 
 function loadImage(src) {
+  if (imageLoads.has(src)) return imageLoads.get(src);
+  const pending = new Promise((resolve, reject) => {
+    imageLoadQueue.push(() => loadImageNow(src).then(resolve, reject));
+    drainImageLoadQueue();
+  });
+  imageLoads.set(src, pending);
+  return pending;
+}
+
+function drainImageLoadQueue() {
+  while (activeImageLoads < 8 && imageLoadQueue.length) {
+    activeImageLoads += 1;
+    imageLoadQueue.shift()().finally(() => {
+      activeImageLoads -= 1;
+      drainImageLoadQueue();
+    });
+  }
+}
+
+function loadImageNow(src) {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Unable to load renderer asset: ${src}`));
+    const deadline = setTimeout(() => {
+      image.onload = image.onerror = null;
+      image.src = "";
+      reject(new Error(`Renderer asset timed out: ${src}`));
+    }, 15000);
+    image.onload = () => { clearTimeout(deadline); resolve(image); };
+    image.onerror = () => { clearTimeout(deadline); reject(new Error(`Unable to load renderer asset: ${src}`)); };
     image.src = src;
   });
 }
@@ -252,14 +281,15 @@ async function loadOptionalImage(src, options = {}) {
 }
 
 async function loadOptionalImageList(paths) {
-  const images = [];
-  for (const path of paths) {
+  const images = await Promise.all(paths.map(async (path) => {
     const image = await loadOptionalImage(`./assets/${path}`, { quiet: true });
-    if (image) {
-      images.push({ key: path.replace(/\.png$/i, ""), image });
-    }
-  }
-  return images;
+    return image ? { key: path.replace(/\.png$/i, ""), image } : null;
+  }));
+  return images.filter(Boolean);
+}
+
+async function resolveAssetGroups(groups) {
+  return Object.fromEntries(await Promise.all(Object.entries(groups).map(async ([key, value]) => [key, await value])));
 }
 
 async function loadAssetImageMap(keys) {
@@ -309,70 +339,37 @@ async function loadAngledWallImageMap() {
 }
 
 export async function preloadRendererAssets() {
-  const entries = await Promise.all(
+  const images = Promise.all(
     Object.entries(ASSET_PATHS).map(async ([key, src]) => [key, await loadImage(src)])
-  );
-  rendererAssets.images = Object.fromEntries(entries);
-  rendererAssets.walls = {
-    north: await loadOptionalImageList(WALL_IMAGE_VARIANTS.north),
-    west: await loadOptionalImageList(WALL_IMAGE_VARIANTS.west),
-    east: await loadOptionalImageList(WALL_IMAGE_VARIANTS.east),
-    south: await loadOptionalImageList(WALL_IMAGE_VARIANTS.south)
-  };
-  rendererAssets.wallEdges = {
-    north: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.north),
-    west: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.west),
-    east: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.east),
-    south: await loadOptionalImageList(TILE_WALL_EDGE_VARIANTS.south)
-  };
-  const doorEntries = [];
+  ).then(Object.fromEntries);
+  const walls = resolveAssetGroups(Object.fromEntries(Object.entries(WALL_IMAGE_VARIANTS).map(([side, paths]) => [side, loadOptionalImageList(paths)])));
+  const wallEdges = resolveAssetGroups(Object.fromEntries(Object.entries(TILE_WALL_EDGE_VARIANTS).map(([side, paths]) => [side, loadOptionalImageList(paths)])));
+  const doorKeys = [];
   for (let i = 1; i <= DOOR_SPRITE_COUNT; i += 1) {
-    for (const suffix of DOOR_STATE_SUFFIXES) {
-      const key = `door${i}${suffix}`;
-      doorEntries.push([key, await loadOptionalImage(`./assets/${key}.png`)]);
-    }
+    for (const suffix of DOOR_STATE_SUFFIXES) doorKeys.push(`door${i}${suffix}`);
   }
-  for (const key of NEW_DOOR_KEYS) {
-    doorEntries.push([key, await loadOptionalImage(`./assets/${key}.png`)]);
-  }
-  rendererAssets.doors = Object.fromEntries(doorEntries);
-  rendererAssets.decor = {
-    pillars: await Promise.all(PILLAR_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
-    blockPillars: await Promise.all(PILLAR_BLOCK_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
-    floorTraps: await Promise.all(FLOOR_TRAP_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
-    stairsDown: await Promise.all(STAIR_DOWN_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
-    stairsUp: {
-      n: await loadOptionalImage("./assets/u-stair-n.png"),
-      e: await loadOptionalImage("./assets/u-stair-e.png"),
-      s: await loadOptionalImage("./assets/u-stair-s.png"),
-      w: await loadOptionalImage("./assets/u-stair-w.png")
-    },
-    waterCenter: await loadOptionalImage("./assets/water-c.png"),
-    waterByKey: Object.fromEntries(
-      await Promise.all(
-        WATER_ALL_KEYS.map(async (key) => [key, await loadOptionalImage(`./assets/${key}.png`, { quiet: true })])
-      )
-    ),
-    waterFlat: await Promise.all(WATER_FLAT_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
-    waterDiagonal: await Promise.all(WATER_DIAGONAL_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
-    rotundas: {
-      7: await loadOptionalImageList(ROTUNDA_VARIANTS[7]),
-      5: await loadOptionalImageList(ROTUNDA_VARIANTS[5])
-    },
-    corners: {
-      4: await loadOptionalImageList(CORNER_VARIANTS[4]),
-      3: await loadOptionalImageList(CORNER_VARIANTS[3]),
-      2: await loadOptionalImageList(CORNER_VARIANTS[2]),
-      1: await loadOptionalImageList(CORNER_VARIANTS[1])
-    },
-    organic: await loadOrganicImageMap(),
-    innerWalls: await loadInnerWallImageMap(),
-    angledWalls: await loadAngledWallImageMap(),
-    canals: await loadAssetImageMap(CANAL_KEYS),
-    junk: await loadAssetImageMap(JUNK_KEYS),
-    wells: await loadAssetImageMap(WELL_KEYS),
-    stealth: await loadOptionalImage("./assets/stealth.png", { quiet: true })
-  };
+  const doors = loadAssetImageMap([...doorKeys, ...NEW_DOOR_KEYS]);
+  const decor = resolveAssetGroups({
+    pillars: Promise.all(PILLAR_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
+    blockPillars: Promise.all(PILLAR_BLOCK_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
+    floorTraps: Promise.all(FLOOR_TRAP_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
+    stairsDown: Promise.all(STAIR_DOWN_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`))),
+    stairsUp: resolveAssetGroups(Object.fromEntries(["n", "e", "s", "w"].map((side) => [side, loadOptionalImage(`./assets/u-stair-${side}.png`)]))),
+    waterCenter: loadOptionalImage("./assets/water-c.png"),
+    waterByKey: loadAssetImageMap(WATER_ALL_KEYS),
+    waterFlat: Promise.all(WATER_FLAT_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
+    waterDiagonal: Promise.all(WATER_DIAGONAL_KEYS.map((key) => loadOptionalImage(`./assets/${key}.png`, { quiet: true }))),
+    rotundas: resolveAssetGroups(Object.fromEntries(Object.entries(ROTUNDA_VARIANTS).map(([size, paths]) => [size, loadOptionalImageList(paths)]))),
+    corners: resolveAssetGroups(Object.fromEntries(Object.entries(CORNER_VARIANTS).map(([size, paths]) => [size, loadOptionalImageList(paths)]))),
+    organic: loadOrganicImageMap(),
+    innerWalls: loadInnerWallImageMap(),
+    angledWalls: loadAngledWallImageMap(),
+    canals: loadAssetImageMap(CANAL_KEYS),
+    junk: loadAssetImageMap(JUNK_KEYS),
+    wells: loadAssetImageMap(WELL_KEYS),
+    stealth: loadOptionalImage("./assets/stealth.png", { quiet: true })
+  });
+  Object.assign(rendererAssets, await resolveAssetGroups({ images, walls, wallEdges, doors, decor }));
   rendererAssets.ready = true;
 }
 
@@ -2707,16 +2704,27 @@ export function renderDungeon(state, layers, options = {}) {
   const now = options.now ?? performance.now();
 
   if (options.motionOnly !== true) {
-    if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
-      drawHandDrawnBackground(backgroundCtx, widthPx, heightPx);
-    } else {
-      drawBackground(backgroundCtx, widthPx, heightPx);
-    }
-    topologyCtx.clearRect(0, 0, widthPx, heightPx);
-    if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
-      drawHandDrawnTopology(state, topologyCtx);
-    } else {
-      drawTopology(state, topologyCtx);
+    const previousTerrain = terrainFrames.get(topologyCtx);
+    // Generated terrain stays fixed while tokens, doors, and fog use dynamic layers.
+    if (!previousTerrain || previousTerrain.tiles !== state.tiles || previousTerrain.decor !== state.decor ||
+        previousTerrain.rooms !== state.rooms || previousTerrain.ready !== rendererAssets.ready ||
+        previousTerrain.entities !== state.entities || previousTerrain.seed !== state.seed ||
+        previousTerrain.generation !== state.generation ||
+        previousTerrain.width !== widthPx || previousTerrain.height !== heightPx) {
+      if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
+        drawHandDrawnBackground(backgroundCtx, widthPx, heightPx);
+      } else {
+        drawBackground(backgroundCtx, widthPx, heightPx);
+      }
+      topologyCtx.clearRect(0, 0, widthPx, heightPx);
+      if (USE_HAND_DRAWN_RENDERER && rendererAssets.ready) {
+        drawHandDrawnTopology(state, topologyCtx);
+      } else {
+        drawTopology(state, topologyCtx);
+      }
+      terrainFrames.set(topologyCtx, { tiles: state.tiles, decor: state.decor, rooms: state.rooms,
+        entities: state.entities, seed: state.seed, generation: state.generation,
+        ready: rendererAssets.ready, width: widthPx, height: heightPx });
     }
     objectsCtx.clearRect(0, 0, widthPx, heightPx);
     objectsCtx.__doorNow = now;

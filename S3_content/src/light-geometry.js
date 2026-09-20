@@ -8,6 +8,7 @@ const RADIUS_RAY_COUNT = 96;
 const INNER_WALL_EDGE_INSET_PX = 5;
 const PILLAR_SHADOW_SIZE_PX = TILE_SIZE_PX / 3;
 const PILLAR_SHADOW_INSET_PX = (TILE_SIZE_PX - PILLAR_SHADOW_SIZE_PX) / 2;
+const polygonBounds = new WeakMap();
 const TILE_SAMPLE_POINTS = Object.freeze([
   [0.5, 0.5],
   [0.16, 0.16],
@@ -439,8 +440,20 @@ export function isPointInPolygon(point, polygon) {
   if (!Array.isArray(polygon) || polygon.length < 3) {
     return false;
   }
-  let inside = false;
   const [x, y] = point;
+  let bounds = polygonBounds.get(polygon);
+  if (!bounds) {
+    bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    for (const [px, py] of polygon) {
+      bounds.minX = Math.min(bounds.minX, px);
+      bounds.minY = Math.min(bounds.minY, py);
+      bounds.maxX = Math.max(bounds.maxX, px);
+      bounds.maxY = Math.max(bounds.maxY, py);
+    }
+    polygonBounds.set(polygon, bounds);
+  }
+  if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) return false;
+  let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
     const [xi, yi] = polygon[i];
     const [xj, yj] = polygon[j];

@@ -8988,6 +8988,7 @@ function applyMultiplayerSessionState(payload, options = {}) {
   if (payload.id && multiplayerSession.id === payload.id && payload.revision < multiplayerSession.revision) return;
   const previousOwned = multiplayerSession.owned_character_ids || [];
   const previousCanExplore = multiplayerSession.can_explore;
+  const previousPlayers = JSON.stringify(multiplayerSession.players || []);
   const previousPositions = displayedCharacterPositions();
   const activeId = state?.activeCharacterId;
   const oldRoom = multiplayerSession.id;
@@ -9061,7 +9062,8 @@ function applyMultiplayerSessionState(payload, options = {}) {
   if (!payload.state_json && previousCanExplore !== multiplayerSession.can_explore && state) {
     updatePanels();
   }
-  if (!options.silentMetadata || payload.state_json || previousCanExplore !== multiplayerSession.can_explore) renderMultiplayerUi();
+  const playersChanged = previousPlayers !== JSON.stringify(multiplayerSession.players || []);
+  if (!options.silentMetadata || payload.state_json || playersChanged || previousCanExplore !== multiplayerSession.can_explore) renderMultiplayerUi();
 }
 
 function setMultiplayerStatus(message, tone = "") {
@@ -9281,7 +9283,7 @@ async function refreshMultiplayerSession(options = {}) {
         viewer_visibility: serializeSharedViewerVisibility()
       })
       : await getHostSession(multiplayerSession.id, multiplayerSession.revision);
-    applyMultiplayerSessionState(result, { silentMetadata: !options.heartbeat });
+    applyMultiplayerSessionState(result, { silentMetadata: options.silent === true && !options.heartbeat });
     if (!options.silent) setMultiplayerStatus("Party refreshed.");
   } catch (error) {
     setMultiplayerStatus(error.message, "error");
@@ -9898,13 +9900,13 @@ function startClock() {
 }
 
 async function initialize() {
-  accountSession = await getAccountSession().catch(() => ({ authenticated: false }));
-  try {
-    setStatus("Loading hand-drawn renderer assets...");
-    await preloadRendererAssets();
-  } catch (error) {
+  void getAccountSession().then((session) => {
+    accountSession = session;
+    renderMultiplayerUi();
+  }).catch(() => {});
+  const assetsReady = preloadRendererAssets().catch((error) => {
     console.warn("Hand-drawn renderer assets failed to load. Falling back to flat renderer.", error);
-  }
+  });
   hookInputEvents();
   hookMapViewportInteractions();
   ui.seedInput.value = `${createRandomDungeonSeed()}`;
@@ -9917,7 +9919,8 @@ async function initialize() {
   }
   window.addEventListener("resize", syncSidebarWidth);
   startClock();
-  await generateAndRender();
+  await Promise.all([assetsReady, generateAndRender()]);
+  render();
   openInviteFromUrlIfPresent();
 }
 
