@@ -67,7 +67,7 @@ services:
 
   importer:
     build: .
-    command: ["gunicorn", "--bind", "0.0.0.0:9000", "--workers", "1", "--threads", "2", "--timeout", "45", "import_service:app"]
+    command: ["gunicorn", "-c", "importer_gunicorn.conf.py", "import_service:app"]
     cap_add:
       - SYS_ADMIN
     environment:
