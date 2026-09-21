@@ -1,5 +1,13 @@
 # Agent guide: launch the SD site locally on Windows
 
+## Production deployment
+
+For `ctreeder.com` deployment or outages, read
+[`docs/DIGITALOCEAN_DEPLOYMENT.md`](docs/DIGITALOCEAN_DEPLOYMENT.md) first.
+Production runs on DigitalOcean, not the retired AWS host. A Git push alone
+does not deploy it. Preserve the live Compose override, database volumes,
+stable secrets, native nginx configuration, and live portfolio files.
+
 Use this file when the user asks to **launch**, **start**, **open**, **load**, or
 **inspect** the ShadowDarklings SD Dungeon Generator locally.
 
@@ -194,12 +202,14 @@ with `os.environ[...]`.
 
 `SHADOWDARKLINGS_IMPORT_ENABLED=1` keeps the one-click ShadowDarklings importer
 available during local testing. `ALLOW_ANON_SHADOWDARKLINGS_IMPORT=1` lets the
-frontend importer be tested without logging in first. Both importer flags are
-local-only conveniences and must not be enabled in production.
+frontend importer be tested without logging in first. In production, keep
+`SHADOWDARKLINGS_IMPORT_ENABLED=1` with the private
+importer service, but never enable `ALLOW_ANON_SHADOWDARKLINGS_IMPORT` there.
 
 Do not use `FLASK_ENV=production` for local browser testing unless the user is
-specifically testing production behavior. In this app, production mode disables
-the ShadowDarklings importer and makes the import button show:
+specifically testing production behavior. Production imports require the
+explicit feature flag and isolated importer configuration. A disabled flag
+makes the import button show:
 
 `Character import is not available in this environment.`
 

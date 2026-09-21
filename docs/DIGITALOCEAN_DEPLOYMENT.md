@@ -1,0 +1,81 @@
+# DigitalOcean production runbook
+
+## Actual deployment
+
+Verified 2026-09-21 UTC (2026-09-20 Pacific):
+
+- Domain: `https://ctreeder.com`; ShadowSpawner: `/site/`.
+- Droplet: `ctr-portfolio-sd`, ID `586249603`, IPv4 `157.230.143.58`.
+- Ubuntu 24.04, 1 vCPU, 1 GB RAM. Do not purchase a resize without approval.
+- Checkout: `/opt/SD-Dungeon-Generator`, branch `main`.
+- Compose files: `docker-compose.yml` plus the untracked production-specific
+  `docker-compose.digitalocean.yml`. Always pass both files.
+- Native nginx owns ports 80/443. Do NOT start the Compose `nginx` service or
+  overwrite the native site with the repository Docker nginx template.
+- Native site: `/etc/nginx/sites-enabled/ctreeder.com`, normally a symlink into
+  `/etc/nginx/sites-available/`.
+- Live portfolio: `/var/www/ctreeder.com/html`. It has live-only content; preserve
+  it rather than replacing it wholesale with `S3_content/portfolio`.
+- `.env` contains production secrets. Never print it, copy it to local reports,
+  regenerate the session secret, or replace it with development defaults.
+- A Git push does not deploy automatically. `.github/workflows/test.yml` is CI.
+
+## Service boundaries
+
+The app publishes port 8000 only on `127.0.0.1`. nginx proxies API/account routes
+there, but serves `/site/` directly from
+`/opt/SD-Dungeon-Generator/S3_content/`. Static responses preserve security
+headers and use gzip for CSS, JavaScript, JSON and SVG. A failed importer or
+web worker must not prevent the game document and images from loading.
+
+The private `importer` service publishes no host port, has no account/database
+secrets, and runs Chromium as user `game` with its sandbox enabled. Only this
+container has `SYS_ADMIN`; the app does not. Its explicit Gunicorn config is
+`importer_gunicorn.conf.py`, not the web application's default config with
+database hooks. Keep `SHADOWDARKLINGS_IMPORT_URL=http://importer:9000/import` and
+`SHADOWDARKLINGS_IMPORT_ENABLED=1`. Never enable the local anonymous bypass.
+
+The 1 GB droplet needs room for the web workers, persistent Node rules workers,
+Chromium, Postgres, Docker and the OS. Production overrides both app and importer
+to `mem_limit: 448m` and `memswap_limit: 768m`; importer CPU is capped at `0.75`
+and process count at 96, app at 128. `/sd_swap` is a 1 GB, mode-600 swap file,
+managed by the enabled `sd_swap.swap` systemd unit. This uses existing disk,
+not a paid resize. Inspect memory pressure and swap use under real multiplayer
+load before lowering limits; 320 MB app / 384 MB importer reproduced stalls.
+
+## Safe updates
+
+1. Confirm authorized SSH/console access. Do not scan for credentials. Temporary
+   maintenance keys must expire and be removed after verification.
+2. Record checkout status/revision, container images, CPU/RAM/disk, nginx errors,
+   app/importer errors and cgroup `memory.events`. Preserve uncommitted changes.
+3. Make a protected `pg_dump -Fc` backup using the existing `sd_owner` role and
+   verify it with `pg_restore --list`. Back up `.env`, the production Compose
+   override, native nginx config and live portfolio. Retain the previous image.
+   Do not use `docker compose down -v`, reset the database or delete volumes.
+4. Fetch and fast-forward the reviewed release. Preserve the untracked override.
+5. Validate the merged config with `docker compose ... config --quiet` (not full
+   config output, which contains secrets). Build the affected services.
+6. Start only the intended services. For a full application release:
+
+```bash
+cd /opt/SD-Dungeon-Generator
+docker compose -f docker-compose.yml -f docker-compose.digitalocean.yml build app importer migrate
+docker compose -f docker-compose.yml -f docker-compose.digitalocean.yml up -d --no-build --wait --wait-timeout 150 app
+```
+
+7. For native nginx edits, keep a rollback copy, run `nginx -t`, then reload
+   gracefully. Do not increase gateway timeouts as a substitute for repair.
+8. Verify HTTPS `/site/`, assets, `/api/session`, `/healthz`, both core-only and
+   all-sources imports, host and account-free guest imports, a subsequent host
+   import, movement/peer updates, and leaving/closing a room. Use disposable
+   test accounts/rooms, never real saved games, and remove only those fixtures.
+9. Confirm services are healthy, no unexpected public ports exist, secrets and
+   database volumes are unchanged, and temporary access is revoked.
+
+The 2026-09-21 repair backup is `/root/shadowspawner-backup-20260921` (mode 700),
+including `app.dump`, configuration, portfolio and the previous revision/image.
+The prior image is tagged `shadowspawner:pre-repair-20260921`.
+
+See `PERFORMANCE_REPAIR_2026-09-19.md` for the original before/after CPU and
+asset-waterfall measurements. Do not confuse local timings with live results.
