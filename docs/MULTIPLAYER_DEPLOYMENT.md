@@ -104,8 +104,9 @@ Shadowdarklings availability, or backup restore readiness.
   Python. The Dockerfile supplies them and runs the app as a non-root user.
 - Shadowdarklings browser import is off by default in production. Enable
   `SHADOWDARKLINGS_IMPORT_ENABLED=1` only after the live importer is exercised
-  with the installed Chromium and upstream site. Guest imports require an
-  active joined room. Never enable `ALLOW_ANON_SHADOWDARKLINGS_IMPORT` in
+  with the installed Chromium and upstream site. Solo visitors may import
+  without accounts; imports into a room require active membership and host
+  permission. Never enable the obsolete `ALLOW_ANON_SHADOWDARKLINGS_IMPORT` bypass in
   production. The import path is rate limited and globally single-flight;
   it runs in the private importer container with a 30-second process deadline,
   a 35-second hard process-group deadline and a 38-second app-to-service timeout, filtered environment,

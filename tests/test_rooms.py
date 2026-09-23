@@ -93,6 +93,30 @@ def test_guest_owns_import_and_cannot_invite_or_control_host(clients):
     assert post(guest, f"/api/rooms/{room['id']}/characters/{owned}/save", {}).status_code == 401
 
 
+def test_import_allowance_is_separate_for_guests_and_host_on_same_network(clients, monkeypatch):
+    from app import limiter
+    host, guest, _ = clients
+    room = create(host, players_can_import=True, extra_characters_without_host=True)
+    join(guest, room)
+    other_guest = app.test_client()
+    join(other_guest, room)
+    monkeypatch.setitem(app.config, "TESTING", False)
+    monkeypatch.setitem(app.config, "SHADOWDARKLINGS_IMPORT_ENABLED", True)
+    monkeypatch.setitem(app.config, "RATELIMIT_ENABLED", True)
+    monkeypatch.setattr(limiter, "enabled", True)
+    monkeypatch.setattr("app.fetch_shadowdarklings_character_json",
+                        lambda base_classes_only=False: '{"name":"Party Member"}')
+    limiter.reset()
+    try:
+        for member, count in ((guest, 32), (other_guest, 16), (host, 16)):
+            for _ in range(count):
+                response = post(member, "/api/shadowdarklings/import", {"room_id": room["id"]})
+                assert response.status_code == 200, response.json
+        assert post(guest, "/api/shadowdarklings/import", {"room_id": room["id"]}).status_code == 429
+    finally:
+        limiter.reset()
+
+
 def test_movement_batches_are_bounded_and_applied_atomically(clients):
     host, _, _ = clients
     room = create(host)

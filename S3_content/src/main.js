@@ -316,6 +316,9 @@ const CHARACTER_COLOR_PALETTE = Object.freeze([
 /** Slightly smaller than "fit entire map" so neither axis binds flush; otherwise the limiting axis often gets zero slack (only X or only Y would pan). */
 const MIN_ZOOM_INSET = 0.92;
 let dragState = null;
+let mapHoverPointer = null;
+let attackCursorImage = null;
+const attackCursorCache = new Map();
 
 async function loadShadowdarkContent() {
   try {
@@ -538,6 +541,7 @@ function clampPan() {
 function commitViewportTransform() {
   clampPan();
   ui.mapHost.style.transform = `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.scale})`;
+  updateMonsterHoverCursor();
 }
 
 function applyViewportScale(nextScale, anchor = null) {
@@ -836,6 +840,7 @@ function render(options = {}) {
     forceBlackout: forceBlackoutWhenTorchOut && !hasAnyVisibleLightSource(),
     motionOnly: options.motionOnly === true
   });
+  updateMonsterHoverCursor();
   if (options.motionOnly === true) return;
   if (ui.connectivityText) {
     ui.connectivityText.textContent = state.generation.connectivityValid ? "valid" : "invalid";
@@ -2539,6 +2544,32 @@ function handleCombatMovement(delta, options = {}) {
     updatePanels();
   }
   return true;
+}
+
+function updateMonsterHoverCursor() {
+  if (SERVER_RUNTIME || !ui.mapHost) return;
+  const panel = ui.mapHost.parentElement;
+  let cursor = "";
+  const character = state && getActiveCharacter(state);
+  if (mapHoverPointer && !dragState && character && ownsCharacter(character)) {
+    const { x, y } = getTileFromPointer(mapHoverPointer);
+    if (!getCharacterAtTile(x, y) && getVisibleMonsterAtTile(x, y)) {
+      const color = getCharacterColorValue(character);
+      if (!attackCursorCache.has(color) && attackCursorImage?.naturalWidth) {
+        const canvas = document.createElement("canvas");
+        canvas.width = attackCursorImage.naturalWidth;
+        canvas.height = attackCursorImage.naturalHeight;
+        const context = canvas.getContext("2d");
+        context.drawImage(attackCursorImage, 0, 0);
+        context.globalCompositeOperation = "source-in";
+        context.fillStyle = color;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        attackCursorCache.set(color, `url("${canvas.toDataURL("image/png")}") 1 1, crosshair`);
+      }
+      cursor = attackCursorCache.get(color) || "crosshair";
+    }
+  }
+  if (panel.style.cursor !== cursor) panel.style.cursor = cursor;
 }
 
 function applyLocalMovement(delta, options = {}) {
@@ -9218,7 +9249,7 @@ function ensureMultiplayerRefreshLoop() {
   }, 5000);
 }
 
-async function openInviteFromUrlIfPresent() {
+async function restoreRoomFromUrlIfPresent() {
   const params = new URL(location.href).searchParams;
   const roomId = params.get("room");
   const code = params.get("join");
@@ -9232,16 +9263,15 @@ async function openInviteFromUrlIfPresent() {
     return;
   }
   if (!roomId && !code) return;
-  openMultiplayerModal();
   try {
     if (roomId) {
       applyMultiplayerSessionState(await roomRequest(roomId, "resume", {}));
-      setMultiplayerStatus("Dungeon loaded.");
+      setStatus("Dungeon loaded.");
     } else {
       ui.multiplayerJoinCode.value = normalizeSessionCode(code);
-      await joinMultiplayerHost();
+      await joinMultiplayerHost({ fromUrl: true });
     }
-  } catch (error) { setMultiplayerStatus(error.message, "error"); }
+  } catch (error) { setStatus(error.message); }
 }
 
 async function createMultiplayerHost() {
@@ -9260,17 +9290,22 @@ async function createMultiplayerHost() {
   } catch (error) { setMultiplayerStatus(error.message, "error"); }
 }
 
-async function joinMultiplayerHost() {
+async function joinMultiplayerHost(options = {}) {
   try {
     applyMultiplayerSessionState(await joinHostSession(ui.multiplayerJoinCode.value, {
       displayName: document.getElementById("room-display-name").value
     }));
-    setMultiplayerStatus(multiplayerSession.authenticated
+    const message = multiplayerSession.authenticated
       ? "Joined. Load or import your character."
       : multiplayerSession.options?.players_can_import
         ? "Joined as a guest. Import your character; no account is required."
-        : "Joined as a guest. No account is required; the host will assign your character.");
-  } catch (error) { setMultiplayerStatus(error.message, "error"); }
+        : "Joined as a guest. No account is required; the host will assign your character.";
+    setMultiplayerStatus(message);
+    if (options.fromUrl) setStatus(message);
+  } catch (error) {
+    setMultiplayerStatus(error.message, "error");
+    if (options.fromUrl) setStatus(error.message);
+  }
 }
 
 async function refreshMultiplayerSession(options = {}) {
@@ -9692,6 +9727,18 @@ function hookInputEvents() {
 
 function hookMapViewportInteractions() {
   const panel = ui.mapHost.parentElement;
+  attackCursorImage = new Image();
+  attackCursorImage.onload = updateMonsterHoverCursor;
+  attackCursorImage.src = new URL("../assets/attack-alpha.png", import.meta.url).href;
+  panel.addEventListener("pointermove", (event) => {
+    mapHoverPointer = event.target?.closest?.(".map-zoom-controls") ? null
+      : { clientX: event.clientX, clientY: event.clientY };
+    updateMonsterHoverCursor();
+  });
+  panel.addEventListener("pointerleave", () => {
+    mapHoverPointer = null;
+    updateMonsterHoverCursor();
+  });
 
   const onDocumentMove = (event) => {
     if (!dragState || dragState.pointerId !== event.pointerId) {
@@ -9717,6 +9764,7 @@ function hookMapViewportInteractions() {
     const clickY = dragState.clickY;
     dragState = null;
     panel.classList.remove("is-dragging");
+    updateMonsterHoverCursor();
     document.removeEventListener("pointermove", onDocumentMove);
     document.removeEventListener("pointerup", finishPointerSequence);
     document.removeEventListener("pointercancel", finishPointerSequence);
@@ -9793,6 +9841,7 @@ function hookMapViewportInteractions() {
       moved: false
     };
     panel.classList.add("is-dragging");
+    updateMonsterHoverCursor();
     document.addEventListener("pointermove", onDocumentMove, { passive: false });
     document.addEventListener("pointerup", finishPointerSequence);
     document.addEventListener("pointercancel", finishPointerSequence);
@@ -9921,7 +9970,7 @@ async function initialize() {
   startClock();
   await Promise.all([assetsReady, generateAndRender()]);
   render();
-  openInviteFromUrlIfPresent();
+  restoreRoomFromUrlIfPresent();
 }
 
 let serverContentReady = null;

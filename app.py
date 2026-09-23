@@ -159,7 +159,7 @@ def _skip_rate_limits():
     return bool(app.config.get("TESTING"))
 
 
-def rate_limit(limit_value, **kwargs):
+def rate_limit(limit_value, *, ip_limit=None, key_func=None, **kwargs):
     def account_key():
         if current_user.is_authenticated:
             return f"user:{current_user.id}"
@@ -168,16 +168,26 @@ def rate_limit(limit_value, **kwargs):
             return "login:" + digest(request.form.get("username", "").strip(), "rate")
         return "ip:" + get_remote_address()
     def decorator(view):
-        view = limiter.limit(limit_value, exempt_when=_skip_rate_limits, key_func=account_key, **kwargs)(view)
-        return limiter.limit(limit_value, exempt_when=_skip_rate_limits, key_func=get_remote_address, **kwargs)(view)
+        view = limiter.limit(limit_value, exempt_when=_skip_rate_limits, key_func=key_func or account_key, **kwargs)(view)
+        return limiter.limit(ip_limit or limit_value, exempt_when=_skip_rate_limits, key_func=get_remote_address, **kwargs)(view)
     return decorator
+
+
+def import_player_key():
+    if current_user.is_authenticated:
+        return f"user:{current_user.id}"
+    from rooms import guest_hash
+    guest = guest_hash()
+    return f"guest:{guest}" if guest else "ip:" + get_remote_address()
 
 
 @app.errorhandler(429)
 def rate_limit_error(error):
-    response = jsonify(error="rate_limited", message="Too many requests. Please wait before retrying.")
+    limit = limiter.current_limit
+    retry_after = max(1, limit.reset_at - int(time.time())) if limit else 60
+    response = jsonify(error="rate_limited", message=f"Too many requests. Please wait {retry_after} seconds before retrying.")
     response.status_code = 429
-    response.headers["Retry-After"] = "60"
+    response.headers["Retry-After"] = str(retry_after)
     return response
 
 
@@ -785,10 +795,11 @@ def healthz():
 
 
 @app.route("/api/shadowdarklings/import", methods=["POST"])
-@rate_limit("10 per hour")
+@rate_limit("32 per minute; 256 per hour", ip_limit="256 per minute; 2048 per hour",
+            key_func=import_player_key, deduct_when=lambda response: response.status_code == 200)
 def import_shadowdarklings_character():
-    # Browser work is available only to accounts or verified active room guests;
-    # room permissions are checked before launching the expensive worker.
+    # Solo visitors can import without an account. Shared-room imports still
+    # enforce membership and host permissions before launching browser work.
     # Production-capable feature (CONTRACTS.md section 2): keep it explicit
     # because it runs browser automation against an upstream site.
     if not app.config.get("SHADOWDARKLINGS_IMPORT_ENABLED", False):
@@ -796,12 +807,13 @@ def import_shadowdarklings_character():
             "error": "feature_disabled",
             "message": "Character import is not available in this environment.",
         }, 503
-    allow_anon_dev_import = os.getenv("ALLOW_ANON_SHADOWDARKLINGS_IMPORT") == "1"
     from rooms import find_member
     request_data = request.get_json(silent=True)
     if not isinstance(request_data, dict):
         request_data = {}
     room_id = request_data.get("room_id")
+    if room_id is not None and not isinstance(room_id, str):
+        return {"error": "invalid_request", "message": "Invalid dungeon ID."}, 400
     db = get_db_session()
     room = db.get(GameRoom, room_id) if isinstance(room_id, str) else None
     member = find_member(db, room) if room else None
@@ -815,9 +827,6 @@ def import_shadowdarklings_character():
             owned = {character_id for character_id, owner_id in (room.ownership_json or {}).items() if owner_id == member.id}
             if owned and not room.extra_characters_without_host:
                 return {"error": "import_limit", "message": "You already control a character in this dungeon."}, 403
-    if not current_user.is_authenticated and not allow_anon_dev_import and not room_guest:
-        return {"error": "login_required", "message": "Authentication required."}, 401
-
     # Authorization is complete; do not hold a database connection during browser I/O.
     db.close()
     import_started_at = time.monotonic()

@@ -65,7 +65,7 @@ def run(args):
         os.environ.update(DATABASE_URL="sqlite:///" + str(Path(tmp) / "audit.db"),
             SECRET_KEY="isolated-performance-test-secret", OAUTH_CLIENT_ID="test",
             OAUTH_CLIENT_SECRET="test", FLASK_ENV="development", PUBLIC_BASE_URL="",
-            ALLOW_ANON_SHADOWDARKLINGS_IMPORT="1", SHADOWDARKLINGS_IMPORT_ENABLED="1",
+            ALLOW_ANON_SHADOWDARKLINGS_IMPORT="0", SHADOWDARKLINGS_IMPORT_ENABLED="1",
             RATELIMIT_STORAGE_URI="memory://")
         from app import app, engine
         server = make_server("127.0.0.1", 0, app, threaded=True, request_handler=QuietHandler)
