@@ -1,5 +1,31 @@
 # DigitalOcean production runbook
 
+## Latest release
+
+Runtime release `aba4d37` was deployed and verified on 2026-09-23 UTC.
+Only the app container was rebuilt/replaced; the database, Redis and importer
+stayed running. Solo visitors may now import without accounts. Room imports
+still enforce membership and host permissions. Successful import quotas are
+32/minute and 256/hour per player (IP for unaffiliated visitors), with a larger
+shared-IP ceiling; failed/busy imports do not consume those quotas. The legacy
+anonymous-development bypass is not needed or enabled in production.
+
+The same release adds the character-colored attack cursor and makes the
+Multiplayer popup explicit-button-only, including room reloads and invite links.
+Five real HTTPS imports passed: anonymous core/all-sources, signed-in host,
+account-free room guest, and host after guest (4.8-6.4 seconds each). Live
+generation took 0.42 seconds; 30/30 local keypress moves succeeded with median
+8.9 ms and p95 15.6 ms. Guest movement synchronized to the host; both could leave.
+Desktop/mobile reloads kept the popup closed, cursor alpha/tint checks passed,
+and there were no browser errors or container OOM kills.
+
+Backup: `/root/shadowspawner-backup-20260923`; rollback app image:
+`shadowspawner:pre-public-import-20260923`. Secrets, native nginx, Compose
+override and portfolio were unchanged. Verification artifacts and the exact
+disposable-account cleanup are in `C:\SD_game\deployment-repair-20260923`.
+Access used the owner's renewed standard SSH configuration; this release did
+not create, replace or remove SSH keys.
+
 ## Actual deployment
 
 Verified 2026-09-21 UTC (2026-09-20 Pacific):
