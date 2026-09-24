@@ -24,6 +24,19 @@ export function normalizeDamageExpression(expression) {
   return compact;
 }
 
+export function getMaximumDamage(expression) {
+  const normalized = normalizeDamageExpression(expression);
+  if (normalized.length > 256 || !/^\d+(?:d\d+)?(?:[+-]\d+(?:d\d+)?)*(?:x\d+)*$/.test(normalized)) return 0;
+  const [base, ...multipliers] = normalized.split("x");
+  const maximum = (base.match(/[+-]?[^+-]+/g) || []).reduce((sum, term) => {
+    const sign = term.startsWith("-") ? -1 : 1;
+    const body = term.replace(/^[+-]/, "");
+    const [count, sides] = body.split("d").map(Number);
+    return sum + sign * (sides ? count * (sign > 0 ? sides : 1) : count);
+  }, 0) * multipliers.reduce((product, value) => product * Number(value), 1);
+  return Number.isFinite(maximum) ? Math.max(0, maximum) : 0;
+}
+
 export function extractDamageReferences(text, options = {}) {
   const normalized = String(text || "").trim();
   if (!normalized) {

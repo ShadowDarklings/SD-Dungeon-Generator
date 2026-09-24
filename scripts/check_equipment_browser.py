@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 HOOKS = """
 window.__equipmentAudit = {
+  formatTalent: text => formatTalentSpellTextForSheet(text),
   snapshot: () => serializeDungeonState(state),
   open: index => openCharacterSheet(state.characters[index]),
   active: index => { setActiveCharacter(state, state.characters[index].id); syncPlayerToActiveCharacter(); updatePanels(); },
@@ -62,6 +63,8 @@ def run():
                     hero = {"name": f"Tester {index}", "class": "Fighter", "level": 1, "hp": 20,
                         "stats": {key: 12 for key in ("STR", "DEX", "CON", "INT", "WIS", "CHA")},
                         "gear": gear_sets[index], "attacks": [], "gold": 2}
+                    if index == 1:
+                        hero["levels"] = [{"level": 1, "talentRolledName": "LongSword", "talentRolledDesc": ""}]
                     imports.append(hero)
                     route.fulfill(json={"character_json": json.dumps(hero)})
                 page.route("**/api/shadowdarklings/import", import_hero)
@@ -80,6 +83,17 @@ def run():
                 assert all(hero["roomId"] == state["generation"]["entranceRoomId"] for hero in state["characters"])
                 page.evaluate("__equipmentAudit.open(1)")
                 sheet = page.locator("#character-sheet-content")
+                expect(sheet).to_contain_text("Fighter 1: Long Sword mastery")
+                expect(sheet.locator(".sd-attacks-panel input[type=checkbox]")).to_have_count(0)
+                expect(sheet.locator(".sd-gear-lines input[type=checkbox]")).to_have_count(5)
+                for source, expected in [
+                    ("Fighter 1: Longbow", "Fighter 1: Longbow mastery"),
+                    ("Fighter 3: Long Sword", "Fighter 3: Long Sword mastery"),
+                    ("Fighter 1: Weapon Mastery: Staff", "Fighter 1: Staff mastery"),
+                    ("Fighter 1: War Hammer: Mastery", "Fighter 1: War Hammer mastery"),
+                    ("Fighter 1: Armor Mastery: Shield", "Fighter 1: Armor Mastery: +1 AC from Shields"),
+                ]:
+                    assert page.evaluate("text => __equipmentAudit.formatTalent(text)", source) == expected
                 sword = sheet.get_by_role("checkbox", name="Equip Bastard sword", exact=True)
                 staff = sheet.get_by_role("checkbox", name="Equip Staff", exact=True)
                 shield = sheet.get_by_role("checkbox", name="Equip Shield", exact=True)

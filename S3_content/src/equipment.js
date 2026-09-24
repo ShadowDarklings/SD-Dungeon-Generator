@@ -1,19 +1,24 @@
 import { DEFAULT_LIGHT_RADIUS } from "./constants.js";
 
+export function normalizeWeaponSpacing(value) {
+  return String(value || "").toLowerCase()
+    .replace(/\b(long|short|great|cross|war)\s+(sword|bow|axe|club|hammer)\b/g, "$1$2");
+}
+
 export function handItemKind(item) {
-  const name = String(item?.name || "").toLowerCase();
+  const name = normalizeWeaponSpacing(item?.name);
   if (/\bshield\b/.test(name)) return "shield";
   if (/^torch\b/.test(name)) return "torch";
   if (/\blantern\b/.test(name)) return "lantern";
   if (String(item?.type || "").toLowerCase() === "weapon" ||
-      /\b(sword|bastard sword|greatsword|longsword|shortsword|greataxe|battleaxe|axe|greatclub|club|polearm|halberd|warhammer|mace|dagger|staff|longbow|shortbow|crossbow|spear|sling)\b/.test(name)) return "weapon";
+      /\b(sword|bastard sword|greatsword|longsword|shortsword|greataxe|battleaxe|axe|greatclub|club|polearm|halberd|warhammer|mace|dagger|staff|longbow|shortbow|crossbow|spear|javelin|sling)\b/.test(name)) return "weapon";
   return "";
 }
 
 export function isTwoHandedWeapon(item) {
   if (handItemKind(item) !== "weapon") return false;
-  const text = [item.name, item.properties, item.traits, item.hands, item.description].map(value =>
-    typeof value === "object" ? JSON.stringify(value) : String(value || "")).join(" ");
+  const text = normalizeWeaponSpacing([item.name, item.properties, item.traits, item.hands, item.description].map(value =>
+    typeof value === "object" ? JSON.stringify(value) : String(value || "")).join(" "));
   return item.twoHanded === true || Number(item.hands) === 2 || /\b2h\b|two[ -]handed|\b(greatsword|greatclub|polearm|halberd|warhammer|staff|longbow|shortbow|crossbow)\b/i.test(text);
 }
 
@@ -117,4 +122,37 @@ export function syncEquipmentLight(character) {
 
 export function hasOccupiedOffHand(character) {
   return (character.gear || []).some(item => item.equipped && ["shield", "torch", "lantern"].includes(handItemKind(item)));
+}
+
+export function equipImportLoadout(character, { needsLight, weapons, shieldAllowed, lanternFueled }) {
+  const gear = character.gear || [];
+  const dexPreferred = Number(character.stats?.DEX ?? 10) >= Number(character.stats?.STR ?? 10);
+  const candidates = weapons.map(weapon => ({ ...weapon,
+    kind: "weapon", hands: isTwoHandedWeapon(gear[weapon.index]) ? 2 : 1,
+    priority: weapon.mastered ? 1
+      : dexPreferred && weapon.ability === "DEX" ? (weapon.ranged ? 3 : 4)
+      : !dexPreferred && weapon.ability === "STR" ? 5
+      : weapon.ability === "DEX" ? (weapon.ranged ? 8 : 9) : (weapon.ranged ? 10 : 11)
+  }));
+  const compare = (a, b) => a.priority - b.priority || (b.maxDamage || 0) - (a.maxDamage || 0) || a.index - b.index;
+  const preferredWeapon = [...candidates].sort(compare)[0];
+  if (!needsLight && preferredWeapon?.hands === 2) preferredWeapon.priority = Math.min(preferredWeapon.priority, 1.5);
+  gear.forEach((item, index) => {
+    const kind = handItemKind(item);
+    if (kind === "shield" && shieldAllowed) candidates.push({ index, kind, hands: 1, priority: 2 });
+    if (kind === "torch" || (kind === "lantern" && (lanternFueled || item.lit))) {
+      candidates.push({ index, kind: "light", hands: 1, priority: needsLight ? 0 : 6, maxDamage: kind === "lantern" ? 1 : 0 });
+    }
+    if (kind) item.equipped = false;
+  });
+  let freeHands = 2;
+  const selectedKinds = new Set();
+  // Lower-priority items never replace a higher-priority choice during import.
+  for (const candidate of candidates.sort(compare)) {
+    if (selectedKinds.has(candidate.kind) || candidate.hands > freeHands) continue;
+    gear[candidate.index].equipped = true;
+    selectedKinds.add(candidate.kind);
+    freeHands -= candidate.hands;
+  }
+  syncEquipmentLight(character);
 }

@@ -53,9 +53,9 @@ import {
   setCharacterAmmo,
   setCharacterHp
 } from "./characters.js";
-import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression, rollUnarmedAttack } from "./damage.js";
+import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression, rollUnarmedAttack, getMaximumDamage } from "./damage.js";
 import { collectLightSources } from "./light-geometry.js";
-import { handItemKind, ensureEquipment, equipItem, syncEquipmentLight, hasOccupiedOffHand } from "./equipment.js";
+import { handItemKind, ensureEquipment, equipItem, syncEquipmentLight, hasOccupiedOffHand, equipImportLoadout, normalizeWeaponSpacing } from "./equipment.js";
 import { preloadRendererAssets, renderDungeon } from "./render.js";
 import { loadSpellLibrary, normalizeSpellLookupKey } from "./spells.js";
 import {
@@ -1897,6 +1897,7 @@ function getAttackRangeInfo(attackText, attack = null) {
   if (hasFar) ranges.add("far");
   if (!ranges.size) {
     ranges.add(inferred);
+    if (profile?.thrown) ranges.add(profile.key === "javelin" ? "far" : "near");
   }
   const maxRange = Math.max(...Array.from(ranges).map((range) => RANGE_LIMITS[range] || 1));
   return {
@@ -2702,7 +2703,7 @@ function createAttackAwareLine(attackText, character) {
     content.append(document.createTextNode(", "));
     content.append(backstabButton);
   }
-  addAttackEquipmentControl(content, character, attack);
+  applyAttackEquipmentState(content, character, attack);
   return content;
 }
 
@@ -2921,13 +2922,12 @@ function createEquipmentCheckbox(character, index, labelText = "Equip") {
   return label;
 }
 
-function addAttackEquipmentControl(container, character, attack) {
+function applyAttackEquipmentState(container, character, attack) {
   const index = getAttackGearIndex(character, attack);
   if (index < 0) return;
   const equipped = isAttackEquipped(character, attack);
   container.classList.toggle("is-attack-unequipped", !equipped);
   if (!equipped) container.querySelectorAll("button").forEach(button => { button.disabled = true; });
-  container.prepend(createEquipmentCheckbox(character, index, ""));
 }
 
 const WEAPON_PROFILES = [
@@ -2944,6 +2944,8 @@ const WEAPON_PROFILES = [
   { key: "club", pattern: /\bclub\b/, damage: "1d4", ability: "STR" },
   { key: "dagger", pattern: /\bdagger\b/, damage: "1d4", ability: "DEX" },
   { key: "staff", pattern: /\bstaff\b/, damage: "1d4", ability: "STR" },
+  { key: "spear", pattern: /\bspear\b/, damage: "1d6", ability: "STR", thrown: true },
+  { key: "javelin", pattern: /\bjavelin\b/, damage: "1d4", ability: "STR", thrown: true },
   { key: "longbow", pattern: /\blongbow\b/, damage: "1d8", ability: "DEX", ammo: "arrows" },
   { key: "shortbow", pattern: /\bshortbow\b/, damage: "1d4", ability: "DEX", ammo: "arrows" },
   { key: "crossbow", pattern: /\bcrossbow\b/, damage: "1d6", ability: "DEX", ammo: "bolts" },
@@ -2959,11 +2961,10 @@ const ARMOR_PROFILES = [
 ];
 
 function normalizeEquipmentName(value) {
-  return String(value || "")
+  return normalizeWeaponSpacing(value)
     .replace(/\([^)]*\)/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 function getGearItemName(item) {
@@ -3358,24 +3359,47 @@ function hideCharacterLight(character) {
   syncEquipmentLight(character);
 }
 
+function isStartingRoomIlluminated(importedCharacter) {
+  const roomId = state.generation?.entranceRoomId || importedCharacter.roomId;
+  const tiles = state.tiles.filter(tile => tile.roomId === roomId && tile.type === "floor");
+  const sources = [
+    ...(state.characters || []).filter(character => character.id !== importedCharacter.id && Number(character.lightRadius) > 0),
+    ...(state.entities || []).filter(entity => entity.subtype === "dropped-equipment" && !entity.collected && Number(entity.lightRadius) > 0)
+  ];
+  // Ignore preview light, the incoming character, and each viewer's fog-of-war filter.
+  return sources.some(source => tiles.some(tile => isPointInLightRadius(tile.x, tile.y, source) &&
+    hasLineOfSightFrom(state, Number(source.x), Number(source.y), tile.x, tile.y)));
+}
+
 function initializeImportedCharacterLight(character) {
   if (!character) return;
-  syncCharacterEquipmentDerivedStats(character);
+  const chooseLoadout = character.equipmentInitialized !== true;
   const firstLight = !ensureTimers(state).lightEverLit;
+  const needsLight = !isStartingRoomIlluminated(character);
+  syncCharacterEquipmentDerivedStats(character);
+  if (chooseLoadout) {
+    const mastery = /\bfighter\b/.test(getCharacterClassKey(character)) ? getWeaponMasteryTarget(character) : "";
+    const weapons = character.gear.flatMap((item, index) => {
+      const profile = getWeaponProfile(item);
+      if (!profile || !canUseWeapon(character, item) || attackRequiresMissingAmmo(character, item.name)) return [];
+      const damage = profile.versatileDamage || item.damage || item.damageExpression || profile.damage;
+      return [{ index, ability: profile.ability, ranged: Boolean(profile.ammo || profile.thrown),
+        mastered: mastery === profile.key, maxDamage: getMaximumDamage(damage) || getMaximumDamage(profile.damage) }];
+    });
+    equipImportLoadout(character, { needsLight, weapons, shieldAllowed: canUseShield(character), lanternFueled: characterHasOil(character) });
+    syncCharacterEquipmentDerivedStats(character);
+  }
   if (character.lightRadius > 0) {
     if (firstLight || state.timers.torchElapsedMs >= state.timers.torchDurationMs) lightNewTorch(state);
     return;
   }
-  if (!firstLight && !isCharacterInLiveLight(character)) return;
-  let source = "";
-  if (characterHasLantern(character) && characterHasOil(character)) {
-    source = "lantern";
-  } else if (characterHasTorch(character)) {
-    source = "torch";
-  }
-  if (!source) return;
+  // Loading a saved character must not replace the player's saved hand choices.
+  if (!chooseLoadout || (!firstLight && !isCharacterInLiveLight(character))) return;
+  const index = character.gear.findIndex(item => item.equipped && getGearLightSource(item));
+  if (index < 0) return;
+  const source = getGearLightSource(character.gear[index]);
   if (!hasLiveTimedLight(state) || firstLight || state.timers.torchElapsedMs >= state.timers.torchDurationMs) lightNewTorch(state);
-  setCharacterLight(character, source);
+  setCharacterLight(character, source, index);
   if (source === "lantern") removeOneOil(character);
 }
 
@@ -4006,7 +4030,9 @@ function isCharacterInLiveLight(character) {
   if (!position || !state) {
     return false;
   }
-  if (state.player?.torchLit === true && isPointInLightRadius(position.x, position.y, {
+  const reachesCharacter = source => isPointInLightRadius(position.x, position.y, source) &&
+    hasLineOfSightFrom(state, Number(source.x), Number(source.y), position.x, position.y);
+  if (state.player?.torchLit === true && reachesCharacter({
     x: state.player.x,
     y: state.player.y,
     radius: state.player.lightRadius || DEFAULT_LIGHT_RADIUS
@@ -4017,14 +4043,14 @@ function isCharacterInLiveLight(character) {
     if (candidate?.id === character?.id) {
       continue;
     }
-    if (isPointInLightRadius(position.x, position.y, candidate)) {
+    if (reachesCharacter(candidate)) {
       return true;
     }
   }
   return (state.entities || []).some((entity) => (
     entity.subtype === "dropped-equipment" &&
     !entity.collected &&
-    isPointInLightRadius(position.x, position.y, entity)
+    reachesCharacter(entity)
   ));
 }
 
@@ -4141,8 +4167,12 @@ function updateLightControlUi() {
 function formatTalentSpellTextForSheet(text) {
   return String(text || "")
     .replace(/^Thief\s+\d+:\s+Thief\s+\d+:\s+/i, "Thief 1: ")
-    .replace(/^Fighter\s+(\d+):\s*(Longbow|Shortbow|Crossbow|Dagger|Shortsword|Longsword|Bastard Sword|Greatsword|Greataxe|Mace|Club|Staff|Warhammer)\s*$/i, "Fighter $1: Mastery: $2 +1 atk/dmg")
-    .replace(/^(\w+\s+\d+):\s*([^:]+):\s*Mastery\s*$/i, "$1: Mastery: $2 +1 atk/dmg")
+    .replace(/^Fighter\s+(\d+):\s*([^:]+?)\s*$/i, (line, level, weapon) => {
+      const profile = getWeaponProfileFromText(weapon);
+      return profile && normalizeEquipmentName(weapon) === profile.key ? `Fighter ${level}: ${weapon} mastery` : line;
+    })
+    .replace(/^(\w+\s+\d+):\s*([^:]+):\s*(?:Weapon\s+)?Mastery\s*$/i, "$1: $2 mastery")
+    .replace(/^Fighter\s+(\d+):\s*(?:Weapon\s+)?Mastery:\s*([^:]+?)\s*$/i, "Fighter $1: $2 mastery")
     .replace(/^Fighter\s+(\d+):\s*Armor Mastery:\s*Shield\s*$/i, "Fighter $1: Armor Mastery: +1 AC from Shields")
     .replace(/^Fighter\s+(\d+):\s*Armor Mastery:\s*(Leather(?: armor)?|Chainmail|Plate(?:mail| armor)?)\s*$/i, "Fighter $1: Armor Mastery: +1 AC from $2")
     .replace(/^(\w+\s+\d+):\s*Melee and ranged attacks\s*$/i, "$1: +1 to melee and ranged attacks")
@@ -6050,7 +6080,7 @@ function createMiniAttackNode(attackText, character) {
     attackNode.append(document.createTextNode(", "));
     attackNode.append(backstabButton);
   }
-  addAttackEquipmentControl(attackNode, character, attack);
+  applyAttackEquipmentState(attackNode, character, attack);
   return attackNode;
 }
 
@@ -7553,9 +7583,10 @@ function createSdGearPanel(character) {
       label.append(document.createTextNode(" "), createLightSourceMarker(getGearLightSource(item)));
     }
     row.append(label);
-    if (entry.text && entry.primary && item && ["shield", "torch", "lantern"].includes(handItemKind(item))) {
+    if (entry.text && entry.primary && item && handItemKind(item)) {
       const toggle = createEquipmentCheckbox(character, entry.gearIndex);
-      if (isShieldItem(item) && !canUseShield(character)) toggle.querySelector("input").disabled = true;
+      if ((isShieldItem(item) && !canUseShield(character)) ||
+          (handItemKind(item) === "weapon" && !canUseWeapon(character, item))) toggle.querySelector("input").disabled = true;
       row.append(toggle);
     }
     if (entry.text && entry.primary && Number.isInteger(entry.gearIndex)) {
