@@ -9,9 +9,9 @@ This file verifies that:
 """
 
 import os
-# Set env before import
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["SECRET_KEY"] = "test-secret"
+# Keep the database selected by CI; use safe defaults for standalone test runs.
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("SECRET_KEY", "test-secret")
 
 import pytest
 from datetime import datetime, timezone
@@ -27,7 +27,7 @@ from app import (
 
 @pytest.fixture
 def db_session():
-    # Recreate all tables in memory
+    # Recreate tables in the configured test database.
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     
@@ -124,8 +124,9 @@ def test_tiles_unique_coordinates_constraint(db_session):
 
 def test_cascade_delete_saved_run(db_session):
     """Verify that deleting a parent SavedRun cascade-deletes all its child records."""
-    # We must explicitly enable foreign key enforcement in SQLite for this test
-    db_session.execute(text("PRAGMA foreign_keys = ON"))
+    # PostgreSQL enforces foreign keys without SQLite's connection setting.
+    if db_session.get_bind().dialect.name == "sqlite":
+        db_session.execute(text("PRAGMA foreign_keys = ON"))
 
     user = User(username="mario", password_hash="hash")
     db_session.add(user)
