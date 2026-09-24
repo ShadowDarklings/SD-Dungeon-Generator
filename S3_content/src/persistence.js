@@ -74,6 +74,7 @@ function normalizeTimers(raw = {}) {
     actualElapsedMs: Math.max(0, Number(raw.actualElapsedMs) || 0),
     torchElapsedMs: Math.max(0, Number(raw.torchElapsedMs) || 0),
     torchDurationMs: Math.max(1, Number(raw.torchDurationMs) || 60 * 60 * 1000),
+    lightEverLit: raw.lightEverLit === true,
     nextWanderingCheckMs: Math.max(10 * 60 * 1000, Number(raw.nextWanderingCheckMs) || 10 * 60 * 1000),
     lastTickAt: Date.now()
   };

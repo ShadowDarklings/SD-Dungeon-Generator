@@ -1468,6 +1468,10 @@ body {
   display: none;
 }
 
+#extinguish-old-modal {
+  z-index: 21;
+}
+
 .modal-card {
   width: min(520px, 100%);
   max-height: 88vh;
@@ -2049,23 +2053,33 @@ body {
   outline-offset: 1px;
 }
 
-.sd-gear-shield-toggle {
+.sd-equipment-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   flex: 0 0 auto;
   font: 700 0.68rem/1 "Times New Roman", Georgia, serif;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
   white-space: nowrap;
 }
 
-.sd-gear-shield-toggle input {
+.sd-equipment-toggle input {
   width: 12px;
   height: 12px;
   margin: 0;
   accent-color: #111;
+  cursor: pointer;
 }
+
+.is-attack-unequipped { color: #777; }
+.is-attack-unequipped button { color: #777; opacity: .5; cursor: not-allowed; }
+.character-mini-attack-entry .sd-equipment-toggle { display: inline-flex; vertical-align: middle; margin-right: 3px; }
+.sd-gear-lines .sd-gear-row-has-drop { flex-wrap: wrap; gap: 2px; }
+.sd-gear-line-label { overflow-wrap: anywhere; }
 
 .sd-gear-drop-button {
   flex: 0 0 auto;
@@ -2086,14 +2100,13 @@ body {
 .character-sheet--popout .sd-gear-row-has-drop:focus .sd-gear-drop-button,
 .character-sheet--popout .sd-gear-row-has-drop:focus-within .sd-gear-drop-button,
 .character-sheet--popout .sd-gear-row-has-drop.is-drop-open .sd-gear-drop-button {
-  position: absolute;
-  inset: -2px auto -2px 0;
+  position: static;
   z-index: 3;
   display: inline-grid;
   place-items: center;
-  min-width: min(88px, 100%);
+  min-width: 0;
   max-width: 100%;
-  padding: 2px 10px !important;
+  padding: 1px 3px !important;
   background: #111 !important;
   color: #fff !important;
   box-shadow: 0 0 0 1px #fff inset;

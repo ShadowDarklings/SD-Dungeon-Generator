@@ -53,8 +53,9 @@ import {
   setCharacterAmmo,
   setCharacterHp
 } from "./characters.js";
-import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression } from "./damage.js";
+import { extractDamageReferences, normalizeDamageExpression, rollDamageExpression, rollUnarmedAttack } from "./damage.js";
 import { collectLightSources } from "./light-geometry.js";
+import { handItemKind, ensureEquipment, equipItem, syncEquipmentLight, hasOccupiedOffHand } from "./equipment.js";
 import { preloadRendererAssets, renderDungeon } from "./render.js";
 import { loadSpellLibrary, normalizeSpellLookupKey } from "./spells.js";
 import {
@@ -68,6 +69,8 @@ import {
 import {
   advanceTorchTime,
   forceTorchOut,
+  ensureTimers,
+  hasLiveTimedLight,
   lightNewTorch,
   syncElapsedTime,
   TORCH_SEARCH_ADVANCE_MS
@@ -1028,6 +1031,7 @@ function multiplyDamageDice(expression, multiplier) {
 }
 
 function applyAttackRoll(character, attack) {
+  if (!isAttackEquipped(character, attack)) return;
   if (!ui.damageResult || !attack) {
     return;
   }
@@ -1044,6 +1048,7 @@ function applyAttackRoll(character, attack) {
       return;
     }
   }
+  if (attack.name === "Unarmed") attack = rollUnarmedAttack(abilityScoreModifier(character.stats?.STR));
   const result = rollCheck(attack.bonus || 0);
   const characterName = character?.name || "Character";
   const attackName = `${attack.name}${attack.flag || ""}`.trim();
@@ -1905,7 +1910,10 @@ function getAttackRangeInfo(attackText, attack = null) {
 
 function getFirstCombatAttack(character) {
   const attackText = getRenderableAttacks(character)
-    .filter((candidate) => !isBackstabAttackText(candidate))[0] || "";
+    .find(candidate => {
+      const attack = parseAttackText(candidate);
+      return attack?.name === "Unarmed" || (getAttackGearIndex(character, attack) >= 0 && isAttackEquipped(character, attack));
+    }) || "";
   const attack = parseAttackText(attackText);
   if (!attack) {
     return null;
@@ -1980,6 +1988,7 @@ function getAlertingMonstersFromAttack(originMonster) {
 }
 
 function resolveCharacterAttackAgainstMonster(character, combatAttack, monster) {
+  if (!isAttackEquipped(character, combatAttack?.attack)) return { message: "Equip that weapon before attacking." };
   if (isSharedRoom()) {
     const attackIndex = getRenderableAttacks(character).findIndex((text) => parseAttackText(text)?.name === combatAttack?.attack?.name);
     sendSharedCommand("attack", { monster_id: monster?.id, attack_index: Math.max(0, attackIndex) }, character);
@@ -2006,6 +2015,9 @@ function resolveCharacterAttackAgainstMonster(character, combatAttack, monster) 
     return { message };
   }
   const distance = getMonsterDistanceToCharacter(monster, character);
+  if (combatAttack.attack.name === "Unarmed") {
+    combatAttack.attack = rollUnarmedAttack(abilityScoreModifier(character.stats?.STR));
+  }
   const weaponName = combatAttack.attack.name || "weapon";
   if (distance < 1 || distance > combatAttack.range.maxRange) {
     const message = getWeaponOutOfRangeMessage(weaponName);
@@ -2643,7 +2655,7 @@ function getGearHoverNote(item) {
 }
 
 function appendCompactAttackDetail(target, attack, character) {
-  const damageExpression = attack?.damageExpression || extractDamageReferences(attack?.detail || "")[0]?.expression || "";
+  const damageExpression = getAttackDamageExpression(attack);
   const gearNote = getAttackGearNote(character, attack);
   if (gearNote) {
     target.title = gearNote;
@@ -2652,6 +2664,10 @@ function appendCompactAttackDetail(target, attack, character) {
     return;
   }
   target.append(document.createTextNode(", "));
+  if (attack.name === "Unarmed") {
+    target.append(document.createTextNode("1 damage"));
+    return;
+  }
   appendDamageAwareText(target, damageExpression, {
     sourceLabel: `${character?.name || "Character"} attack`,
     character
@@ -2686,6 +2702,7 @@ function createAttackAwareLine(attackText, character) {
     content.append(document.createTextNode(", "));
     content.append(backstabButton);
   }
+  addAttackEquipmentControl(content, character, attack);
   return content;
 }
 
@@ -2843,7 +2860,11 @@ function attackRequiresMissingAmmo(character, attackText) {
 }
 
 function getRenderableAttacks(character) {
-  return (character?.attacks || []).filter((attackText) => !isAmmoOnlyAttackText(attackText) && !attackRequiresMissingAmmo(character, attackText));
+  const attacks = (character?.attacks || []).filter(attackText => !isAmmoOnlyAttackText(attackText));
+  if (!(character?.gear || []).some(item => handItemKind(item) === "weapon" && item.equipped)) {
+    attacks.push(`Unarmed: ${formatModifier(abilityScoreModifier(character?.stats?.STR))}, (1), close`);
+  }
+  return attacks;
 }
 
 function isAmmoOnlyAttackText(attackText) {
@@ -2852,6 +2873,61 @@ function isAmmoOnlyAttackText(attackText) {
     return false;
   }
   return /^(?:arrows?|crossbow\s+bolts?|bolts?)$/i.test(String(attack.name || "").trim());
+}
+
+function getAttackGearIndex(character, attack) {
+  const name = normalizeEquipmentName(attack?.name);
+  const profile = getWeaponProfileFromText(name);
+  return (character?.gear || []).findIndex(item => handItemKind(item) === "weapon" &&
+    (normalizeEquipmentName(item.name) === name || (profile && getWeaponProfile(item)?.key === profile.key)));
+}
+
+function isAttackEquipped(character, attack) {
+  const index = getAttackGearIndex(character, attack);
+  return index < 0 ? attack?.name === "Unarmed" && !(character?.gear || []).some(item => item.equipped && handItemKind(item) === "weapon")
+    : character.gear[index].equipped === true && !attackRequiresMissingAmmo(character, attack?.name);
+}
+
+function changeCharacterEquipment(character, index, equipped) {
+  if (sendSharedCommand("equip", { gear_index: index, equipped }, character)) return;
+  const current = getCurrentCharacter(character);
+  const item = current?.gear?.[index];
+  if (!item || !handItemKind(item)) return;
+  if (isShieldItem(item) && !canUseShield(current)) return;
+  if (handItemKind(item) === "weapon" && !canUseWeapon(current, item)) return;
+  equipItem(current, index, equipped);
+  syncCharacterEquipmentDerivedStats(current);
+  syncPlayerLightFromActiveCharacter();
+  recomputeVisibility(state);
+  markUserActivity();
+  markRunDirty();
+  refreshCharacterViews(current);
+  render();
+  updatePanels();
+}
+
+function createEquipmentCheckbox(character, index, labelText = "Equip") {
+  const label = document.createElement("label");
+  label.className = "sd-equipment-toggle";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = character.gear[index].equipped === true;
+  checkbox.setAttribute("aria-label", `Equip ${character.gear[index].name}`);
+  label.title = checkbox.getAttribute("aria-label");
+  label.addEventListener("click", event => event.stopPropagation());
+  label.addEventListener("keydown", event => event.stopPropagation());
+  checkbox.addEventListener("change", () => changeCharacterEquipment(character, index, checkbox.checked));
+  label.append(checkbox, document.createTextNode(labelText));
+  return label;
+}
+
+function addAttackEquipmentControl(container, character, attack) {
+  const index = getAttackGearIndex(character, attack);
+  if (index < 0) return;
+  const equipped = isAttackEquipped(character, attack);
+  container.classList.toggle("is-attack-unequipped", !equipped);
+  if (!equipped) container.querySelectorAll("button").forEach(button => { button.disabled = true; });
+  container.prepend(createEquipmentCheckbox(character, index, ""));
 }
 
 const WEAPON_PROFILES = [
@@ -2870,7 +2946,8 @@ const WEAPON_PROFILES = [
   { key: "staff", pattern: /\bstaff\b/, damage: "1d4", ability: "STR" },
   { key: "longbow", pattern: /\blongbow\b/, damage: "1d8", ability: "DEX", ammo: "arrows" },
   { key: "shortbow", pattern: /\bshortbow\b/, damage: "1d4", ability: "DEX", ammo: "arrows" },
-  { key: "crossbow", pattern: /\bcrossbow\b/, damage: "1d6", ability: "DEX", ammo: "bolts" }
+  { key: "crossbow", pattern: /\bcrossbow\b/, damage: "1d6", ability: "DEX", ammo: "bolts" },
+  { key: "sword", pattern: /^sword$/, damage: "1d6", ability: "STR" }
 ];
 
 const ARMOR_PROFILES = [
@@ -2953,10 +3030,7 @@ function characterHasVersatileWeapon(character) {
 }
 
 function shouldReadyShield(character) {
-  if (!characterHasShield(character)) {
-    return false;
-  }
-  return !characterHasVersatileWeapon(character) || character?.shieldReadied !== false;
+  return (character?.gear || []).some(item => isShieldItem(item) && item.equipped === true);
 }
 
 function normalizeArmorMasteryTarget(value) {
@@ -3107,7 +3181,7 @@ function getWeaponDamageExpression(character, item, profile) {
     return explicitDamage;
   }
   if (profile?.versatileDamage) {
-    return shouldReadyShield(character) ? profile.damage : profile.versatileDamage;
+    return hasOccupiedOffHand(character) ? profile.damage : profile.versatileDamage;
   }
   return explicitDamage || profile?.damage || "1d4";
 }
@@ -3234,9 +3308,8 @@ function syncCharacterEquipmentDerivedStats(character) {
   if (!character) {
     return;
   }
-  if (!characterHasShield(character) || !characterHasVersatileWeapon(character)) {
-    character.shieldReadied = true;
-  }
+  ensureEquipment(character, item => isShieldItem(item) ? canUseShield(character)
+    : handItemKind(item) === "weapon" ? canUseWeapon(character, item) : true);
   rebuildCharacterAttacks(character);
   rebuildCharacterArmorClass(character);
 }
@@ -3251,73 +3324,64 @@ function syncAllCharacterEquipmentDerivedStats() {
   }
 }
 
-function setCharacterLight(character, source) {
+function setCharacterLight(character, source, gearIndex = null) {
   if (!character) {
     return;
   }
-  character.lightHidden = false;
-  if (source === "light-spell") {
-    character.lightSource = "light-spell";
-    character.lightRadius = DEFAULT_LIGHT_RADIUS;
-    character.raw = character.raw || {};
-    character.raw.lightSource = character.lightSource;
-    character.raw.lightRadius = character.lightRadius;
-    character.raw.lightHidden = false;
-    return;
+  ensureEquipment(character);
+  if (source === "light-spell") character.lightSpellLit = true;
+  else if (source) {
+    const heldIndex = character.gear.findIndex(item => getGearLightSource(item) === source && item.equipped);
+    const index = Number.isInteger(gearIndex) ? gearIndex : heldIndex >= 0 ? heldIndex
+      : character.gear.findIndex(item => getGearLightSource(item) === source);
+    if (index >= 0) {
+      character.gear[index].lit = true;
+      character.gear[index].covered = false;
+      equipItem(character, index, true);
+    }
+  } else {
+    if (character.lightSource === "light-spell") character.lightSpellLit = false;
+    else {
+      const item = character.gear.find(item => item.equipped && item.lit && getGearLightSource(item));
+      if (item) item.lit = false;
+    }
   }
-  if (source === "lantern") {
-    character.lightSource = "lantern";
-    character.lightRadius = 12;
-    character.raw = character.raw || {};
-    character.raw.lightSource = character.lightSource;
-    character.raw.lightRadius = character.lightRadius;
-    character.raw.lightHidden = false;
-    return;
-  }
-  if (source === "torch") {
-    character.lightSource = "torch";
-    character.lightRadius = DEFAULT_LIGHT_RADIUS;
-    character.raw = character.raw || {};
-    character.raw.lightSource = character.lightSource;
-    character.raw.lightRadius = character.lightRadius;
-    character.raw.lightHidden = false;
-    return;
-  }
-  character.lightSource = "";
-  character.lightRadius = 0;
-  character.raw = character.raw || {};
-  character.raw.lightSource = "";
-  character.raw.lightRadius = 0;
-  character.raw.lightHidden = false;
+  syncEquipmentLight(character);
 }
 
 function hideCharacterLight(character) {
   if (!character?.lightSource) {
     return;
   }
-  character.lightRadius = 0;
-  character.lightHidden = true;
-  character.raw = character.raw || {};
-  character.raw.lightSource = character.lightSource;
-  character.raw.lightRadius = 0;
-  character.raw.lightHidden = true;
+  const item = character.gear?.find(item => item.equipped && item.lit && getGearLightSource(item) === "lantern");
+  if (item) item.covered = true;
+  syncEquipmentLight(character);
 }
 
-function initializeImportedCharacterLight(character, index) {
-  if (!character || Number(index) !== 0 || character.lightSource) {
+function initializeImportedCharacterLight(character) {
+  if (!character) return;
+  syncCharacterEquipmentDerivedStats(character);
+  const firstLight = !ensureTimers(state).lightEverLit;
+  if (character.lightRadius > 0) {
+    if (firstLight || state.timers.torchElapsedMs >= state.timers.torchDurationMs) lightNewTorch(state);
     return;
   }
+  if (!firstLight && !isCharacterInLiveLight(character)) return;
+  let source = "";
   if (characterHasLantern(character) && characterHasOil(character)) {
-    setCharacterLight(character, "lantern");
-    return;
+    source = "lantern";
+  } else if (characterHasTorch(character)) {
+    source = "torch";
   }
-  if (characterHasTorch(character)) {
-    setCharacterLight(character, "torch");
-  }
+  if (!source) return;
+  if (!hasLiveTimedLight(state) || firstLight || state.timers.torchElapsedMs >= state.timers.torchDurationMs) lightNewTorch(state);
+  setCharacterLight(character, source);
+  if (source === "lantern") removeOneOil(character);
 }
 
 function syncPlayerLightFromActiveCharacter() {
   const active = getActiveCharacter(state);
+  if (active?.equipmentInitialized) syncEquipmentLight(active);
   const radius = Number(active?.lightRadius) || 0;
   state.player.lightSource = active?.lightSource || "";
   state.player.lightRadius = radius || DEFAULT_LIGHT_RADIUS;
@@ -3348,13 +3412,14 @@ function syncActiveCharacterLightFromPlayer() {
   setCharacterLight(active, "torch");
 }
 
-function lightActiveCharacter(source) {
+function lightActiveCharacter(source, gearIndex = null) {
   const active = getActiveCharacter(state);
   lightNewTorch(state);
   state.player.lightSource = source === "lantern" ? "lantern" : source === "light-spell" ? "light-spell" : "torch";
   state.player.lightRadius = source === "lantern" ? 12 : DEFAULT_LIGHT_RADIUS;
   if (active) {
-    setCharacterLight(active, state.player.lightSource);
+    setCharacterLight(active, state.player.lightSource, gearIndex);
+    syncPlayerLightFromActiveCharacter();
   }
 }
 
@@ -3378,19 +3443,22 @@ function extinguishHeldPartyLights({ exceptCharacterId = null } = {}) {
   }
 }
 
-function applyLightRequest(source, { extinguishOld = true } = {}) {
+function applyLightRequest(source, { extinguishOld = true, gearIndex = null } = {}) {
   const active = getActiveCharacter(state);
+  const targetItem = active?.gear?.[gearIndex];
   const wasHiddenLantern = source === "lantern" && active?.lightSource === "lantern" && active.lightHidden === true;
   if (extinguishOld) {
     if (active?.lightSource === "torch" && Number(active.lightRadius) > 0) {
       removeOneTorch(active);
     }
     extinguishHeldPartyLights({ exceptCharacterId: active?.id || null });
-    lightActiveCharacter(source);
+    lightActiveCharacter(source, targetItem ? active.gear.indexOf(targetItem) : null);
   } else {
+    const timers = ensureTimers(state);
+    if (!hasLiveTimedLight(state) || timers.torchElapsedMs >= timers.torchDurationMs) lightNewTorch(state);
     setPlayerLightWithoutReset(source);
     if (active) {
-      setCharacterLight(active, state.player.lightSource);
+      setCharacterLight(active, state.player.lightSource, gearIndex);
     }
   }
   if (source === "lantern" && !wasHiddenLantern) {
@@ -3409,6 +3477,8 @@ function applyLightRequest(source, { extinguishOld = true } = {}) {
       ? (wasHiddenLantern ? "Lantern uncovered." : "Lantern is lit!")
       : "New torch lit.");
   }
+  markRunDirty();
+  refreshOpenCharacterSheet(active);
   render();
   updatePanels();
 }
@@ -3420,10 +3490,10 @@ function closeExtinguishOldModal() {
   }
 }
 
-function promptExtinguishOld(source) {
-  pendingLightRequest = { source };
+function promptExtinguishOld(source, gearIndex = null) {
+  pendingLightRequest = { source, gearIndex };
   if (!ui.extinguishOldModal) {
-    applyLightRequest(source, { extinguishOld: true });
+    applyLightRequest(source, { extinguishOld: true, gearIndex });
     return;
   }
   ui.extinguishOldModal.hidden = false;
@@ -3437,21 +3507,21 @@ function getLightAttemptFailure(source) {
   } else if (!characterHasTorch(active)) {
     return "No torch.";
   }
-  if (!characterHasFlintAndSteel(active) && !isCharacterInLiveLight(active)) {
+  if (ensureTimers(state).lightEverLit && !characterHasFlintAndSteel(active) && !isCharacterInLiveLight(active)) {
     return "Need flint and steel or an existing light source.";
   }
   return "";
 }
 
-function attemptLightSource(source) {
-  if (sendSharedCommand("light", { source })) return;
+function attemptLightSource(source, gearIndex = null) {
+  if (sendSharedCommand("light", { source, gear_index: gearIndex })) return;
   const active = getActiveCharacter(state);
   const failure = getLightAttemptFailure(source);
   if (failure) {
     setStatus(failure);
     return;
   }
-  if (!isCharacterInLiveLight(active) && characterHasFlintAndSteel(active)) {
+  if (ensureTimers(state).lightEverLit && !isCharacterInLiveLight(active) && characterHasFlintAndSteel(active)) {
     const modifier = getCharacterActionModifier(active, "dex");
     const disadvantage = !isThief(active);
     const check = rollCheck(modifier, { disadvantage });
@@ -3461,7 +3531,8 @@ function attemptLightSource(source) {
     }
     setStatus(`Light ${check.total} vs DC 12: success.`);
   }
-  promptExtinguishOld(source);
+  if (hasLiveTimedLight(state)) promptExtinguishOld(source, gearIndex);
+  else applyLightRequest(source, { extinguishOld: false, gearIndex });
 }
 
 function clearActiveCharacterLight() {
@@ -3493,12 +3564,17 @@ function snuffActiveTorch() {
 
 function extinguishTimedPartyLights() {
   for (const character of state.characters || []) {
-    if (character.lightSource === "torch" && Number(character.lightRadius) > 0) {
-      removeOneTorch(character);
-      setCharacterLight(character, "");
-    } else if (character.lightSource === "lantern" && Number(character.lightRadius) > 0) {
-      setCharacterLight(character, "");
+    for (const item of [...(character.gear || [])]) {
+      if (!item.lit || !getGearLightSource(item)) continue;
+      item.lit = false;
+      if (getGearLightSource(item) === "torch") {
+        const units = getGearUnits(item);
+        if (units > 1) setGearItemUnits(item, units - 1);
+        else character.gear.splice(character.gear.indexOf(item), 1);
+      }
     }
+    character.lightSpellLit = false;
+    syncEquipmentLight(character);
   }
   for (const entity of state.entities || []) {
     if (
@@ -3508,6 +3584,7 @@ function extinguishTimedPartyLights() {
     ) {
       delete entity.lightSource;
       delete entity.lightRadius;
+      if (entity.gearItem) entity.gearItem.lit = false;
     }
   }
   forceTorchOut(state);
@@ -3553,12 +3630,9 @@ function revealActiveLantern() {
   if (!active || active.lightSource !== "lantern" || active.lightHidden !== true) {
     return false;
   }
-  active.lightRadius = 12;
-  active.lightHidden = false;
-  active.raw = active.raw || {};
-  active.raw.lightSource = "lantern";
-  active.raw.lightRadius = 12;
-  active.raw.lightHidden = false;
+  const item = active.gear.find(item => item.equipped && item.lit && getGearLightSource(item) === "lantern");
+  if (item) item.covered = false;
+  syncEquipmentLight(active);
   if (active.id === state.activeCharacterId) {
     syncPlayerLightFromActiveCharacter();
   }
@@ -3583,12 +3657,7 @@ function expireActiveLightFromTimer() {
     return "Lantern went out!";
   }
   if (source === "light-spell") {
-    setCharacterLight(active, "");
-    state.player.lightSource = "";
-    state.player.lightRadius = DEFAULT_LIGHT_RADIUS;
-    forceTorchOut(state);
-    recomputeVisibility(state);
-    markRunDirty();
+    extinguishTimedPartyLights();
     return "Light spell faded.";
   }
   clearActiveCharacterLight();
@@ -3687,20 +3756,16 @@ function removeOneOil(character) {
 }
 
 function removeOneTorch(character) {
-  return removeOneGearUnit(character, (name) => /^torch\b/.test(name));
+  const lit = character?.gear?.find(item => item.equipped && item.lit && getGearLightSource(item) === "torch");
+  if (lit) lit.lit = false;
+  return removeOneGearUnit(character, (name, item) => lit ? item === lit : /^torch\b/.test(name));
 }
 
 function getLitGearIndex(character, source = character?.lightSource) {
   if (!character || !source || !Array.isArray(character.gear)) {
     return -1;
   }
-  if (source === "torch") {
-    return character.gear.findIndex((item) => /^torch\b/i.test(String(item?.name || "")));
-  }
-  if (source === "lantern") {
-    return character.gear.findIndex((item) => /\blantern\b/i.test(String(item?.name || "")));
-  }
-  return -1;
+  return character.gear.findIndex(item => item.lit && item.equipped && getGearLightSource(item) === source);
 }
 
 function updateCharacterAmmoFromGearItem(character, item) {
@@ -3823,10 +3888,11 @@ function dropCharacterGear(character, gearIndex) {
   const originalUnits = getGearUnits(item);
   const droppedItem = JSON.parse(JSON.stringify(item));
   const dropsOneUnitAtATime = originalUnits > 1;
-  const activeLight = character.lightSource || state.player.lightSource || "";
-  const litSource = index === getLitGearIndex(character, activeLight) && Number(character.lightRadius) > 0 && isLightGearItem(item, activeLight)
-    ? activeLight
-    : "";
+  const litSource = item.lit ? getGearLightSource(item) : "";
+  item.lit = false;
+  item.equipped = false;
+  droppedItem.equipped = false;
+  droppedItem.covered = false;
   const dropUnits = dropsOneUnitAtATime ? 1 : Math.max(1, originalUnits);
   if (dropsOneUnitAtATime) {
     setGearItemUnits(item, originalUnits - 1);
@@ -3835,7 +3901,7 @@ function dropCharacterGear(character, gearIndex) {
   }
   setGearItemUnits(droppedItem, dropUnits);
   if (litSource) {
-    setCharacterLight(character, "");
+    syncEquipmentLight(character);
     syncPlayerLightFromActiveCharacter();
   }
   const tile = findEquipmentDropTile(character);
@@ -3843,9 +3909,6 @@ function dropCharacterGear(character, gearIndex) {
   updateCharacterAmmoFromGearItem(character, droppedItem);
   normalizeCharacterState(state);
   syncAllCharacterEquipmentDerivedStats();
-  if (litSource) {
-    setCharacterLight(character, "");
-  }
   applyCharacterColorOverrides();
   ensureCharacterPresentation();
   syncPlayerLightFromActiveCharacter();
@@ -3870,16 +3933,20 @@ function pickupDroppedEquipment(entity) {
   }
   character.gear = Array.isArray(character.gear) ? character.gear : [];
   const existing = findExistingGearStack(character, item);
+  let carriedItem = existing;
   if (existing) {
     setGearItemUnits(existing, getGearUnits(existing) + getPileUnits(item));
   } else {
     const pickupItem = JSON.parse(JSON.stringify(item));
     setGearItemUnits(pickupItem, getPileUnits(item));
     character.gear.push(pickupItem);
+    carriedItem = pickupItem;
   }
   const pickedUpLightSource = entity.lightSource === "torch" || entity.lightSource === "lantern" ? entity.lightSource : "";
   if (pickedUpLightSource) {
-    setCharacterLight(character, pickedUpLightSource);
+    carriedItem.lit = true;
+    carriedItem.covered = false;
+    equipItem(character, character.gear.indexOf(carriedItem), true);
     if (character.id === state.activeCharacterId) {
       syncPlayerLightFromActiveCharacter();
     }
@@ -3905,13 +3972,13 @@ function canLightLantern(character) {
   if (character?.lightSource === "lantern" && character.lightHidden === true) {
     return false;
   }
-  return characterHasOil(character) && (characterHasFlintAndSteel(character) || isCharacterInLiveLight(character));
+  return characterHasOil(character) && (!ensureTimers(state).lightEverLit || characterHasFlintAndSteel(character) || isCharacterInLiveLight(character));
 }
 
 function canLightTorch(character) {
   const torchUnits = getCharacterGearUnitsByMatcher(character, (name) => /^torch\b/.test(name));
-  const litTorchUnits = character?.lightSource === "torch" ? 1 : 0;
-  return torchUnits > litTorchUnits && (characterHasFlintAndSteel(character) || isCharacterInLiveLight(character));
+  const litTorchUnits = (character?.gear || []).filter(item => item.lit && getGearLightSource(item) === "torch").length;
+  return torchUnits > litTorchUnits && (!ensureTimers(state).lightEverLit || characterHasFlintAndSteel(character) || isCharacterInLiveLight(character));
 }
 
 function getCharacterMapPosition(character) {
@@ -5137,8 +5204,13 @@ function placeCharactersNearStartingStairs(characters) {
   const excluded = new Set(list.map((character) => character.id));
   const occupied = getOccupiedCharacterTiles(excluded);
   const origin = getStartingStairsOrigin();
+  const entranceRoomId = state.generation?.entranceRoomId || getTileAt(origin.x, origin.y)?.roomId;
+  const candidates = state.tiles.filter(tile => tile.roomId === entranceRoomId && !isCharacterTileBlocked(tile.x, tile.y))
+    .sort((a, b) => Math.hypot(a.x - origin.x, a.y - origin.y) - Math.hypot(b.x - origin.x, b.y - origin.y));
+  if (!candidates.length) throw new Error("The starting room has no safe entry tile.");
   for (const character of list) {
-    const tile = findOpenCharacterTile(origin.x, origin.y, occupied);
+    // A small starting room may need shared tiles for a full 16-character party.
+    const tile = candidates.find(tile => !occupied.has(`${tile.x},${tile.y}`)) || candidates[0];
     character.x = tile.x;
     character.y = tile.y;
     character.roomId = tile.roomId;
@@ -5196,7 +5268,8 @@ function ensureCharacterPresentation() {
   const usedColors = new Set();
 
   for (const [index, character] of state.characters.entries()) {
-    initializeImportedCharacterLight(character, index);
+    ensureEquipment(character, item => isShieldItem(item) ? canUseShield(character)
+      : handItemKind(item) === "weapon" ? canUseWeapon(character, item) : true);
     const overrideColorId = characterColorOverrides.get(character.id);
     if (overrideColorId) {
       character.colorId = overrideColorId;
@@ -5708,15 +5781,21 @@ function addPurchasedGearToCharacterOrFloor(character, item) {
 }
 
 function buyStartingRoomShopItem(character, config) {
+  if (sendSharedCommand("buy_gear", { item_id: config.id }, character)) return;
   const currentCharacter = getCurrentCharacter(character);
   if (!currentCharacter || !isCharacterInStartingRoom(currentCharacter)) {
-    return;
+    return false;
   }
   const currentCopper = getCharacterMoneyCopper(currentCharacter);
-  if (currentCopper < config.costCopper) {
-    return;
+  const assets = ensurePartyAssets();
+  const partyCopper = getMoneyCopper(assets);
+  if (currentCopper + partyCopper < config.costCopper) {
+    setStatus("Not enough character and party coins.");
+    return false;
   }
-  setCharacterMoneyFromCopper(currentCharacter, currentCopper - config.costCopper);
+  const personalPayment = Math.min(currentCopper, config.costCopper);
+  setCharacterMoneyFromCopper(currentCharacter, currentCopper - personalPayment);
+  setMoneyFromCopper(assets, partyCopper - (config.costCopper - personalPayment));
   const item = createShopGearItem(config);
   const destination = addPurchasedGearToCharacterOrFloor(currentCharacter, item);
   normalizeCharacterState(state);
@@ -5731,6 +5810,7 @@ function buyStartingRoomShopItem(character, config) {
   render();
   updatePanels();
   setStatus(`${currentCharacter.name || "Character"} buys ${config.name}${destination === "floor" ? "; no gear slot was free, so it lands on the floor." : "."}`);
+  return true;
 }
 
 function closeActiveShopPanel() {
@@ -5753,7 +5833,11 @@ function openStartingRoomShop(character, anchor) {
   coinLine.textContent = `${currentCharacter.name || "Character"} coins: GP ${getCharacterMoney(currentCharacter, "gold")}  SP ${getCharacterMoney(currentCharacter, "silver")}  CP ${getCharacterMoney(currentCharacter, "copper")}`;
   panel.append(heading, coinLine);
 
-  const availableCopper = getCharacterMoneyCopper(currentCharacter);
+  const partyCoins = document.createElement("div");
+  partyCoins.className = "sd-shop-coins";
+  partyCoins.textContent = `Party assets: ${formatMoneyParts(ensurePartyAssets())}`;
+  panel.append(partyCoins);
+  const availableCopper = getCharacterMoneyCopper(currentCharacter) + getMoneyCopper(ensurePartyAssets());
   for (const config of STARTING_ROOM_SHOP_ITEMS) {
     const row = document.createElement("div");
     row.className = "sd-shop-row";
@@ -5966,6 +6050,7 @@ function createMiniAttackNode(attackText, character) {
     attackNode.append(document.createTextNode(", "));
     attackNode.append(backstabButton);
   }
+  addAttackEquipmentControl(attackNode, character, attack);
   return attackNode;
 }
 
@@ -6653,6 +6738,7 @@ async function importShadowdarklingsCharacterOneClick() {
     for (const imported of importedCharacters) putCharacterFirst(imported.id);
     placeCharactersNearStartingStairs(importedCharacters);
     state.characters.push(...importedCharacters);
+    for (const imported of importedCharacters) initializeImportedCharacterLight(imported);
     queueCharactersForNextCombatRound(importedCharacters);
     normalizeCharacterState(state);
     ensureCharacterPresentation();
@@ -6799,7 +6885,9 @@ function performSpellCast(character, spell) {
   if (!succeeded) {
     markCharacterSpellFailed(currentCharacter, spell);
   } else if (getSpellKey(spell) === "light") {
-    lightActiveCharacter("light-spell");
+    lightNewTorch(state);
+    setCharacterLight(currentCharacter, "light-spell");
+    syncPlayerLightFromActiveCharacter();
     recomputeVisibility(state);
     sighting = processMonsterVisibilityChange();
   }
@@ -7418,7 +7506,6 @@ function createSdGearPanel(character) {
     maxSlots: 20,
     excludeBackpack: true
   });
-  let litGearMarkerRendered = false;
   rows.style.setProperty("--gear-row-count", `${Math.ceil(slots.length / 2)}`);
   slots.forEach((entry, index) => {
     const row = document.createElement("div");
@@ -7452,7 +7539,7 @@ function createSdGearPanel(character) {
       if (hoverNote) {
         label.title = hoverNote;
       }
-      if (isShieldItem(item) && characterHasVersatileWeapon(character) && character.shieldReadied === false) {
+      if (handItemKind(item) && item.equipped !== true) {
         label.classList.add("is-gear-unreadied");
       }
     }
@@ -7461,44 +7548,21 @@ function createSdGearPanel(character) {
       entry.text &&
       entry.primary &&
       item &&
-      Number(character.lightRadius) > 0 &&
-      entry.gearIndex === getLitGearIndex(character) &&
-      isLightGearItem(item, character.lightSource) &&
-      litGearMarkerRendered === false
+      item.lit === true && getGearLightSource(item)
     ) {
-      label.append(document.createTextNode(" "), createLightSourceMarker(character.lightSource));
-      litGearMarkerRendered = true;
+      label.append(document.createTextNode(" "), createLightSourceMarker(getGearLightSource(item)));
     }
     row.append(label);
-    if (entry.text && entry.primary && item && isShieldItem(item) && characterHasVersatileWeapon(character)) {
-      const shieldToggle = document.createElement("label");
-      shieldToggle.className = "sd-gear-shield-toggle";
-      shieldToggle.title = "Ready shield: adds shield AC and uses the smaller versatile weapon die.";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = character.shieldReadied !== false;
-      checkbox.addEventListener("click", (event) => event.stopPropagation());
-      checkbox.addEventListener("change", (event) => {
-        event.stopPropagation();
-        const currentCharacter = getCurrentCharacter(character);
-        currentCharacter.shieldReadied = checkbox.checked;
-        currentCharacter.raw = currentCharacter.raw || {};
-        currentCharacter.raw.shieldReadied = checkbox.checked;
-        syncCharacterEquipmentDerivedStats(currentCharacter);
-        markUserActivity();
-        setStatus(`${currentCharacter.name || "Character"} ${checkbox.checked ? "readies" : "slings"} their shield.`);
-        refreshCharacterViews(currentCharacter);
-        render();
-        updatePanels();
-      });
-      shieldToggle.append(checkbox, document.createTextNode("ready"));
-      row.append(shieldToggle);
+    if (entry.text && entry.primary && item && ["shield", "torch", "lantern"].includes(handItemKind(item))) {
+      const toggle = createEquipmentCheckbox(character, entry.gearIndex);
+      if (isShieldItem(item) && !canUseShield(character)) toggle.querySelector("input").disabled = true;
+      row.append(toggle);
     }
     if (entry.text && entry.primary && Number.isInteger(entry.gearIndex)) {
       const gearLightSource = getGearLightSource(item);
       if (
         gearLightSource &&
-        entry.gearIndex !== getLitGearIndex(character) &&
+        item.lit !== true &&
         ((gearLightSource === "torch" && canLightTorch(character)) ||
           (gearLightSource === "lantern" && canLightLantern(character)))
       ) {
@@ -7510,7 +7574,7 @@ function createSdGearPanel(character) {
           event.stopPropagation();
           const currentCharacter = getCurrentCharacter(character);
           setActiveCharacter(state, currentCharacter.id);
-          attemptLightSource(gearLightSource);
+          attemptLightSource(gearLightSource, entry.gearIndex);
         });
         row.append(lightButton);
       }
@@ -8431,6 +8495,7 @@ async function loadSelectedCharacter(savedCharacter) {
     const previousActiveCharacterId = state.activeCharacterId;
     placeCharactersNearStartingStairs([character]);
     state.characters.push(character);
+    initializeImportedCharacterLight(character);
     putCharacterFirst(character.id);
     if (!isCombatActive()) {
       state.activeCharacterId = character.id;
@@ -9704,17 +9769,19 @@ function hookInputEvents() {
 
   ui.extinguishOldYesBtn?.addEventListener("click", () => {
     const source = pendingLightRequest?.source;
+    const gearIndex = pendingLightRequest?.gearIndex;
     closeExtinguishOldModal();
     if (source) {
-      applyLightRequest(source, { extinguishOld: true });
+      applyLightRequest(source, { extinguishOld: true, gearIndex });
     }
   });
 
   ui.extinguishOldNoBtn?.addEventListener("click", () => {
     const source = pendingLightRequest?.source;
+    const gearIndex = pendingLightRequest?.gearIndex;
     closeExtinguishOldModal();
     if (source) {
-      applyLightRequest(source, { extinguishOld: false });
+      applyLightRequest(source, { extinguishOld: false, gearIndex });
     }
   });
 
@@ -10000,6 +10067,7 @@ export async function executeGameCommand(rawState, command) {
     if (isCombatActive() && !isCurrentCharacterTurn(character)) throw new Error("It is not this character's turn.");
   }
   if (character) {
+    syncCharacterEquipmentDerivedStats(character);
     setActiveCharacter(state, character.id);
     syncPlayerToActiveCharacter();
   }
@@ -10054,6 +10122,7 @@ export async function executeGameCommand(rawState, command) {
       if (!Number.isInteger(index) || index < 0 || index >= attacks.length) throw new Error("Unknown attack.");
       const text = attacks[index];
       const parsed = parseAttackText(text);
+      if (!isAttackEquipped(character, parsed)) throw new Error("Equip that weapon before attacking.");
       resolveCharacterAttackAgainstMonster(character, getCombatAttackFromParsedAttack(parsed, text), monster);
       break;
     }
@@ -10093,9 +10162,24 @@ export async function executeGameCommand(rawState, command) {
     }
     case "light":
       if (!["torch", "lantern"].includes(command.source)) throw new Error("Invalid light source.");
+      if (command.gear_index != null && (!Number.isInteger(command.gear_index) || getGearLightSource(character.gear?.[command.gear_index]) !== command.source || character.gear[command.gear_index].lit)) throw new Error("Choose an unlit light source.");
       if (getLightAttemptFailure(command.source)) throw new Error(getLightAttemptFailure(command.source));
-      applyLightRequest(command.source, { extinguishOld: false });
+      if (ensureTimers(state).lightEverLit && !isCharacterInLiveLight(character)) {
+        const check = rollCheck(getCharacterActionModifier(character, "dex"), { disadvantage: !isThief(character) });
+        if (check.total < 12) { setStatus(`Light ${check.total} vs DC 12: failed.`); break; }
+      }
+      applyLightRequest(command.source, { extinguishOld: false, gearIndex: command.gear_index });
       break;
+    case "equip":
+      if (!Number.isInteger(command.gear_index) || typeof command.equipped !== "boolean" || !handItemKind(character.gear?.[command.gear_index])) throw new Error("Unknown equipment.");
+      changeCharacterEquipment(character, command.gear_index, command.equipped);
+      break;
+    case "buy_gear": {
+      const item = STARTING_ROOM_SHOP_ITEMS.find(item => item.id === command.item_id);
+      if (!item || !isCharacterInStartingRoom(character)) throw new Error("Buy supplies only in the starting room.");
+      buyStartingRoomShopItem(character, item);
+      break;
+    }
     case "snuff":
       if (character.lightSource === "lantern") extinguishActiveLantern();
       else snuffActiveTorch();
@@ -10172,7 +10256,7 @@ export async function executeGameCommand(rawState, command) {
       added.raw.partyAssetShareCopper = 0;
       placeCharactersNearStartingStairs([added]);
       state.characters.push(added);
-      initializeImportedCharacterLight(added, state.characters.length - 1);
+      initializeImportedCharacterLight(added);
       queueCharactersForNextCombatRound([added]);
       setStatus(`${added.name} joins the dungeon.`);
       break;

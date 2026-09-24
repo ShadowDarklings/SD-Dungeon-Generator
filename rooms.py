@@ -30,7 +30,7 @@ CHARACTER_COMMANDS = {
     "move", "move_batch", "attack", "end_turn", "search", "stealth", "get", "leave", "disarm",
     "interact", "pick_lock", "break_door", "spell", "light", "snuff", "guard",
     "drop_gear", "pickup", "collect", "persuade", "edit_character", "dismiss", "bury",
-    "roll", "money", "coin_adjust", "coin_amount",
+    "roll", "money", "coin_adjust", "coin_amount", "equip", "buy_gear",
 }
 OPTION_KEYS = ("autonomous_exploration", "players_can_import", "extra_characters_without_host", "bury_others")
 

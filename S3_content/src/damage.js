@@ -1,5 +1,16 @@
 const DAMAGE_PATTERN = /\b(?:\d+d\d+(?:\s*(?:\+\s*\d+|x\s*\d+|\*\s*\d+))*|d\d+)\b/gi;
 
+export function rollUnarmedAttack(strengthModifier, random = Math.random) {
+  const choice = Math.floor(random() * 20) + 1;
+  return {
+    name: choice <= 10 ? "Punch" : choice <= 18 ? "Kick" : choice === 19 ? "Headbutt" : "Body block",
+    bonus: strengthModifier,
+    damageExpression: "1",
+    detail: "(1), close",
+    unarmed: true
+  };
+}
+
 export function normalizeDamageExpression(expression) {
   let compact = String(expression || "").trim().toLowerCase();
   if (!compact) {

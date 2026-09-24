@@ -7,6 +7,7 @@ export function ensureTimers(state) {
     actualElapsedMs: Math.max(0, Number(state.timers?.actualElapsedMs) || 0),
     torchElapsedMs: Math.max(0, Number(state.timers?.torchElapsedMs) || 0),
     torchDurationMs: Math.max(1, Number(state.timers?.torchDurationMs) || TORCH_DURATION_MS),
+    lightEverLit: state.timers?.lightEverLit === true || hasLiveTimedLight(state),
     nextWanderingCheckMs: Math.max(
       WANDERING_CHECK_INTERVAL_MS,
       Number(state.timers?.nextWanderingCheckMs) || WANDERING_CHECK_INTERVAL_MS
@@ -16,13 +17,10 @@ export function ensureTimers(state) {
   return state.timers;
 }
 
-function hasLiveTimedLight(state) {
-  if (state.player?.torchLit === true) {
-    return true;
-  }
+export function hasLiveTimedLight(state) {
   if ((state.characters || []).some((character) => (
-    (character?.lightSource === "torch" || character?.lightSource === "lantern") &&
-    Number(character?.lightRadius) > 0
+    character?.lightSpellLit === true || (character.gear || []).some(item => item.lit === true) ||
+    (["torch", "lantern", "light-spell"].includes(character?.lightSource) && Number(character?.lightRadius) > 0)
   ))) {
     return true;
   }
@@ -74,6 +72,7 @@ export function lightNewTorch(state) {
   timers.torchElapsedMs = 0;
   timers.nextWanderingCheckMs = WANDERING_CHECK_INTERVAL_MS;
   timers.lastTickAt = Date.now();
+  timers.lightEverLit = true;
   state.player.torchLit = true;
   state.darkness = {
     ...state.darkness,

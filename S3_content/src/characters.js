@@ -357,6 +357,8 @@ function normalizeCharacterSource(raw = {}, index = 0) {
     armorClass,
     baseArmorClass,
     shieldReadied: raw.shieldReadied !== false,
+    equipmentInitialized: raw.equipmentInitialized === true,
+    lightSpellLit: raw.lightSpellLit === true,
     ammo,
     arrows: Object.prototype.hasOwnProperty.call(ammo, "arrows") ? ammo.arrows : undefined,
     bolts: Object.prototype.hasOwnProperty.call(ammo, "bolts") ? ammo.bolts : undefined,
