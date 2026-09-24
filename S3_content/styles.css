@@ -2421,6 +2421,7 @@ body {
   .character-sheet--popout {
     min-width: 0;
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     grid-template-areas:
       "logo"
       "name"

@@ -131,6 +131,12 @@ def run():
                 page.set_viewport_size({"width": 390, "height": 844})
                 shield.check()
                 shield.uncheck()
+                assert page.evaluate("""() => {
+                    const sections = [...document.querySelectorAll('.character-sheet--popout > *')]
+                        .filter(el => getComputedStyle(el).gridArea !== 'auto' && el.getBoundingClientRect().height > 0)
+                        .map(el => el.getBoundingClientRect()).sort((a, b) => a.top - b.top);
+                    return sections.every((rect, index) => !index || rect.top >= sections[index - 1].bottom);
+                }"""), "Mobile character-sheet sections overlap"
                 assert page.evaluate("""() => [...document.querySelectorAll('#character-sheet-content .sd-equipment-toggle input')].every(el => {
                     const r=el.getBoundingClientRect(); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
                     return r.top < 0 || r.bottom > innerHeight || hit === el;

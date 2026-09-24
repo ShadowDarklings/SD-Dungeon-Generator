@@ -2,6 +2,32 @@
 
 ## Latest release
 
+Runtime release `f60375c` was deployed and verified on 2026-09-24 UTC
+(2026-09-23 Pacific). It applies the confirmed import equipment priorities,
+preserves saved loadouts, labels fighter weapon mastery, and moves all Equip
+checkboxes to Gear. See `IMPORT_EQUIPMENT_PREFERENCES.md`.
+
+Local verification: 22 JavaScript tests and 118 Python tests passed (21 existing
+environment-dependent skips); desktop/mobile browser controls passed. Live
+verification passed five real imports (anonymous core/all-sources, host,
+account-free guest, host after guest), 4.6-5.5 seconds each; 30/30 local moves
+(median 15.25 ms, p95 19.4 ms), peer synchronization, equipment/purchases, and
+host/guest exit. Page usable in 1.96 seconds, all art ready in 12.80 seconds,
+generation 0.45 seconds. Dedicated authoritative-room fixtures verified darkness
+light over 2H mastery, illuminated-room mastery over shield, and equal-stats bow
+preference. No browser errors or OOM kills occurred. Test accounts/rooms were
+removed. A test-harness-only missing close revision was corrected before the
+final full pass.
+
+Backup: `/root/shadowspawner-import-preferences-backup-20260923`; rollback image:
+`shadowspawner:pre-import-preferences-20260923`. Only app was rebuilt/replaced;
+configuration, importer, database volumes and portfolio were preserved. Audit
+artifacts are in `C:\SD_game\deployment-import-preferences-20260923`.
+A static follow-up resets desktop grid row heights for the single-column mobile
+character sheet, with a regression check against overlapping sections.
+
+## Earlier equipment release
+
 Runtime release `86105cc` was deployed and verified on 2026-09-24 UTC
 (2026-09-23 Pacific). It fixes hand equipment, independent burning/equipped
 lights, first-light initialization, starting-room imports, shared-coin purchases,
