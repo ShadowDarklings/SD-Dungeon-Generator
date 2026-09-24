@@ -103,7 +103,7 @@ bash scripts/deploy-ssm-cloudshell.sh --no-build
 | Role | Member | Responsibilities |
 |---|---|---|
 | Frontend | Charles | Dungeon canvas renderer, procedural generator rewrite, sprite assets, fog-of-war/visibility JS, interactions, UI controls, `styles.css`, `about.html`, coordination, e2e smoke testing |
-| Backend | Megan | Flask route handlers, S3 random-table proxy, GitHub OAuth wiring, ShadowDarklings headless import, `gunicorn.conf.py`, Dockerfile, ProxyFix, backend API tests, remember-me wiring |
+| Backend | Megan | Flask route handlers, local random-table API, GitHub OAuth wiring, ShadowDarklings headless import, `gunicorn.conf.py`, Dockerfile, ProxyFix, backend API tests, remember-me wiring |
 | DB/Security | Mario | SQLModel schema and migrations, Flask-Login setup, ownership 404 rules, session hardening, `nginx.conf`, `docker-compose.yml`, multiplayer security tests, `SECURITY_ASSESSMENT.md`, attack-path scanner, EC2 deployment and verification |
 
 Every member has traceable contributions through feature branches and PR history.
@@ -141,13 +141,13 @@ pytest tests/test_attack_paths.py -v
 pytest tests/e2e -v
 ```
 
-Current non-e2e collection: **72 tests**.
+Selected non-e2e suites (run `pytest --collect-only` for the current full collection):
 
 | Suite | Tests | Covers |
 |---|---:|---|
 | `test_attack_paths` | 21 | nginx blocks scanner paths; Flask never sees them |
 | `test_auth` | 9 | CSRF, page rendering, registration, login, remember-me |
-| `test_backend_random_table_proxy` | 4 | Timeout, malformed JSON, invalid level, per-level tables |
+| `test_backend_random_tables` | 28 | All 11 tables without outbound HTTP, default selection, invalid input, missing and corrupt local data |
 | `test_backend_runs_api` | 6 | Saved-run contract and entity kind inference |
 | `test_frontend_saved_runs_ui` | 4 | Save/load controls and multiplayer modal structure |
 | `test_security_multiplayer` | 16 | Auth, 404 privacy, idempotent join, auto-assignment, host sync, assignment, caps, payload privacy |

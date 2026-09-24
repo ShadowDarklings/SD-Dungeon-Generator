@@ -234,12 +234,12 @@ All JSON responses use this error envelope when a request fails:
 
 | Field | Contract |
 |---|---|
-| Purpose | Server-side read of the dungeon data source used by the client. This is the Week 6 external-world route. |
+| Purpose | Server-side read of the bundled dungeon data used by the client. No AWS access is required. |
 | Auth | None required. |
-| Request | Query params: `type` is `monsters` or `traps`; `level` is 1-10 and required for `monsters`. |
-| Upstream | Uses `requests` to fetch the configured S3/static website JSON URL. |
-| Success | HTTP 200 JSON: `{ "results": [...], "source": "<url>", "error": null }`. |
-| Errors | 400 `invalid_table`, 400 `invalid_level`, 503 `timeout`, 503 `rate_limited`, 503 `upstream_invalid`. |
+| Request | Query params: `type` is `monsters` (default) or `traps`; monster `level` is 1-10 (default 1). |
+| Data | Reads the committed JSON files in `S3_content/` from the application image. The directory name is historical; no S3 request occurs. |
+| Success | HTTP 200 JSON: `{ "results": [...], "source": "/site/<table>.json", "error": null }`. The source is a same-origin URL. |
+| Errors | 400 `invalid_table`, 400 `invalid_level`, 503 `table_unavailable` for missing, unreadable, malformed, empty, or incorrectly shaped data. |
 
 ### `GET /login/github` (new, Week 7)
 
@@ -286,27 +286,26 @@ All JSON responses use this error envelope when a request fails:
 
 ## 3. External API Contracts
 
-### 3a. S3 Dungeon Tables (Week 6)
+### 3a. Bundled Dungeon Tables (AWS dependency removed September 2026)
 
-The project's data source is the team's static dungeon content hosted on AWS S3
-static website hosting, also mirrored locally through Flask at `/site/`.
+The project's data source is the committed dungeon content in `S3_content/`.
+The API reads the files locally; the game fetches the same files at `/site/`.
+AWS S3 is no longer part of either path.
 
 | Item | Contract |
 |---|---|
-| Base URL | `http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com` |
-| Monster tables | **Revised (Final Project):** `/monsters-1.json` … `/monsters-10.json` — one table per dungeon level, level N maps to `monsters-N.json`. The client already does this (`loadMonsterTableForLevel` clamps to 1-10 and fetches `./monsters-N.json` from `/site/`). The `/api/random-tables` proxy still implements the old Week 6 mapping (2-10 → table 2) and **must be updated to match** (§17). The Week 6 two-table mapping is retired. |
-| Table sync | The per-level JSON files are committed in `S3_content/` and served at `/site/`. Whoever changes them must re-publish to the S3 bucket (`scripts/s3_sync_publish.py`) — the proxy reads the *bucket*, the game reads `/site/`, and the two must not drift. |
+| Base URL | `/site/` on the current deployment (`https://ctreeder.com/site/` in production). |
+| Monster tables | `/monsters-1.json` … `/monsters-10.json` — one table per level. Both the API and client select `monsters-N.json` for level N. |
+| Table deployment | Commit the JSON in `S3_content/`, deploy the checkout for nginx, and rebuild the app image. No S3 publishing or AWS credentials are needed. |
 | Trap table | `/traps.json` |
 | Auth | None. These are public static JSON assets. |
-| Rate limits | S3 has service limits and free-tier usage limits, but no application key. The app should make one request per table load and should not poll repeatedly. |
+| Rate limits | Normal application rate limits apply to the API. Static files are served by nginx. |
 | Success shape | JSON arrays. Monster entries include display/stat fields used by the client. Trap entries include trigger, effect, and DC fields used by trap rendering and disarm checks. |
-| Timeout | Treat request timeout as HTTP 503 `{ "error": "timeout", "results": [], "message": "Dungeon table temporarily unavailable." }`. |
-| Rate-limit or throttling | Treat 429 or AWS throttling-style responses as HTTP 503 `{ "error": "rate_limited", "results": [], "message": "Dungeon table temporarily unavailable." }`. |
-| Malformed JSON or wrong shape | Treat as HTTP 503 `{ "error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable." }`. |
+| Missing, unreadable, or invalid data | HTTP 503 `{ "error": "table_unavailable", "results": [], "message": "Dungeon table temporarily unavailable." }`; details are logged server-side. |
 
 The client may still load local `/site/*.json` files directly for gameplay.
-The back-end route exists so CI and e2e can verify the external-world contract
-with deterministic failure handling.
+The back-end route retains its original URL and success envelope. Tests reject
+outbound HTTP calls so a future change cannot silently restore an AWS dependency.
 
 ### 3b. GitHub OAuth Provider (Week 7)
 
@@ -444,12 +443,12 @@ rule. A user must not be able to learn whether another user's saved run exists.
 **Owns**
 
 - Flask route handlers in `app.py` or an agreed routes module.
-- `requests` call to the S3/static JSON upstream.
+- Local reads of the bundled dungeon tables.
 - OAuth route handlers.
 - Provider field mapping / default logic.
 - Back-end tests such as `tests/test_backend_runs_api.py`,
   `tests/test_backend_run_lifecycle.py`, and
-  `tests/test_backend_random_table_proxy.py`.
+  `tests/test_backend_random_tables.py`.
 - `tests/e2e/test_server_login.py`
 
 **Does not touch without team agreement**

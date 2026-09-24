@@ -12,7 +12,6 @@ import re
 import random
 import secrets
 import time
-import requests
 from urllib.parse import urlsplit
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -1636,39 +1635,37 @@ def assign_multiplayer_character(invite_code):
 
 @app.route("/api/random-tables", methods=["GET"])
 def get_random_tables():
-    """Proxies requests to the team's external S3 bucket to fetch random dungeon tables."""
+    """Serve the bundled dungeon tables without depending on an external host."""
     table_type = request.args.get("type", default="monsters")
 
     if table_type not in ["monsters", "traps"]:
         return jsonify({"error": "invalid_table", "message": "Invalid table type."}), 400
 
     if table_type == "traps":
-        s3_bucket_url = "http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/traps.json"
+        table_filename = "traps.json"
     else:
-        # Contract §2/§3a (Final Project revision): level is required for
-        # monsters, must be 1-10, and maps to the per-level table
-        # monsters-<level>.json. The Week 6 two-table mapping is retired.
+        # Default to level 1; each accepted level maps to its own bundled table.
         try:
             level = int(request.args.get("level", default="1"))
         except (TypeError, ValueError):
             return jsonify({"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}), 400
         if not (1 <= level <= 10):
             return jsonify({"error": "invalid_level", "message": "Level must be an integer between 1 and 10."}), 400
-        s3_bucket_url = f"http://charlesreeder-506-hw1.s3-website-us-west-2.amazonaws.com/monsters-{level}.json"
+        table_filename = f"monsters-{level}.json"
 
     try:
-        response = requests.get(s3_bucket_url, timeout=3.0)
-        response.raise_for_status()
-        data = response.json()
-        return jsonify({"results": data, "source": s3_bucket_url, "error": None}), 200
-    except requests.exceptions.Timeout:
-        return jsonify({"error": "timeout", "results": [], "message": "Dungeon table temporarily unavailable."}), 503
-    except requests.exceptions.HTTPError as error:
-        if error.response is not None and error.response.status_code == 429:
-            return jsonify({"error": "rate_limited", "results": [], "message": "Dungeon table temporarily unavailable."}), 503
-        return jsonify({"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}), 503
-    except (requests.exceptions.RequestException, ValueError):
-        return jsonify({"error": "upstream_invalid", "results": [], "message": "Dungeon table response was not usable."}), 503
+        data = json.loads((S3_CONTENT_DIR / table_filename).read_text(encoding="utf-8"))
+        if not isinstance(data, list) or not data or not all(isinstance(row, dict) for row in data):
+            raise ValueError("Dungeon table must contain a non-empty list of objects")
+    except (OSError, ValueError):
+        app.logger.exception("Unable to load dungeon table %s", table_filename)
+        return jsonify({"error": "table_unavailable", "results": [], "message": "Dungeon table temporarily unavailable."}), 503
+
+    return jsonify({
+        "results": data,
+        "source": url_for("serve_s3_content", filename=table_filename),
+        "error": None,
+    }), 200
 
 
 # ---------------------------------------------------------------------------
