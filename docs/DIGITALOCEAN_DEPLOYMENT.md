@@ -2,6 +2,30 @@
 
 ## Latest release
 
+Runtime release `86105cc` was deployed and verified on 2026-09-24 UTC
+(2026-09-23 Pacific). It fixes hand equipment, independent burning/equipped
+lights, first-light initialization, starting-room imports, shared-coin purchases,
+and STR-based unarmed attacks for exactly 1 damage. See
+`EQUIPMENT_LIGHT_REPAIR_2026-09-23.md` for the rules and regression coverage.
+
+The final live pass verified anonymous core/all-sources imports, host and
+account-free guest imports, host-after-guest import, peer movement, equipment/AC/
+light changes, purchases without XP loss, and host/guest exit. All five imports
+took 4.9-5.7 seconds. Page usable in 1.49 seconds, all art ready in 5.72 seconds,
+generation 0.39 seconds, 30/30 local moves with median 9.9 ms and p95 13 ms.
+No browser errors or container OOM kills occurred. One earlier all-sources
+import timed out at the upstream browser step; subsequent full runs succeeded.
+The importer was not changed by this release; treat intermittent upstream
+timeouts as a remaining operational risk, not a resolved issue.
+
+Protected backup: `/root/shadowspawner-equipment-backup-20260923`; rollback image:
+`shadowspawner:pre-equipment-20260923`. Only the app was rebuilt/replaced.
+Secrets, database volumes, importer, native nginx and portfolio were preserved.
+Audit artifacts and guarded disposable-account cleanup scripts are in
+`C:\SD_game\deployment-equipment-20260923`.
+
+## Previous release
+
 Runtime release `aba4d37` was deployed and verified on 2026-09-23 UTC.
 Only the app container was rebuilt/replaced; the database, Redis and importer
 stayed running. Solo visitors may now import without accounts. Room imports
