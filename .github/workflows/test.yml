@@ -63,3 +63,14 @@ jobs:
         run: pytest -q --ignore=tests/e2e
       - name: Reject tracked secrets and generated databases
         run: python scripts/check_tracked_secrets.py
+
+  required-tests:
+    name: test
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both database test jobs to succeed
+        env:
+          MATRIX_RESULT: ${{ needs.test.result }}
+        run: test "$MATRIX_RESULT" = "success"
